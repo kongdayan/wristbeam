@@ -1,0 +1,17 @@
+.build/
+dist/
+.DS_Store
+*.xcuserstate
+*.xcuserdatad/
+**/*.fit
+**/*.FIT
+**/*session*.json
+**/runtime-state.json
+Telemetry/
+Received/
+UploadQueue/
+Diagnostics/
+Charts/
+.env
+.env.*
+*.log

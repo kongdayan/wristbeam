@@ -1,0 +1,32 @@
+#!/bin/sh
+# Invoked only by the installed application after confirmation and validation.
+set -eu
+update_pid="$1"
+update_stage="$2"
+update_target="$3"
+update_dir="$4"
+update_result="$5"
+case "$update_pid" in ''|*[!0-9]*) exit 1 ;; esac
+update_attempt=0
+while kill -0 "$update_pid" 2>/dev/null; do
+  update_attempt=$((update_attempt + 1))
+  if [ "$update_attempt" -gt 150 ]; then printf '%s\n' 'Previous process did not exit; original application retained.' > "$update_result"; exit 1; fi
+  sleep 0.2
+done
+update_backup="$update_dir/Previous.app"
+if ! /bin/mv "$update_target" "$update_backup"; then printf '%s\n' 'Cannot move current application; original retained.' > "$update_result"; exit 1; fi
+if ! /bin/mv "$update_stage" "$update_target"; then
+  /bin/mv "$update_backup" "$update_target"
+  printf '%s\n' 'Replacement failed; previous application restored.' > "$update_result"
+  /usr/bin/open "$update_target"
+  exit 1
+fi
+if /usr/bin/open "$update_target"; then
+  printf '%s\n' 'Installed and relaunched; previous application retained in Updates.' > "$update_result"
+else
+  /bin/mv "$update_target" "$update_dir/Failed.app"
+  /bin/mv "$update_backup" "$update_target"
+  printf '%s\n' 'Relaunch failed; previous application restored.' > "$update_result"
+  /usr/bin/open "$update_target"
+  exit 1
+fi

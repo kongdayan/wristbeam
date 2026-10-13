@@ -1,0 +1,75 @@
+name: GarminPulse
+options:
+  bundleIdPrefix: cn.wenyankong
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.3.0"
+    CURRENT_PROJECT_VERSION: 3
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+targets:
+  GarminPulse:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/GarminBar
+        excludes: [Resources]
+      - path: Sources/GarminBar/Resources/Localization
+        type: folder
+        buildPhase: resources
+      - path: scripts/update-helper.sh
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cn.wenyankong.garminpulse
+        PRODUCT_NAME: GarminPulse
+        CODE_SIGN_ENTITLEMENTS: Configuration/GarminPulse.entitlements
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: Configuration/GarminPulse-Info.plist
+      properties:
+        CFBundleDisplayName: Garmin Pulse
+        LSUIElement: true
+        NSPrincipalClass: NSApplication
+        NSBluetoothAlwaysUsageDescription: 连接你的 Garmin 手表，读取实时指标和原始运动健康文件。
+        NSBluetoothPeripheralUsageDescription: 连接你的 Garmin 手表并接收实时指标。
+        GarminPulseWidgetAppGroup: $(DEVELOPMENT_TEAM).cn.wenyankong.garminpulse.shared
+        CFBundleURLTypes:
+          - CFBundleURLName: cn.wenyankong.garminpulse.metric
+            CFBundleURLSchemes: [garminpulse]
+            CFBundleTypeRole: Viewer
+    dependencies:
+      - target: GarminPulseWidget
+        embed: true
+  GarminPulseWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - WidgetExtension
+      - Sources/GarminBar/Models/PulseWidgetSnapshot.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cn.wenyankong.garminpulse.widget
+        CODE_SIGN_ENTITLEMENTS: Configuration/GarminPulseWidget.entitlements
+        ENABLE_APP_SANDBOX: YES
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: Configuration/GarminPulseWidget-Info.plist
+      properties:
+        CFBundleDisplayName: Garmin Pulse 小组件
+        GarminPulseWidgetAppGroup: $(DEVELOPMENT_TEAM).cn.wenyankong.garminpulse.shared
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+schemes:
+  GarminPulse:
+    build:
+      targets:
+        GarminPulse: all
+    run:
+      config: Debug

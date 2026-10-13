@@ -1,0 +1,25 @@
+name: macOS checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Protocol, cloud, display and localization regression checks
+        run: python3 scripts/test-core.py
+      - name: Translation coverage
+        run: python3 scripts/check-localization.py
+      - name: Build and verify application
+        run: zsh scripts/build.sh
+      - name: Real-package update checks
+        run: python3 scripts/test-updater.py
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: GarminPulse-macOS
+          path: dist/GarminPulse-macOS-*.zip
