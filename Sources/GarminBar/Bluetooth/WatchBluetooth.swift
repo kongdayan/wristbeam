@@ -374,7 +374,18 @@ final class WatchBluetooth: NSObject, ObservableObject {
     }
 }
 
-extension WatchBluetooth: @preconcurrency CBCentralManagerDelegate {
+// Swift 6 supports isolated conformances through @preconcurrency. Keep the
+// delegate implementations on the main actor with the older Swift 5 toolchain
+// too; CoreBluetooth delivers them on the configured main queue.
+#if compiler(>=6.0)
+extension WatchBluetooth: @preconcurrency CBCentralManagerDelegate {}
+extension WatchBluetooth: @preconcurrency CBPeripheralDelegate {}
+#else
+extension WatchBluetooth: CBCentralManagerDelegate {}
+extension WatchBluetooth: CBPeripheralDelegate {}
+#endif
+
+extension WatchBluetooth {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn:
@@ -435,7 +446,7 @@ extension WatchBluetooth: @preconcurrency CBCentralManagerDelegate {
     }
 }
 
-extension WatchBluetooth: @preconcurrency CBPeripheralDelegate {
+extension WatchBluetooth {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard peripheral.identifier == selected?.identifier else { return }
         if let error { onLog?("服务发现失败：\(error.localizedDescription)"); return }
