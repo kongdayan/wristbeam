@@ -50,6 +50,7 @@ enum MetricCategory: String, CaseIterable, Identifiable {
 
 extension MetricKind {
     var relatedTrend: MetricKind? {
+        if isOvernightHRV { return nil }
         guard timelineKind == nil else { return timelineKind }
         switch category {
         case .heart: return .heartRate
@@ -68,7 +69,7 @@ extension MetricKind {
     var category: MetricCategory {
         let key = rawValue.lowercased()
         if group == .solar { return .solar }
-        if key.contains("heartrate") || key == "hrv" { return .heart }
+        if key.contains("heartrate") || key == "hrv" || isOvernightHRV { return .heart }
         if key.contains("bodybattery") || key == "watchbattery" || key == "trainingreadiness" { return .body }
         if key.contains("stress") { return .stress }
         if key.contains("sleep") { return .sleep }

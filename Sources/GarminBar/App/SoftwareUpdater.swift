@@ -3,7 +3,10 @@ import Combine
 
 @MainActor
 final class PulseUpdater: ObservableObject {
-    @Published var repository = AppPreferences.shared.string(forKey: "updateRepository") ?? PulseRepository.defaultName {
+    @Published var repository: String = {
+        let saved = AppPreferences.shared.string(forKey: "updateRepository") ?? PulseRepository.defaultName
+        return PulseRepository(saved)?.slug == PulseRepository.defaultName ? PulseRepository.defaultName : saved
+    }() {
         didSet { AppPreferences.shared.set(repository, forKey: "updateRepository"); release = nil; lastChecked = nil; AppPreferences.shared.removeObject(forKey: "lastUpdateCheck"); status = "更新仓库已保存" }
     }
     @Published var automaticChecks = AppPreferences.shared.object(forKey: "automaticUpdateChecks") as? Bool ?? true {
@@ -16,7 +19,12 @@ final class PulseUpdater: ObservableObject {
     @Published private(set) var lastChecked = AppPreferences.shared.object(forKey: "lastUpdateCheck") as? Date
     var onConfirmation: (() -> Void)?
     var canInstall: (() -> Bool)?
-    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.0" }
+    init() {
+        if AppPreferences.shared.string(forKey: "updateRepository") != repository {
+            AppPreferences.shared.set(repository, forKey: "updateRepository")
+        }
+    }
+    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.1" }
     var parsedRepository: PulseRepository? { PulseRepository(repository) }
     // Local package tests exercise the production validation/install path. This
     // entry point is absent from Release builds and never changes the server.
@@ -50,7 +58,7 @@ final class PulseUpdater: ObservableObject {
             var request = URLRequest(url: repo.latestURL); request.timeoutInterval = 20
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.setValue("2026-03-10", forHTTPHeaderField: "X-GitHub-Api-Version")
-            request.setValue("GarminPulse/\(currentVersion)", forHTTPHeaderField: "User-Agent")
+            request.setValue("WristBeam/\(currentVersion)", forHTTPHeaderField: "User-Agent")
             let data: Data
             let response: URLResponse
             if let fixture = validationFixture {
@@ -83,7 +91,7 @@ final class PulseUpdater: ObservableObject {
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             var request = URLRequest(url: asset.browserDownloadURL); request.timeoutInterval = 120
-            request.setValue("GarminPulse/\(currentVersion)", forHTTPHeaderField: "User-Agent")
+            request.setValue("WristBeam/\(currentVersion)", forHTTPHeaderField: "User-Agent")
             let delegate = ReleaseDownloadDelegate(repository: repo, maximumBytes: asset.size)
             let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
             defer { session.invalidateAndCancel() }
@@ -179,7 +187,9 @@ enum PulseUpdatePreparation {
         let expanded = directory.appendingPathComponent("Expanded", isDirectory: true)
         try FileManager.default.createDirectory(at: expanded, withIntermediateDirectories: true)
         _ = try command("/usr/bin/ditto", ["-x", "-k", archive.path, expanded.path])
-        let app = expanded.appendingPathComponent("Garmin Pulse.app", isDirectory: true)
+        let roots = Set(paths.compactMap { $0.split(separator: "/").first.map(String.init) }.filter { ["WristBeam.app", "Garmin Pulse.app"].contains($0) })
+        guard roots.count == 1, let appName = roots.first else { throw UpdateError.invalidArchive }
+        let app = expanded.appendingPathComponent(appName, isDirectory: true)
         guard let bundle = Bundle(url: app), bundle.bundleIdentifier == "cn.wenyankong.garminpulse",
               bundle.object(forInfoDictionaryKey: "CFBundleExecutable") as? String == "GarminPulse",
               let installedVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,

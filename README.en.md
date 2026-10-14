@@ -1,42 +1,94 @@
-# Garmin Pulse
+<div align="center">
+<img src="docs/images/app-icon.png" width="76" alt="WristBeam" />
 
-[简体中文](README.md) · [Download](https://github.com/kongdayan/garmin-pulse/releases/latest)
+# WristBeam
 
-A native macOS menu bar, floating panel and dashboard companion for Garmin watches. It uses normal Garmin Bluetooth services for live metrics and original FIT file transfer, then syncs those files to Garmin Connect China or Global. China account sync has been verified with an Instinct 2 Solar.
+Your wrist, in view.
 
-![Dashboard](docs/images/english.png)
+[![CI](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kongdayan/wristbeam)](https://github.com/kongdayan/wristbeam/releases/latest)
+[![MIT](https://img.shields.io/badge/license-MIT-91d8b1)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-13%2B-1d2628?logo=apple)](https://github.com/kongdayan/wristbeam/releases/latest)
 
-![Display configuration](docs/images/display-settings.png)
+[简体中文](README.md) · [English](README.en.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Русский](README.ru.md)
 
-The screenshots are real macOS windows captured with computer-use. Values are simulated in an isolated demo instance; no personal account or watch records are shown.
+</div>
 
-## Install
+![WristBeam](docs/images/showcase-hero.png)
 
-Download the ZIP for your Mac, extract it, and move **Garmin Pulse.app** into a writable Applications folder. The initial release supports Apple Silicon and macOS 13+. The app is ad hoc signed and is not Apple notarized.
+**Menu bar · Floating panel · Dashboard.** Receive data through normal Garmin Bluetooth services, download original FIT files and sync to Garmin Connect China or Global. Verified with Instinct 2 Solar and a China account.
 
-Allow Bluetooth access. On Instinct 2 Solar, hold MENU → Phone → Pair Phone. Keep heart-rate broadcast off; temporarily disable phone Bluetooth if it occupies the connection. Follow the app's pairing guide, then sign in on Garmin's official page in the correct account region. Passwords are not stored.
+[Download](https://github.com/kongdayan/wristbeam/releases/latest) · [Issues & device reports](https://github.com/kongdayan/wristbeam/issues) · [Contribute](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+
+## A closer look
+
+![Menu bar and click-to-open panel](docs/images/showcase-menu.png)
+
+![Themes and dashboard](docs/images/showcase-themes.png)
+
+![Display configuration](docs/images/showcase-settings.png)
+
+![Compact and Detailed floating panels](docs/images/showcase-floating.png)
+
+Real app UI with isolated demo data. [Original captures and artwork notes](docs/SHOWCASE.md).
 
 ## Features
 
-- Only metrics with valid received readings appear in the grouped selection table. Dashboard, panel and menu bar have independent checkbox columns and group selection controls.
-- Live heart rate, Body Battery, stress, steps, respiration, SpO₂, RR intervals and available daily summaries. RR is not presented as an overnight HRV score.
-- Daily curves, interval bars, stress overlay, historical dates, 1/6-hour views, cursor readings and original record tables. Missing and future periods remain empty.
-- Related summary links: resting heart rate opens the heart-rate chart. Unsupported hourly summaries do not link to an unrelated chart.
-- Adjustable text size, light/dark/system themes, card sizes, column counts and drag ordering. Simplified Chinese, English and system language.
-- Persistent original FIT uploads with content deduplication, retries, account ownership checks and separate China/Global state.
-- GitHub Releases checks every 12 hours. Download and installation require confirmation; packages undergo SHA-256, archive, identity, architecture and signature checks. The previous app and all account/data/preferences are retained.
+- Compact dimensional cards with timestamps beside the title. Customize layout and essentials in one panel; share the dashboard, selected cards or a single value as a framed image in light or dark, with copy, save and native sharing.
+- Independent menu bar, panel and dashboard selections, group toggles, search, drag ordering, adjustable text and layout.
+- Daily curves, interval bars, date/time ranges, cursor readings and original records. Gaps remain empty.
+- Garmin Bluetooth pairing guide, persistent original-FIT queue, deduplication and cloud sync.
+- Light/dark/system themes, Chinese/English app UI, and updates that require confirmation.
 
-The app runs while open, including after its main window closes. It does not sync while the Mac sleeps. Desktop WidgetKit support is not included in the current release. Native MLR / CoreTransfer and application-level encryption are unsupported; real Global account uploads still need validation.
+Opt-in read-only MCP, HTTP/HTTPS API, Python SDK and signed webhooks in Settings → Developer integrations. [Developer API](docs/developer/API.md).
 
-## Build and checks
+![Framed sharing preview with three synthetic metric cards](docs/images/share-cards-en.png)
 
-```sh
-python3 scripts/test-core.py
-python3 scripts/check-localization.py
-zsh scripts/build.sh
-python3 scripts/test-updater.py
-```
+## Device support
 
-See [verification scope](VERIFICATION.md). Data and credentials stay under `~/Library/Application Support/GarminPulse/` and are excluded from the repository and app packages. The demo uses separate storage and preferences, with Bluetooth and uploads disabled.
+Currently compatible with **Garmin** watches; verified models are listed below. Other brands and devices may be added later.
 
-This independent project is not affiliated with Garmin.
+| Watch | Live metrics | Original FIT + China cloud | Solar records | Status |
+| --- | --- | --- | --- | --- |
+| Instinct 2 Solar | ✓ | ✓ | ✓ | Device verified |
+| Instinct 2 / 2S / 2X | Unverified | Unverified | Model dependent | Reports welcome |
+| fēnix / epix / Forerunner | Unverified | Unverified | Model dependent | Reports welcome |
+| Venu / vívoactive and other models | Unverified | Unverified | Model dependent | Reports welcome |
+
+Support depends on firmware and available services; an entire family is not assumed compatible. [Detailed matrix and reporting](docs/DEVICES.md).
+
+## Data you can collect
+
+| Metric | Source | Presentation |
+| --- | --- | --- |
+| Heart rate, Body Battery, stress | Garmin notifications + daily cloud records | Current readings, daily curves |
+| Steps | Bluetooth + cloud | Daily total, interval increments |
+| Respiration, SpO₂ | Measurements emitted by watch / cloud | Readings, daily trends |
+| RR intervals | Bluetooth | Milliseconds; not an overnight HRV score |
+| Overnight HRV | Cloud sleep records | Nightly / seven-day average, status, baseline and night chart; missing fields stay empty |
+| Watch battery | Garmin Bluetooth protocol | Verified on Instinct 2; change notifications + periodic refresh |
+| Calories, floors, intensity minutes | Fields supplied by watch / cloud | Daily totals; some interval data |
+| Resting heart rate, sleep duration, recovery summaries | Daily cloud summary | Summary values and related trends |
+| Solar intensity | Valid cloud minute records | Midnight-to-midnight curve |
+| Sunlight / solar charging duration | Estimated from valid input minutes | Explicitly labeled estimates |
+| Activity and health FIT | Original watch files | Retained locally, uploaded to cloud |
+
+The catalog has **61 metric definitions**. Only metrics with valid received data appear; availability varies by watch. [Full catalog and evidence](docs/METRICS.md).
+
+## Install
+
+| Mac | Download |
+| --- | --- |
+| Apple Silicon | [arm64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-arm64.zip) |
+| Intel | [x86_64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-x86_64.zip) |
+| Either architecture | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
+
+Requires macOS 13+. Extract and move the app to a writable Applications folder. Open Devices → Connection, prepare the watch with heart-rate broadcast off, then click a connection button to allow Bluetooth. Choose China/Global in Device account and sign in on Garmin's official page; choose manual or automatic uploads in Sync records. Connecting at launch is off by default and can be enabled after pairing.
+
+Ad hoc signed; not Apple notarized. Real Global uploads and other firmware remain unverified. Application-level encryption, native MLR / CoreTransfer and desktop widgets are unsupported. The Mac cannot sync immediately while asleep. [Verification scope](VERIFICATION.md).
+
+## Contribute and share
+
+PRs, translations, device results and ideas are welcome. **[MIT](LICENSE)** permits use, modification and redistribution with the license retained. This independent project is not affiliated with Garmin.
+
+[Development & PR guide](CONTRIBUTING.md) · [Security reports](SECURITY.md) · [Automated releases](docs/RELEASING.md)

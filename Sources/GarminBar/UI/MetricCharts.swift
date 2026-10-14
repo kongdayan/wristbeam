@@ -126,7 +126,7 @@ struct MetricDetailView: View {
             }.font(PulseTheme.font(size: 11))
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Label(L10n.text(kind.title), systemImage: kind.symbol).font(PulseTheme.font(size: 25, weight: .semibold)).foregroundStyle(PulseTheme.color(canonical))
+                    HStack { MetricIcon(kind: kind, size: 28); Text(L10n.text(kind.title)) }.font(PulseTheme.font(size: 25, weight: .semibold)).foregroundStyle(PulseTheme.color(canonical))
                     Text(L10n.text(kind.timelineKind == nil ? "当日汇总" : "\(canonical.title) · 按实际时间查看全天记录")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                 }
                 Spacer()

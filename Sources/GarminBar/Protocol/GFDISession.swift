@@ -39,6 +39,7 @@ final class GFDISession {
     var onFile: ((URL, GFDIFileMetadata) -> Void)?
     var onDeviceInfo: ((GFDIDeviceInfo) -> Void)?
     var onRealtimeData: ((UInt16, Data) -> Void)?
+    var onBatteryReading: ((GFDIBattery.Reading) -> Void)?
     /// ALREADY_IN_USE supplies a new Garmin RX short UUID. Enable its notifications and call
     /// `transportReady` when the redirected characteristic pair is ready.
     var onTransportRedirect: ((UUID, UUID) -> Void)?
@@ -86,6 +87,14 @@ final class GFDISession {
     private var authenticationUnsupported = false
     private var identityDeadline: Date?
     private var identityQueryID: UInt16 = 0
+    private var protobufQueryID: UInt16 = 0
+    private var batteryQueryID: UInt16?
+    private var batteryTransfer: GFDIBatteryTransfer?
+    private var batteryDeadline: Date?
+    private var batteryUsesLegacy = false
+    private var nextBatteryRefresh = Date.distantPast
+    private var batteryNotification: GFDIBatteryTransfer?
+    private var batteryNotificationDeadline: Date?
     private var identityBuffer = Data()
     private var identityExpectedSize = 0
     private var redirects = 0
@@ -152,6 +161,7 @@ final class GFDISession {
         handshakeCompleted = false
         identityDeadline = nil
         identityBuffer.removeAll()
+        resetBatteryRequests()
         transfer = nil
         fileQueue.removeAll()
         queuedSync = false
@@ -173,6 +183,7 @@ final class GFDISession {
         fileQueue.removeAll()
         pending.removeAll()
         identityDeadline = nil
+        resetBatteryRequests()
         handshakeDeadline = nil
         handshakeCompletionPending = false
         handshakeCompleted = false
@@ -342,8 +353,10 @@ final class GFDISession {
                 var reader = GFDIReader(message.payload)
                 let number = try reader.u16()
                 let result = try reader.u8()
+                let responsePayload = try reader.data(reader.remaining)
+                if number == 5043, receiveBatteryAcknowledgement(status: result, payload: responsePayload) { return }
                 guard let request = pending.removeValue(forKey: number) else { return }
-                if result == 0 { request.completion(.success(try reader.data(reader.remaining))) }
+                if result == 0 { request.completion(.success(responsePayload)) }
                 else { request.completion(.failure(Failure(message: "手表拒绝请求 \(number)（状态 \(result)）"))) }
             case 5024: try receiveDeviceInfo(message)
             case 5050: try receiveConfiguration(message)
@@ -371,7 +384,23 @@ final class GFDISession {
             case 5022:
                 send(message.response())
                 abortSync("手表取消了本次文件传输，原始文件仍保留在手表")
-            case 5044: try receiveIdentityResponse(message)
+            case 5023:
+                let reading = try GFDIBattery.legacy(message.payload)
+                send(message.response())
+                if let reading {
+                    if batteryUsesLegacy { batteryDeadline = nil }
+                    onBatteryReading?(reading)
+                }
+            case 5043: receiveBatteryNotification(message)
+            case 5044:
+                var reader = GFDIReader(message.payload)
+                if try reader.u16() == batteryQueryID { receiveBatteryResponse(message) }
+                else { try receiveIdentityResponse(message) }
+            case 5045:
+                var reader = GFDIReader(message.payload)
+                if try reader.u16() == batteryQueryID {
+                    send(message.response(payload: message.payload)); batteryFallback()
+                } else { send(message.response(status: 2)) }
             case 5101:
                 authenticationUnsupported = true
                 // No common algorithm / no saved application key. Do not start key generation,
@@ -473,8 +502,7 @@ final class GFDISession {
             guard cloudIdentityMatches != false else { abortSync("手表账户 GUID 与登录账户不匹配，已停止文件同步"); return }
             if cloudIdentityMatches == nil {
                 guard identityDeadline == nil else { return }
-                identityQueryID &+= 1
-                if identityQueryID == 0 { identityQueryID = 1 }
+                identityQueryID = allocateProtobufQueryID()
                 identityBuffer.removeAll()
                 identityExpectedSize = 0
                 let protobuf = GFDICoreIdentity.query(guid: bytes)
@@ -740,6 +768,106 @@ final class GFDISession {
         if let deadline = transfer?.deadline, deadline < now { abortSync("手表文件传输超时，已保留手表原始记录，可重新同步") }
         if let deadline = identityDeadline, deadline < now { identityDeadline = nil; abortSync("手表账户归属检查超时，文件同步未启动") }
         if let deadline = handshakeDeadline, deadline < now { handshakeDeadline = nil; status("等待手表协议握手超时；实时服务如可用仍保持订阅") }
+        if let deadline = batteryNotificationDeadline, deadline < now {
+            batteryNotification = nil; batteryNotificationDeadline = nil
+        }
+        if let deadline = batteryDeadline, deadline < now { batteryFallback(now: now) }
+        refreshBatteryIfNeeded(now: now)
+    }
+
+    private func allocateProtobufQueryID() -> UInt16 {
+        repeat { protobufQueryID &+= 1 } while protobufQueryID == 0 || protobufQueryID == identityQueryID || protobufQueryID == batteryQueryID
+        return protobufQueryID
+    }
+
+    private func resetBatteryRequests() {
+        batteryQueryID = nil; batteryTransfer = nil; batteryDeadline = nil
+        batteryUsesLegacy = false; nextBatteryRefresh = .distantPast
+        batteryNotification = nil; batteryNotificationDeadline = nil
+    }
+
+    /// Battery refresh is optional and never participates in file-sync success/failure.
+    /// Delay until the initial identity/handshake is settled and the file channel is idle.
+    private func refreshBatteryIfNeeded(now: Date) {
+        guard isReady, !authenticationUnsupported, !isSyncing, !queuedSync,
+              identityDeadline == nil, !handshakeCompletionPending,
+              deviceInfo?.configurationFlags.contains(4) != true || handshakeCompleted,
+              batteryDeadline == nil, now >= nextBatteryRefresh else { return }
+        nextBatteryRefresh = now.addingTimeInterval(300)
+        batteryDeadline = now.addingTimeInterval(20)
+        if batteryUsesLegacy {
+            // APK GenericSendMessageManager.requestMessage: 5001 + requested message u16.
+            var payload = GFDIWriter(); payload.u16(5023)
+            send(GFDIMessage(number: 5001, payload: Data(payload.bytes)))
+        } else {
+            let id = allocateProtobufQueryID()
+            batteryQueryID = id; batteryTransfer = GFDIBatteryTransfer(requestID: id)
+            // ACKs are correlated by protobuf request ID, separately from identity queries.
+            send(GFDIMessage(number: 5043, payload: GFDIBatteryTransfer.request(id: id)))
+        }
+    }
+
+    private func batteryFallback(now: Date = Date()) {
+        guard batteryDeadline != nil else { return }
+        batteryDeadline = nil; batteryTransfer = nil
+        if !batteryUsesLegacy {
+            batteryUsesLegacy = true
+            nextBatteryRefresh = now
+            refreshBatteryIfNeeded(now: now)
+        }
+    }
+
+    private func receiveBatteryAcknowledgement(status: UInt8, payload: Data) -> Bool {
+        guard let id = batteryQueryID else { return false }
+        var reader = GFDIReader(payload)
+        guard let received = try? reader.u16(), received == id else { return false }
+        guard batteryDeadline != nil, !batteryUsesLegacy else { return true }
+        guard status == 0, let offset = try? reader.u32(), offset == 0,
+              let accepted = try? reader.u8(), let error = try? reader.u8(), accepted == 0, [0, 101].contains(error) else {
+            batteryFallback(); return true
+        }
+        return true
+    }
+
+    private func receiveBatteryResponse(_ message: GFDIMessage) {
+        guard var transfer = batteryTransfer, batteryDeadline != nil else { send(message.response(status: 2)); return }
+        do {
+            let fragment = try transfer.accept(message.payload)
+            batteryTransfer = transfer
+            let reading = transfer.complete ? try GFDIBattery.response(transfer.data) : nil
+            send(message.response(payload: fragment.ack))
+            guard transfer.complete, !fragment.duplicate else { return }
+            guard let reading else { batteryFallback(); return }
+            batteryDeadline = nil; batteryTransfer = nil
+            onBatteryReading?(reading)
+        } catch {
+            send(message.response(status: 5))
+            batteryFallback()
+        }
+    }
+
+    private func receiveBatteryNotification(_ message: GFDIMessage) {
+        do {
+            var reader = GFDIReader(message.payload)
+            let id = try reader.u16()
+            if batteryNotification?.complete == true, batteryNotification?.requestID != id { batteryNotification = nil }
+            if batteryNotification == nil { batteryNotification = GFDIBatteryTransfer(requestID: id) }
+            guard var transfer = batteryNotification, transfer.requestID == id else { send(message.response(status: 2)); return }
+            let fragment = try transfer.accept(message.payload)
+            batteryNotification = transfer; batteryNotificationDeadline = Date().addingTimeInterval(20)
+            if transfer.complete {
+                guard try GFDIBattery.isChangeNotification(transfer.data) else {
+                    batteryNotification = nil; batteryNotificationDeadline = nil
+                    send(message.response(status: 2)); return
+                }
+                // Retain the completed receiver briefly so duplicate fragments are ACKed.
+                if !fragment.duplicate { nextBatteryRefresh = Date() }
+            }
+            send(message.response(payload: fragment.ack))
+        } catch {
+            batteryNotification = nil; batteryNotificationDeadline = nil
+            send(message.response(status: 5))
+        }
     }
 
     private func status(_ message: String) { onStatus?(message) }

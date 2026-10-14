@@ -1,0 +1,39 @@
+name: Bug report / 缺陷报告
+description: Report a reproducible problem with sanitized evidence.
+title: '[Bug] '
+body:
+  - type: markdown
+    attributes:
+      value: 'Do not attach tokens, account GUIDs, serials, original FIT or personal health/location records. 不要上传凭据、账户 GUID、序列号、原 FIT 或个人健康/位置记录。'
+  - type: input
+    id: version
+    attributes:
+      label: App version / 软件版本
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: macOS version and Mac architecture / macOS 与芯片
+      placeholder: macOS 15, Apple Silicon
+    validations:
+      required: true
+  - type: input
+    id: watch
+    attributes:
+      label: Watch model and firmware / 手表型号与固件
+  - type: dropdown
+    id: region
+    attributes:
+      label: Account region / 账户区域
+      options: [China, Global, Not signed in]
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected result, actual result / 复现与结果
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized logs or demo screenshots / 脱敏日志或演示截图

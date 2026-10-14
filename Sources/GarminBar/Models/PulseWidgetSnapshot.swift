@@ -32,7 +32,7 @@ struct PulseWidgetSnapshot: Codable, Equatable {
     let watchConnected: Bool
     let readings: [PulseWidgetReading]
     var appearance = "system"
-    static var empty: Self { Self(generatedAt: Date(), day: Calendar.current.startOfDay(for: Date()), regionTitle: "Garmin Pulse", watchConnected: false, readings: []) }
+    static var empty: Self { Self(generatedAt: Date(), day: Calendar.current.startOfDay(for: Date()), regionTitle: "WristBeam", watchConnected: false, readings: []) }
     static let fileName = "widget-snapshot.json"
     static let widgetKind = "GarminPulseHealthWidget"
     static let groupInfoKey = "GarminPulseWidgetAppGroup"

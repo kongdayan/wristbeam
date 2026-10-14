@@ -1,0 +1,15 @@
+included:
+  - Sources
+  - WidgetExtension
+only_rules:
+  - class_delegate_protocol
+  - discarded_notification_center_observer
+  - duplicate_imports
+  - empty_enum_arguments
+  - notification_center_detachment
+  - unneeded_break_in_switch
+  - unowned_variable_capture
+  - unused_closure_parameter
+  - unused_optional_binding
+  - weak_delegate
+reporter: xcode

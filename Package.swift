@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "GarminPulse",
+    name: "WristBeam",
     defaultLocalization: "zh-Hans",
     platforms: [.macOS(.v13)],
     products: [.executable(name: "GarminPulse", targets: ["GarminBar"])],

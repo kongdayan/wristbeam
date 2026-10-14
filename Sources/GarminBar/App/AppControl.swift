@@ -13,7 +13,7 @@ enum PulseLocalControl {
         guard controls.contains(where: arguments.contains) else { return false }
         guard let data = try? Data(contentsOf: statusURL),
               var state = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
-            print("Garmin Pulse has no runtime state yet. Start the app first.")
+            print("WristBeam has no runtime state yet. Start the app first.")
             return true
         }
         let active: Bool
@@ -28,7 +28,7 @@ enum PulseLocalControl {
             return true
         }
         guard active else {
-            print("Garmin Pulse is not currently reporting an active session. Start the app first.")
+            print("WristBeam is not currently reporting an active session. Start the app first.")
             return true
         }
         let command: String

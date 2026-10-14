@@ -23,7 +23,7 @@ enum WatchUUID {
 @MainActor
 final class WatchBluetooth: NSObject, ObservableObject {
     @Published var status = "尚未连接"
-    @Published var bluetoothStatus = "点击扫描后请求蓝牙权限"
+    @Published var bluetoothStatus = "前往设备页面，按引导授权并连接"
     @Published var isScanning = false
     @Published var isConnected = false
     @Published var isConnecting = false
@@ -37,12 +37,18 @@ final class WatchBluetooth: NSObject, ObservableObject {
     @Published private(set) var liveSampleCount = 0
     @Published private(set) var lastLiveSampleAt: Date?
     @Published private(set) var registeredMetrics: Set<MetricKind> = []
+    @Published private(set) var batteryCharging: Bool?
+    @Published private(set) var batteryEstimatedHoursRemaining: UInt32?
     var isTransferringFiles: Bool { session?.isSyncing == true }
     @Published var showAllDevices = false { didSet { publishNearby() } }
     private(set) var archiveRegion: GarminRegion = .china
     @Published var autoReconnect = AppPreferences.shared.object(forKey: "watchAutoReconnect") as? Bool ?? true {
         didSet { AppPreferences.shared.set(autoReconnect, forKey: "watchAutoReconnect"); if !autoReconnect { reconnectTask?.cancel(); recoveryTarget = nil } }
     }
+    @Published var connectsOnLaunch = AppPreferences.shared.bool(forKey: "watchConnectOnLaunch") {
+        didSet { AppPreferences.shared.set(connectsOnLaunch, forKey: "watchConnectOnLaunch") }
+    }
+    @Published private(set) var sessionActivated = false
     var onSample: ((MetricSample) -> Void)?
     var onUnavailable: ((MetricKind, String) -> Void)?
     var onLog: ((String) -> Void)?
@@ -74,11 +80,15 @@ final class WatchBluetooth: NSObject, ObservableObject {
     private var writeCompletion: ((Error?) -> Void)?
     var permissionState: Int { CBCentralManager.authorization.rawValue }
     var managerState: Int? { central?.state.rawValue }
+    var access: BluetoothAccess { BluetoothAccess(rawValue: permissionState) ?? .restricted }
+    var hasSavedWatch: Bool { AppPreferences.shared.string(forKey: "watchIdentifier").flatMap(UUID.init(uuidString:)) != nil }
+    var savedWatchName: String { AppPreferences.shared.string(forKey: "watchName") ?? "已配对手表" }
 
-    func initialize() {
-        guard central == nil else { return }
+    private func initialize() {
+        guard central == nil, !PulseRuntime.isPreview else { return }
+        sessionActivated = true
         bluetoothStatus = "正在初始化蓝牙；首次使用需确认系统授权提示"
-        central = CBCentralManager(delegate: self, queue: .main, options: [CBCentralManagerOptionShowPowerAlertKey: true])
+        central = CBCentralManager(delegate: self, queue: .main, options: [CBCentralManagerOptionShowPowerAlertKey: false])
         // Catch up to an already powered-on manager when restoring a background session.
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -122,6 +132,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
     private func clearConnectionData() {
         isConnected = false; isConnecting = false; canSyncFiles = false; protocolReady = false
         availableMetrics.removeAll(); registeredMetrics.removeAll(); liveSampleCount = 0; lastLiveSampleAt = nil
+        batteryCharging = nil; batteryEstimatedHoursRemaining = nil
         outbound.removeAll(); tx = nil; rx = nil; sessionStarted = false; waitingForResponse = false
     }
 
@@ -196,6 +207,17 @@ final class WatchBluetooth: NSObject, ObservableObject {
         onLog?("正在恢复已保存的手表连接")
         initialize(); connectRequested = true
         if central?.state == .poweredOn { connect(id) }
+    }
+
+    func connectAutomaticallyAtLaunch() {
+        guard ConnectionStartupPolicy.canConnect(automatically: connectsOnLaunch, savedWatch: hasSavedWatch,
+                                                  access: access, preview: PulseRuntime.isPreview) else { return }
+        reconnectSaved()
+    }
+
+    func resumeRequestedConnection() {
+        guard sessionActivated, connectRequested, autoReconnect, !isConnected, !isConnecting else { return }
+        reconnectSaved()
     }
 
     func disconnect() {
@@ -293,6 +315,14 @@ final class WatchBluetooth: NSObject, ObservableObject {
         engine.onFile = { [weak self] url, metadata in self?.onFile?(url, metadata) }
         engine.onSyncFinished = { [weak self] success in self?.onSyncFinished?(success) }
         engine.onFilesAvailable = { [weak self] in self?.onFilesAvailable?() }
+        engine.onBatteryReading = { [weak self] reading in
+            guard let self else { return }
+            self.batteryCharging = reading.charging
+            self.batteryEstimatedHoursRemaining = reading.estimatedHoursRemaining
+            self.availableMetrics.insert(.watchBattery)
+            self.liveSampleCount += 1; self.lastLiveSampleAt = Date()
+            self.onSample?(MetricSample(kind: .watchBattery, value: reading.percent, source: "Garmin 手表电池"))
+        }
         engine.onRealtimeData = { [weak self] serviceID, data in
             guard let self else { return }
             do {
@@ -340,6 +370,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
 
     private func processValue(_ characteristic: CBCharacteristic, data: Data) {
         if characteristic.uuid == CBUUID(string: "2A19"), let value = data.first, value <= 100 {
+            batteryCharging = nil; batteryEstimatedHoursRemaining = nil
             availableMetrics.insert(.watchBattery)
             onSample?(MetricSample(kind: .watchBattery, value: Int(value), source: "手表电池服务"))
             return
@@ -396,7 +427,7 @@ extension WatchBluetooth {
             stopScan(); session?.disconnected(); session = nil; clearConnectionData()
             if !autoReconnect { connectRequested = false }
             bluetoothStatus = "蓝牙已关闭"; status = "请开启 Mac 蓝牙"
-        case .unauthorized: bluetoothStatus = "蓝牙权限未授权"; status = "请在系统设置中允许 Garmin Pulse 使用蓝牙"
+        case .unauthorized: bluetoothStatus = "蓝牙权限未授权"; status = "请在系统设置中允许 WristBeam 使用蓝牙"
         case .unsupported: bluetoothStatus = "此电脑不支持蓝牙 LE"
         case .resetting: bluetoothStatus = "蓝牙正在重新启动"
         case .unknown: bluetoothStatus = "正在初始化蓝牙"
@@ -424,6 +455,7 @@ extension WatchBluetooth {
         connectTimeout?.cancel(); isConnecting = false
         reconnectAttempt = 0; isConnected = true; status = "已连接 \(connectedName)"
         gatt.removeAll(); availableMetrics.removeAll(); registeredMetrics.removeAll(); subscribed.removeAll(); canSyncFiles = false; protocolReady = false; liveSampleCount = 0; lastLiveSampleAt = nil
+        batteryCharging = nil; batteryEstimatedHoursRemaining = nil
         tx = nil; rx = nil; sessionStarted = false; waitingForResponse = false; outbound.removeAll()
         peripheral.delegate = self; peripheral.discoverServices(nil)
         onLog?("已连接 \(connectedName)，正在发现可用指标")

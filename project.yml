@@ -1,4 +1,4 @@
-name: GarminPulse
+name: WristBeam
 options:
   bundleIdPrefix: cn.wenyankong
   deploymentTarget:
@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.3.0"
-    CURRENT_PROJECT_VERSION: 3
+    MARKETING_VERSION: "0.3.1"
+    CURRENT_PROJECT_VERSION: 9
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: ""
 targets:
@@ -22,10 +22,13 @@ targets:
         buildPhase: resources
       - path: scripts/update-helper.sh
         buildPhase: resources
+      - path: LICENSE
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cn.wenyankong.garminpulse
-        PRODUCT_NAME: GarminPulse
+        PRODUCT_NAME: WristBeam
+        EXECUTABLE_NAME: GarminPulse
         CODE_SIGN_ENTITLEMENTS: Configuration/GarminPulse.entitlements
         ENABLE_APP_SANDBOX: NO
         ENABLE_HARDENED_RUNTIME: YES
@@ -33,7 +36,7 @@ targets:
     info:
       path: Configuration/GarminPulse-Info.plist
       properties:
-        CFBundleDisplayName: Garmin Pulse
+        CFBundleDisplayName: WristBeam
         LSUIElement: true
         NSPrincipalClass: NSApplication
         NSBluetoothAlwaysUsageDescription: 连接你的 Garmin 手表，读取实时指标和原始运动健康文件。
@@ -62,7 +65,7 @@ targets:
     info:
       path: Configuration/GarminPulseWidget-Info.plist
       properties:
-        CFBundleDisplayName: Garmin Pulse 小组件
+        CFBundleDisplayName: WristBeam 小组件
         GarminPulseWidgetAppGroup: $(DEVELOPMENT_TEAM).cn.wenyankong.garminpulse.shared
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension

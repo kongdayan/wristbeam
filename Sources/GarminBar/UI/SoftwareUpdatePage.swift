@@ -10,7 +10,7 @@ struct SoftwareUpdatePage: View {
             PulseCard {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        Label(L10n.text("Garmin Pulse"), systemImage: "waveform.path.ecg").font(PulseTheme.font(size: 18, weight: .semibold))
+                        Label(L10n.text("腕映"), systemImage: "waveform.path.ecg").font(PulseTheme.font(size: 18, weight: .semibold))
                         Spacer()
                         Text(L10n.text("v\(updater.currentVersion)")).font(PulseTheme.font(size: 15, design: .monospaced))
                     }
@@ -35,17 +35,17 @@ struct SoftwareUpdatePage: View {
                     }
                 }
             }
-            PulseCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(L10n.text("更新设置")).font(PulseTheme.font(size: 16, weight: .semibold))
-                    Toggle(L10n.text("自动检查新版本"), isOn: $updater.automaticChecks).toggleStyle(.switch)
-                    Text(L10n.text("启动后检查，运行期间每 12 小时检查一次。发现新版本时提示，确认后才下载和安装。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
-                    TextField(L10n.text("GitHub 仓库，例如 owner/repo"), text: $updater.repository).textFieldStyle(.roundedBorder)
-                    if updater.parsedRepository == nil { Text(L10n.text("请输入有效的 GitHub owner/repo 或仓库链接")).foregroundStyle(.orange) }
-                    Text(L10n.text("升级会保留账户授权、显示设置与本地原始数据，并保留上一版应用用于恢复。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
-                    Text(L10n.text("当前安装包使用临时签名，尚未进行 Apple 公证。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+            PreferenceBlock(title: "更新设置") {
+                PreferenceLine(title: "自动检查新版本", note: "启动后检查，运行期间每 12 小时检查一次。发现新版本时提示，确认后才下载和安装。") {
+                    Toggle("", isOn: $updater.automaticChecks).labelsHidden().toggleStyle(.switch)
+                }
+                PreferenceLine(title: "GitHub 仓库，例如 owner/repo") {
+                    TextField("owner/repo", text: $updater.repository).textFieldStyle(.roundedBorder)
                 }
             }
+            if updater.parsedRepository == nil { Text(L10n.text("请输入有效的 GitHub owner/repo 或仓库链接")).foregroundStyle(.orange) }
+            Text(L10n.text("升级会保留账户授权、显示设置与本地原始数据，并保留上一版应用用于恢复。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+            Text(L10n.text("当前安装包使用临时签名，尚未进行 Apple 公证。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
         }
     }
 }

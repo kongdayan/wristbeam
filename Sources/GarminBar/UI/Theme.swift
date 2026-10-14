@@ -46,32 +46,51 @@ struct MetricCard: View {
     var compact = false
     var body: some View {
         Button { model.openMetric(kind) } label: {
-        VStack(alignment: .leading, spacing: compact ? 9 : 14) {
+        VStack(alignment: .leading, spacing: compact ? 9 : 10) {
             HStack {
-                Image(systemName: kind.symbol).foregroundStyle(PulseTheme.color(kind))
+                MetricIcon(kind: kind).foregroundStyle(PulseTheme.color(kind))
                 Text(L10n.text(kind.title)).font(PulseTheme.font(size: compact ? 11 : 13, weight: .medium)).foregroundStyle(PulseTheme.secondary).lineLimit(2)
                 Spacer(minLength: 0)
-                if !compact { Image(systemName: "chevron.right").font(PulseTheme.font(size: 8)).foregroundStyle(PulseTheme.secondary) }
+                if !compact, let sample = model.metrics[kind] {
+                    Text(sample.timestamp, format: kind.isOvernightHRV ? .dateTime.month().day() : .dateTime.hour().minute())
+                        .font(PulseTheme.font(size: 9)).monospacedDigit().foregroundStyle(PulseTheme.secondary)
+                        .fixedSize().help(L10n.text("更新时间") + " · " + sample.timestamp.formatted())
+                }
             }
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(L10n.text(model.display(kind))).font(PulseTheme.font(size: compact ? 24 : model.cardSize.readingSize, weight: .medium, design: .rounded)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
                 if !compact { Text(L10n.text(kind.unit)).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary) }
             }
             if compact { Text(L10n.text(kind.unit)).font(PulseTheme.font(size: 8)).foregroundStyle(PulseTheme.secondary) }
-            if let timeline = kind.timelineKind {
+            if kind.isOvernightHRV {
+                if kind == .hrvStatus {
+                    Text(L10n.text("夜间状态 · 点击查看基线")).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary).frame(height: compact ? 28 : model.cardSize.chartHeight, alignment: .bottom)
+                } else {
+                    HRVTrendMiniChart(series: model.series(for: kind)).frame(height: compact ? 28 : model.cardSize.chartHeight)
+                }
+            } else if let timeline = kind.timelineKind {
                 MetricMiniChart(series: model.series(for: kind), kind: timeline, axes: !compact).equatable().frame(height: compact ? 28 : model.cardSize.chartHeight)
             } else if !compact {
                 Text(L10n.text("当日汇总 · 点击查看")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).frame(height: model.cardSize.chartHeight, alignment: .bottom)
             }
-            if !compact {
-                Text(L10n.text(model.detail(kind))).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineLimit(2).frame(minHeight: 32 * model.fontScale, alignment: .top)
+            if !compact, model.isStale(kind) || model.metricNotes[kind] != nil {
+                Label(L10n.text(model.metricNotes[kind] ?? "读数已过期"), systemImage: "clock.badge.exclamationmark")
+                    .font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary).lineLimit(2)
             }
         }
         .padding(compact ? 14 : model.cardSize.padding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PulseTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: compact ? 12 : 18))
-        .overlay(RoundedRectangle(cornerRadius: compact ? 12 : 18).stroke(Color.primary.opacity(0.055), lineWidth: 1))
+        .background {
+            RoundedRectangle(cornerRadius: compact ? 12 : 18)
+                .fill(PulseTheme.surface.gradient)
+                .overlay(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: compact ? 12 : 18)
+                        .fill(LinearGradient(colors: [PulseTheme.color(kind).opacity(0.09), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+                }
+                .overlay(RoundedRectangle(cornerRadius: compact ? 12 : 18)
+                    .stroke(LinearGradient(colors: [.white.opacity(0.25), Color.primary.opacity(0.07)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1))
+                .shadow(color: .black.opacity(compact ? 0.03 : 0.08), radius: 7, x: 0, y: 4)
+        }
         }.buttonStyle(.plain).help(L10n.text("点击查看\(kind.title)的详细记录"))
     }
 }
