@@ -28,14 +28,21 @@ Your wrist, in view.
 
 ![Display configuration](docs/images/showcase-settings.png)
 
+![Compact and Detailed floating panels](docs/images/showcase-floating.png)
+
 Real app UI with isolated demo data. [Original captures and artwork notes](docs/SHOWCASE.md).
 
 ## Features
 
+- Compact dimensional cards with timestamps beside the title. Customize layout and essentials in one panel; share the dashboard, selected cards or a single value as a framed image in light or dark, with copy, save and native sharing.
 - Independent menu bar, panel and dashboard selections, group toggles, search, drag ordering, adjustable text and layout.
 - Daily curves, interval bars, date/time ranges, cursor readings and original records. Gaps remain empty.
 - Garmin Bluetooth pairing guide, persistent original-FIT queue, deduplication and cloud sync.
 - Light/dark/system themes, Chinese/English app UI, and updates that require confirmation.
+
+Opt-in read-only MCP, HTTP/HTTPS API, Python SDK and signed webhooks in Settings → Developer integrations. [Developer API](docs/developer/API.md).
+
+![Framed sharing preview with three synthetic metric cards](docs/images/share-cards-en.png)
 
 ## Device support
 
@@ -58,13 +65,15 @@ Support depends on firmware and available services; an entire family is not assu
 | Steps | Bluetooth + cloud | Daily total, interval increments |
 | Respiration, SpO₂ | Measurements emitted by watch / cloud | Readings, daily trends |
 | RR intervals | Bluetooth | Milliseconds; not an overnight HRV score |
+| Overnight HRV | Cloud sleep records | Nightly / seven-day average, status, baseline and night chart; missing fields stay empty |
+| Watch battery | Garmin Bluetooth protocol | Verified on Instinct 2; change notifications + periodic refresh |
 | Calories, floors, intensity minutes | Fields supplied by watch / cloud | Daily totals; some interval data |
 | Resting heart rate, sleep duration, recovery summaries | Daily cloud summary | Summary values and related trends |
 | Solar intensity | Valid cloud minute records | Midnight-to-midnight curve |
 | Sunlight / solar charging duration | Estimated from valid input minutes | Explicitly labeled estimates |
 | Activity and health FIT | Original watch files | Retained locally, uploaded to cloud |
 
-The catalog has **57 metric definitions**. Only metrics with valid received data appear; availability varies by watch. [Full catalog and evidence](docs/METRICS.md).
+The catalog has **61 metric definitions**. Only metrics with valid received data appear; availability varies by watch. [Full catalog and evidence](docs/METRICS.md).
 
 ## Install
 

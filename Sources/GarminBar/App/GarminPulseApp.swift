@@ -10,7 +10,7 @@ enum GarminPulseMain {
         let app = NSApplication.shared
         let delegate = PulseAppDelegate()
         app.delegate = delegate
-        app.setActivationPolicy(.accessory)
+        app.setActivationPolicy(PulseRuntime.isPreview ? .regular : .accessory)
         withExtendedLifetime(delegate) { app.run() }
     }
 }
@@ -160,13 +160,14 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
         guard model.preview, let view = settingsWindow?.contentView else { return }
         view.layoutSubtreeIfNeeded(); view.displayIfNeeded()
         captureShowcase(view, name: "window.png")
+        if let floating = floatingPanel?.contentView, floatingPanel?.isVisible == true { captureShowcase(floating, name: "floating.png") }
     }
 
     func showSettings(_ page: AppPage) {
         model.page = page; popover?.performClose(nil)
         if settingsWindow == nil {
             let window = PulseSettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 1020, height: 740), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            window.title = L10n.text("腕映")
+            window.title = model.preview ? "WristBeam Demo" : L10n.text("腕映")
             window.titlebarAppearsTransparent = true
             window.backgroundColor = NSColor(PulseTheme.background)
             window.minSize = NSSize(width: 880, height: 640)
@@ -228,7 +229,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
 
     private func applyAppearance() {
         let appearance = model.appearance == .system ? nil : NSAppearance(named: model.appearance == .light ? .aqua : .darkAqua)
-        settingsWindow?.appearance = appearance; settingsWindow?.title = L10n.text("腕映"); floatingPanel?.appearance = appearance
+        settingsWindow?.appearance = appearance; settingsWindow?.title = model.preview ? "WristBeam Demo" : L10n.text("腕映"); floatingPanel?.appearance = appearance
         popover?.appearance = appearance
         refreshStatusItem()
         floatingPanel?.title = L10n.text("WristBeam 浮动指标")

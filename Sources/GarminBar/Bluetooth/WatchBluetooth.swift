@@ -37,6 +37,8 @@ final class WatchBluetooth: NSObject, ObservableObject {
     @Published private(set) var liveSampleCount = 0
     @Published private(set) var lastLiveSampleAt: Date?
     @Published private(set) var registeredMetrics: Set<MetricKind> = []
+    @Published private(set) var batteryCharging: Bool?
+    @Published private(set) var batteryEstimatedHoursRemaining: UInt32?
     var isTransferringFiles: Bool { session?.isSyncing == true }
     @Published var showAllDevices = false { didSet { publishNearby() } }
     private(set) var archiveRegion: GarminRegion = .china
@@ -130,6 +132,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
     private func clearConnectionData() {
         isConnected = false; isConnecting = false; canSyncFiles = false; protocolReady = false
         availableMetrics.removeAll(); registeredMetrics.removeAll(); liveSampleCount = 0; lastLiveSampleAt = nil
+        batteryCharging = nil; batteryEstimatedHoursRemaining = nil
         outbound.removeAll(); tx = nil; rx = nil; sessionStarted = false; waitingForResponse = false
     }
 
@@ -312,6 +315,14 @@ final class WatchBluetooth: NSObject, ObservableObject {
         engine.onFile = { [weak self] url, metadata in self?.onFile?(url, metadata) }
         engine.onSyncFinished = { [weak self] success in self?.onSyncFinished?(success) }
         engine.onFilesAvailable = { [weak self] in self?.onFilesAvailable?() }
+        engine.onBatteryReading = { [weak self] reading in
+            guard let self else { return }
+            self.batteryCharging = reading.charging
+            self.batteryEstimatedHoursRemaining = reading.estimatedHoursRemaining
+            self.availableMetrics.insert(.watchBattery)
+            self.liveSampleCount += 1; self.lastLiveSampleAt = Date()
+            self.onSample?(MetricSample(kind: .watchBattery, value: reading.percent, source: "Garmin 手表电池"))
+        }
         engine.onRealtimeData = { [weak self] serviceID, data in
             guard let self else { return }
             do {
@@ -359,6 +370,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
 
     private func processValue(_ characteristic: CBCharacteristic, data: Data) {
         if characteristic.uuid == CBUUID(string: "2A19"), let value = data.first, value <= 100 {
+            batteryCharging = nil; batteryEstimatedHoursRemaining = nil
             availableMetrics.insert(.watchBattery)
             onSample?(MetricSample(kind: .watchBattery, value: Int(value), source: "手表电池服务"))
             return
@@ -443,6 +455,7 @@ extension WatchBluetooth {
         connectTimeout?.cancel(); isConnecting = false
         reconnectAttempt = 0; isConnected = true; status = "已连接 \(connectedName)"
         gatt.removeAll(); availableMetrics.removeAll(); registeredMetrics.removeAll(); subscribed.removeAll(); canSyncFiles = false; protocolReady = false; liveSampleCount = 0; lastLiveSampleAt = nil
+        batteryCharging = nil; batteryEstimatedHoursRemaining = nil
         tx = nil; rx = nil; sessionStarted = false; waitingForResponse = false; outbound.removeAll()
         peripheral.delegate = self; peripheral.discoverServices(nil)
         onLog?("已连接 \(connectedName)，正在发现可用指标")

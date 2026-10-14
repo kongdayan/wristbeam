@@ -242,11 +242,51 @@ final class GarminChinaCloud: ObservableObject {
             for kind in [MetricKind.solarIntensity, .sunlightMinutes, .solarChargingMinutes] { result.notes[kind] = "太阳能记录暂不可用" }
             if result.detail.isEmpty { result.detail = "太阳能记录读取未完成：\(safeMessage(error))" }
         }
+        do {
+            result.hrv = try await overnightHRV(day: now)
+            result.samples += result.hrv?.samples ?? []
+        } catch {
+            if result.detail.isEmpty { result.detail = "HRV 读取未完成：\(safeMessage(error))" }
+        }
         if result.detail.isEmpty { result.detail = "已刷新 \(result.samples.count) 项云端同步指标" }
         guard generation == authenticationGeneration else { return GarminHealthRefresh() }
         result.samples = result.samples.map { MetricSample(kind: $0.kind, value: $0.value, source: $0.source.replacingOccurrences(of: "佳明中国", with: region.title), timestamp: $0.timestamp, origin: $0.origin) }
         if var solar = result.solarSeries { solar.source = solar.source.replacingOccurrences(of: "佳明中国", with: region.title); result.solarSeries = solar }
         return result
+    }
+
+    func overnightHRV(day: Date) async throws -> GarminHRVReport {
+        guard isAuthenticated else { throw GarminCloudError.authenticationRequired }
+        let generation = authenticationGeneration, requestRegion = region
+        let end = GarminHealthMetrics.calendarDate(day)
+        let start = GarminHealthMetrics.calendarDate(Calendar.current.date(byAdding: .day, value: -27, to: day)!)
+        let response = try await authenticatedRequest(url: URL(string: "\(requestRegion.apiBase)/hrv-service/hrv/daily/\(start)/\(end)")!)
+        guard [200, 204].contains(response.1.statusCode) else { throw GarminCloudError.http(response.1.statusCode, "HRV 历史") }
+        var report = GarminHRVReport(summaries: response.1.statusCode == 204 ? [] : try GarminHRV.history(response.0), nights: [:], refreshedAt: Date())
+        let target = report.latest?.day ?? day
+        let date = GarminHealthMetrics.calendarDate(target)
+        guard authenticationGeneration == generation else { throw CancellationError() }
+        do {
+            let (summary, points) = try await overnightHRVNight(day: target)
+            if let summary { report.summaries.removeAll { $0.day == summary.day }; report.summaries.append(summary); report.summaries.sort { $0.day < $1.day } }
+            report.nights[date] = points
+        } catch {
+            guard authenticationGeneration == generation, !Task.isCancelled else { throw CancellationError() }
+            report.nightWarning = "夜间 HRV 暂时无法读取，请稍后重试。"
+        }
+        guard authenticationGeneration == generation else { throw CancellationError() }
+        return report
+    }
+
+    func overnightHRVNight(day: Date) async throws -> (GarminHRVSummary?, [MetricSeriesPoint]) {
+        guard isAuthenticated else { throw GarminCloudError.authenticationRequired }
+        let generation = authenticationGeneration
+        let date = GarminHealthMetrics.calendarDate(day)
+        let response = try await authenticatedRequest(url: URL(string: "\(region.apiBase)/hrv-service/hrv/\(date)")!)
+        guard generation == authenticationGeneration else { throw CancellationError() }
+        if response.1.statusCode == 204 { return (nil, []) }
+        guard response.1.statusCode == 200 else { throw GarminCloudError.http(response.1.statusCode, "夜间 HRV") }
+        return try GarminHRV.night(response.0, expectedDay: day)
     }
 
     func dailySeries(deviceID: String, day: Date) async -> GarminSeriesRefresh {

@@ -8,9 +8,10 @@ import tempfile
 root = Path(__file__).resolve().parent.parent
 sources = root / "Sources/GarminBar"
 production = sorted((sources / "Protocol").glob("*.swift"))
-production += [sources / "Models" / name for name in ("Metrics.swift", "AppStorage.swift", "ConnectionPolicy.swift", "MetricTimeSeries.swift", "DisplaySettings.swift", "PulseWidgetSnapshot.swift", "WatchDiscovery.swift", "Localization.swift", "SoftwareRelease.swift")]
+production += [sources / "Developer/DeveloperProtocol.swift"]
+production += [sources / "Models" / name for name in ("Metrics.swift", "AppStorage.swift", "ConnectionPolicy.swift", "MetricTimeSeries.swift", "DisplaySettings.swift", "DashboardSharing.swift", "PulseWidgetSnapshot.swift", "WatchDiscovery.swift", "Localization.swift", "SoftwareRelease.swift")]
 production += [sources / "Cloud" / name for name in (
-    "GarminCloudModels.swift", "GarminFITFileClassifier.swift", "GarminHealthMetrics.swift", "GarminDailySeries.swift",
+    "GarminCloudModels.swift", "GarminFITFileClassifier.swift", "GarminHealthMetrics.swift", "GarminHRV.swift", "GarminDailySeries.swift",
     "GarminChinaCloud.swift", "GarminUploadQueue.swift")]
 
 with tempfile.TemporaryDirectory(prefix="garmin-pulse-tests-") as temporary:

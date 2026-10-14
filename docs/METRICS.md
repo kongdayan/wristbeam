@@ -7,10 +7,12 @@ The catalog below is generated from [Metrics.swift](../Sources/GarminBar/Models/
 - Instinct 2 Solar / China: fresh heart rate, Body Battery, stress, steps, respiration, SpO₂, RR and calories were received; original activity/health FIT uploads and daily cloud records were verified. [Recorded scope](../VERIFICATION.md).
 - Training readiness and wheelchair pushes are catalog candidates; this watch did not establish their availability. Other watch models and real Global account uploads are unverified.
 - Daily summaries are individual values. Heart rate, Body Battery, stress, steps, respiration, SpO₂, floors, activity intervals and valid solar minutes have separate timeline parsers when the endpoint supplies records. Missing intervals stay empty.
-- RR is a beat-to-beat interval in milliseconds, not the overnight HRV score. Sleep currently means duration, not a complete sleep-stage chart.
+- The legacy `hrv` service-12 field is displayed as RR (milliseconds). Its complete beat sequence, timing and exact semantics remain unverified; the local journal is downsampled. It is not a validated live RMSSD/SDNN measurement and is never used to synthesize overnight HRV.
+- Overnight HRV comes from cloud summaries and timed readings: nightly average, seven-day average, best five-minute average, status and personal baseline. Missing values stay missing and each card shows its record date. China-account verification returned two summaries and 72 night samples; no seven-day average was supplied.
+- Instinct 2 Solar battery was received through the Garmin device-status protocol. It refreshes after connection, on change notifications and every five minutes while the file channel is idle. This is periodic battery telemetry, not a guaranteed per-second stream. Standard GATT battery remains a fallback for devices exposing it.
 - Solar intensity is a time series. Sunlight and charging durations are explicitly labeled estimates from valid input minutes, not measured outdoor time.
 
-## All 57 fields
+## All 61 fields
 
 | Stable field ID | 中文 | English | Unit | Source |
 | --- | --- | --- | --- | --- |
@@ -27,7 +29,11 @@ The catalog below is generated from [Metrics.swift](../Sources/GarminBar/Models/
 | `activeTime` | 活动时长 | Active time | min | Bluetooth + daily cloud |
 | `trainingReadiness` | 训练准备度 | Training readiness | / 100 | Bluetooth; watch support unverified |
 | `pushes` | 推行次数 | Pushes | times | Bluetooth; watch support unverified |
-| `watchBattery` | 手表电池 | Watch battery | % | Bluetooth |
+| `watchBattery` | 手表电池 | Watch battery | % | Garmin device status / standard GATT |
+| `hrv.lastNight` | 夜间 HRV | Overnight HRV | ms | Cloud night summary |
+| `hrv.weeklyAverage` | HRV 七天平均 | 7-day HRV average | ms | Cloud night summary; optional |
+| `hrv.status` | HRV 状态 | HRV status | — | Cloud status; optional |
+| `hrv.lastNightHigh` | HRV 最高五分钟 | Highest 5-minute HRV | ms | Cloud night summary |
 | `daily.restingHeartRate` | 静息心率 | Resting heart rate | BPM | Daily cloud summary |
 | `daily.minHeartRate` | 今日最低心率 | Minimum heart rate | BPM | Daily cloud summary |
 | `daily.maxHeartRate` | 今日最高心率 | Maximum heart rate | BPM | Daily cloud summary |
@@ -71,6 +77,19 @@ The catalog below is generated from [Metrics.swift](../Sources/GarminBar/Models/
 | `solarIntensity` | 太阳能强度 | Solar intensity | % | Cloud minute records |
 | `sunlightMinutes` | 日照时长（估算） | Sunlight time (estimated) | min | Estimate from valid solar minutes |
 | `solarChargingMinutes` | 太阳能充电（估算） | Solar charging (estimated) | min | Estimate from valid solar minutes |
+
+## Coverage gaps
+
+| Data family | Current coverage | Not yet implemented / verified |
+| --- | --- | --- |
+| HRV and RR | Cloud night/history charts; legacy service-12 reading | Validated continuous beat stream; live RMSSD/SDNN |
+| Sleep | Daily duration | Sleep score, deep/light/REM/awake stages and timeline |
+| Training and recovery | Training-readiness parser candidate | Verified readiness on this watch, recovery time, training load/status, VO₂ max, race predictions |
+| Body Battery | Current value, daily extrema/charge/drain, timeline | Event annotations and contributing factors |
+| Body measurements | None | Weight, body composition, hydration, blood pressure; may require separate devices/manual entry |
+| Battery | Instinct 2 Solar percentage verified | Charging state and remaining-hours fields parsed but not yet verified on this watch |
+
+A hidden metric may mean no valid reading has arrived, rather than proof that the hardware cannot support it. These gaps are not selectable placeholders or promises of support.
 
 ## Original files
 

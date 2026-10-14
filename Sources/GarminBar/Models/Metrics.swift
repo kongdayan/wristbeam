@@ -62,6 +62,12 @@ struct MetricKind: RawRepresentable, Codable, Hashable, CaseIterable, Identifiab
             .init(id: "pushes", title: "推行次数", unit: "次", symbol: "figure.roll", group: .live, short: "推行", service: 29, characteristic: 0x250E),
             .init(id: "watchBattery", title: "手表电池", unit: "%", symbol: "applewatch", group: .live, short: "表电", freshness: 3600)
         ]
+        values += [
+            .init(id: "hrv.lastNight", title: "夜间 HRV", unit: "毫秒", symbol: "waveform.path.ecg", group: .daily),
+            .init(id: "hrv.weeklyAverage", title: "HRV 七天平均", unit: "毫秒", symbol: "waveform.path.ecg", group: .daily),
+            .init(id: "hrv.status", title: "HRV 状态", unit: "", symbol: "heart.text.square", group: .daily),
+            .init(id: "hrv.lastNightHigh", title: "HRV 最高五分钟", unit: "毫秒", symbol: "waveform.path.ecg", group: .daily)
+        ]
         // Daily fields observed in this China account. IDs, algorithm versions and
         // profile identifiers are deliberately excluded from the health catalog.
         let fields: [(String, String, String, Double, Int)] = [

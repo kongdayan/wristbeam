@@ -5,6 +5,7 @@ struct GarminHealthRefresh {
     var samples: [MetricSample] = []
     var notes: [MetricKind: String] = [:]
     var detail = ""
+    var hrv: GarminHRVReport? = nil
     var solarSeries: MetricDaySeries? = nil
 }
 

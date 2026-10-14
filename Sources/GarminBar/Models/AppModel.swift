@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
     let cloud = GarminChinaCloud(automaticallyRestore: !PulseRuntime.isPreview)
     let widgetPublisher = PulseWidgetPublisher()
     let updater = PulseUpdater()
+    let developer = DeveloperAccess()
     lazy var uploads = GarminUploadQueue(cloud: cloud, directory: AppPaths.directory("UploadQueue"))
     @Published var metrics: [MetricKind: MetricSample] = [:]
     @Published var history: [MetricKind: [MetricSample]] = [:]
@@ -16,6 +17,12 @@ final class AppModel: ObservableObject {
     @Published var seriesStatus = "等待读取全天趋势"
     @Published var loadingSeriesDays: Set<String> = []
     @Published var seriesNotes: [String: [MetricKind: String]] = [:]
+    @Published var hrvReport: GarminHRVReport?
+    @Published var hrvStatusMessage = ""
+    @Published var hrvLoading = false
+    private var hrvRequestID = UUID()
+    private var hrvMessageDay: String?
+    private var hrvStore: GarminHRVStore?
     @Published var detailMetric: MetricKind? = nil
     @Published var detailDay = Date()
     @Published var metricNotes: [MetricKind: String] = [:]
@@ -44,6 +51,9 @@ final class AppModel: ObservableObject {
     }
     @Published var dashboardOrder = AppPreferences.shared.object(forKey: "dashboardOrder") as? [String] ?? [] {
         didSet { AppPreferences.shared.set(dashboardOrder, forKey: "dashboardOrder") }
+    }
+    @Published var floatingDetailed = AppPreferences.shared.object(forKey: "floatingDetailed") as? Bool ?? true {
+        didSet { AppPreferences.shared.set(floatingDetailed, forKey: "floatingDetailed"); onFloatingLayoutChange?() }
     }
     @Published var floatingSize = PulsePanelSize(rawValue: AppPreferences.shared.string(forKey: "floatingSize") ?? "medium") ?? .medium {
         didSet { AppPreferences.shared.set(floatingSize.rawValue, forKey: "floatingSize"); onFloatingLayoutChange?() }
@@ -169,10 +179,15 @@ final class AppModel: ObservableObject {
             self.bluetooth.updateAccountGUID(guid.isEmpty ? nil : guid)
             let owner = guid.isEmpty ? "" : "\(self.cloud.region.rawValue):\(guid)"
             if self.seriesOwner != owner {
+                self.developer.accountChanged()
+                self.hrvReport = nil; self.hrvRequestID = UUID(); self.hrvLoading = false; self.hrvStatusMessage = ""; self.hrvMessageDay = nil; self.hrvStore = owner.isEmpty ? nil : GarminHRVStore(owner: owner)
                 self.seriesOwner = owner; self.seriesDays = [:]; self.seriesNotes = [:]; self.lastSeriesRefresh = [:]; self.lastHealthRefresh = .distantPast
                 self.metrics = self.metrics.filter { $0.value.origin == .watch }; self.metricNotes = [:]
                 self.seriesStore = guid.isEmpty ? nil : MetricSeriesStore(accountGUID: owner)
-                if !guid.isEmpty { self.restoreSeries(day: Date()) }
+                if !guid.isEmpty {
+                    self.restoreSeries(day: Date())
+                    if let cached = self.hrvStore?.load() { self.applyHRV(cached) }
+                }
             }
         }.store(in: &subscriptions)
         cloud.$deviceId.sink { [weak self] id in
@@ -191,8 +206,10 @@ final class AppModel: ObservableObject {
                 if self.autoSync && !self.preview { Task { await self.uploads.syncNow(force: false) } }
             }
         }.store(in: &subscriptions)
+        developer.attach(self)
         Timer.publish(every: 1, on: .main, in: .common).autoconnect().sink { [weak self] date in
             guard let self else { return }; self.now = date
+            self.developer.tick()
             if date.timeIntervalSince(self.lastStatusWrite) >= 5 { self.writeRuntimeState() }
             if self.autoRefreshMetrics && date.timeIntervalSince(self.lastHealthRefresh) >= Double(max(1, self.metricRefreshInterval)) * 60 { Task { await self.refreshHealthMetrics() } }
             if self.autoSync && !self.preview && date.timeIntervalSince(self.lastAutoSync) >= Double(max(1, self.syncInterval)) * 60 {
@@ -212,8 +229,8 @@ final class AppModel: ObservableObject {
     var preferredColorScheme: ColorScheme? { appearance == .system ? nil : appearance == .light ? .light : .dark }
     var menuVisibleMetrics: [MetricKind] { MetricKind.allCases.filter { menuMetrics.contains($0) && availableMetricKinds.contains($0) } }
     var floatingColumns: Int { min(floatingSize.columns, max(1, visibleMetrics.count)) }
-    var floatingWidth: CGFloat { floatingSize.width * min(1.3, fontScale) }
-    var floatingHeight: CGFloat { min(640, CGFloat(110 + max(1, (visibleMetrics.count + floatingColumns - 1) / floatingColumns) * Int(142 * fontScale))) }
+    var floatingWidth: CGFloat { min(520, floatingSize.width) * min(1.3, fontScale) }
+    var floatingHeight: CGFloat { floatingDetailed ? 470 + 140 * (fontScale - 1) : 280 + 100 * (fontScale - 1) }
     func selectedMetrics(for destination: MetricDestination) -> Set<MetricKind> {
         switch destination { case .dashboard: return dashboardMetrics; case .floating: return floatingMetrics; case .menu: return menuMetrics }
     }
@@ -253,17 +270,21 @@ final class AppModel: ObservableObject {
     }
     func display(_ kind: MetricKind) -> String {
         guard let sample = metrics[kind], metricNotes[kind] == nil, !isStale(kind) else { return "—" }
+        if kind == .hrvStatus { return GarminHRVStatus(rawValue: Int(sample.value))?.title ?? "—" }
         return sample.formatted
     }
     func isStale(_ kind: MetricKind) -> Bool {
         guard let sample = metrics[kind] else { return true }
-        if preview { return false }
+        if preview || kind.isOvernightHRV { return false }
         if sample.origin == .watch { return !bluetooth.isConnected || now.timeIntervalSince(sample.timestamp) > kind.definition.freshness }
         if !Calendar.current.isDate(sample.timestamp, inSameDayAs: now) { return true }
         return kind == .solarIntensity && now.timeIntervalSince(sample.timestamp) > kind.definition.freshness
     }
     func detail(_ kind: MetricKind) -> String {
         if preview { return "演示数据" }
+        if kind.isOvernightHRV, let sample = metrics[kind] {
+            return L10n.format("夜间记录日期：{0}；最近同步：{1}", GarminHealthMetrics.calendarDate(sample.timestamp), hrvReport?.refreshedAt.formatted(.dateTime.month().day().hour().minute().locale(L10n.locale)) ?? "—")
+        }
         if let note = metricNotes[kind] { return note }
         if let sample = metrics[kind] {
             let time = sample.timestamp.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(L10n.locale))
@@ -303,14 +324,62 @@ final class AppModel: ObservableObject {
         }
         let snapshot = await cloud.healthMetrics(deviceID: device, sunlightThreshold: sunlightThreshold)
         guard owner == seriesOwner, cloud.isAuthenticated else { return }
-        for sample in snapshot.samples { receive(sample) }
+        if let report = snapshot.hrv { applyHRV(report) }
+        for sample in snapshot.samples where !sample.kind.isOvernightHRV { receive(sample) }
         for (kind, note) in snapshot.notes where metrics[kind] == nil || isStale(kind) { metricNotes[kind] = note }
         healthStatus = snapshot.detail
         if let series = snapshot.solarSeries { mergeSeries([.solarIntensity: series], day: series.day) }
         await refreshSeries(day: Date(), force: force)
     }
 
+    private func applyHRV(_ incoming: GarminHRVReport) {
+        var report = incoming
+        // Preserve previously loaded nights for the same account and current window.
+        for (key, points) in hrvReport?.nights ?? [:] where report.nights[key] == nil && report.summaries.contains(where: { GarminHealthMetrics.calendarDate($0.day) == key }) { report.nights[key] = points }
+        hrvReport = report
+        hrvStatusMessage = report.nightWarning ?? ""
+        hrvMessageDay = report.latest.map { GarminHealthMetrics.calendarDate($0.day) }
+        for kind in [MetricKind.hrvNight, .hrvWeekly, .hrvStatus, .hrvHigh] { metrics.removeValue(forKey: kind); metricNotes.removeValue(forKey: kind) }
+        for sample in report.samples { receive(sample) }
+        hrvStore?.save(report)
+        if report.latest != nil, !AppPreferences.shared.bool(forKey: "overnightHRVIntroduced") {
+            dashboardMetrics.formUnion([.hrvNight, .hrvWeekly, .hrvStatus])
+            floatingMetrics.formUnion([.hrvNight, .hrvWeekly, .hrvStatus])
+            AppPreferences.shared.set(true, forKey: "overnightHRVIntroduced")
+        }
+    }
+    func hrvMessage(for day: Date) -> String {
+        hrvMessageDay == GarminHealthMetrics.calendarDate(day) ? hrvStatusMessage : ""
+    }
+    func loadHRVNight(_ day: Date) async {
+        guard !preview, cloud.isAuthenticated else { return }
+        let owner = seriesOwner, key = GarminHealthMetrics.calendarDate(day), requestID = UUID()
+        hrvRequestID = requestID; hrvLoading = true; hrvStatusMessage = ""; hrvMessageDay = key
+        defer { if hrvRequestID == requestID { hrvLoading = false } }
+        do {
+            let (summary, points) = try await cloud.overnightHRVNight(day: day)
+            guard owner == seriesOwner, hrvRequestID == requestID, !Task.isCancelled else { return }
+            var report = hrvReport ?? GarminHRVReport(summaries: [], nights: [:], refreshedAt: Date())
+            if let summary {
+                report.summaries.removeAll { $0.day == summary.day }
+                report.summaries.append(summary); report.summaries.sort { $0.day < $1.day }
+            }
+            report.nights[key] = points; report.nightWarning = nil
+            applyHRV(report)
+            hrvMessageDay = key
+            hrvStatusMessage = points.contains(where: { $0.value != nil }) ? "" : "该夜间尚无 HRV 记录"
+        } catch {
+            if owner == seriesOwner, hrvRequestID == requestID, !Task.isCancelled {
+                hrvStatusMessage = "夜间 HRV 暂时无法读取，请稍后重试。"
+            }
+        }
+    }
+
+    func developerCachedSeries(kind: MetricKind, day: Date) -> MetricDaySeries? {
+        series(for: kind, day: day) ?? seriesStore?.load(day: day)[kind.timelineKind ?? kind]
+    }
     func series(for kind: MetricKind, day: Date? = nil) -> MetricDaySeries? {
+        if kind.isOvernightHRV { return hrvReport?.trend(kind) }
         guard let canonical = kind.timelineKind else { return nil }
         return seriesDays[GarminHealthMetrics.calendarDate(day ?? now)]?[canonical]
     }
@@ -470,10 +539,11 @@ final class AppModel: ObservableObject {
         receive(MetricSample(kind: .heartRate, value: 68, source: "演示"))
         receive(MetricSample(kind: .stress, value: 24, source: "演示"))
         receive(MetricSample(kind: .steps, value: 6842, source: "演示"))
-        for (id, value) in [("bodyBattery", 68.0), ("respiration", 15.2), ("spo2", 98), ("floors", 8), ("solarIntensity", 12.8), ("sunlightMinutes", 48), ("daily.restingHeartRate", 52), ("daily.sleepingSeconds", 7.5), ("calories", 1840)] {
+        for (id, value) in [("hrv", 880.0), ("watchBattery", 76.0), ("bodyBattery", 68.0), ("respiration", 15.2), ("spo2", 98), ("floors", 8), ("solarIntensity", 12.8), ("sunlightMinutes", 48), ("daily.restingHeartRate", 52), ("daily.sleepingSeconds", 7.5), ("calories", 1840)] {
             receive(MetricSample(kind: MetricKind(rawValue: id)!, value: value, source: "演示", origin: .cloud))
         }
         dashboardMetrics = [.heartRate, .bodyBattery, .stress, .steps, .solarIntensity, .sunlightMinutes, MetricKind(rawValue: "daily.restingHeartRate")!, MetricKind(rawValue: "respiration")!, MetricKind(rawValue: "spo2")!]
+        dashboardMetrics.formUnion([.hrvNight, .hrvWeekly, .hrvStatus, MetricKind(rawValue: "hrv")!, .watchBattery])
         dashboardColumns = 3; cardSize = .regular; fontScale = 1.15
         let day = Calendar.current.startOfDay(for: Date()), minute = min(1439, Int(Date().timeIntervalSince(day) / 60))
         for kind in [MetricKind.heartRate, .bodyBattery, .stress, .solarIntensity, MetricKind(rawValue: "respiration")!, MetricKind(rawValue: "spo2")!] {
@@ -497,19 +567,50 @@ final class AppModel: ObservableObject {
             return MetricSeriesPoint(timestamp: start, value: increment, end: end, origin: .cloud)
         }
         mergeSeries([.steps: MetricDaySeries(kind: .steps, day: day, points: stepPoints, source: "演示数据", refreshedAt: Date())], day: day)
+        let hrvDays = (0..<28).map { offset -> GarminHRVSummary in
+            let date = Calendar.current.date(byAdding: .day, value: offset - 27, to: day)!
+            return GarminHRVSummary(day: date, night: 48 + 9 * sin(Double(offset) * 0.7), weekly: 48 + 3 * sin(Double(offset) * 0.2), high: 75, baselineLow: 40, baselineHigh:  60, status: .balanced)
+        }
+        let hrvPoints = (0..<84).map { index in MetricSeriesPoint(timestamp: day.addingTimeInterval(Double(index) * 300), value: 48 + 15 * sin(Double(index) * 0.3), origin: .cloud) }
+        applyHRV(GarminHRVReport(summaries: hrvDays, nights: [GarminHealthMetrics.calendarDate(day): hrvPoints], refreshedAt: Date()))
         healthStatus = "演示预览 · 所有数值均为模拟数据"
     }
 }
 
 enum AppPage: String, CaseIterable, Identifiable {
-    static var navigationPages: [Self] { allCases.filter { $0 != .account } }
-    var navigationPage: Self { self == .account ? .watch : self }
-    case overview, watch, account, sync, appearance, updates
+    static var navigationPages: [Self] { [.overview, .watch, .sync, .settings] }
+    static var settingsPages: [Self] { [.settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about] }
+    var navigationPage: Self { self == .account ? .watch : Self.settingsPages.contains(self) ? .settings : self }
+    case overview, watch, account, sync, settings, appearance, metricSelection, refresh, developer, updates, about
     var id: String { rawValue }
     var title: String {
-        switch self { case .overview: return L10n.text("健康看板"); case .watch: return L10n.text("设备"); case .account: return L10n.text("设备账号"); case .sync: return L10n.text("同步记录"); case .appearance: return L10n.text("显示设置"); case .updates: return L10n.text("软件更新") }
+        switch self {
+        case .overview: return L10n.text("健康看板")
+        case .watch: return L10n.text("设备")
+        case .account: return L10n.text("设备账号")
+        case .sync: return L10n.text("同步记录")
+        case .settings: return L10n.text("设置")
+        case .appearance: return L10n.text("显示设置")
+        case .updates: return L10n.text("软件更新")
+        case .metricSelection: return L10n.text("指标选择")
+        case .refresh: return L10n.text("网络与刷新")
+        case .developer: return L10n.text("开发者集成")
+        case .about: return L10n.text("关于")
+        }
     }
     var symbol: String {
-        switch self { case .overview: return "square.grid.2x2"; case .watch: return "applewatch"; case .account: return "person.crop.circle"; case .sync: return "arrow.triangle.2.circlepath"; case .appearance: return "menubar.rectangle"; case .updates: return "arrow.down.circle" }
+        switch self {
+        case .overview: return "square.grid.2x2"
+        case .watch: return "applewatch"
+        case .account: return "person.crop.circle"
+        case .sync: return "arrow.triangle.2.circlepath"
+        case .settings: return "gearshape"
+        case .appearance: return "menubar.rectangle"
+        case .updates: return "arrow.down.circle"
+        case .metricSelection: return "checklist"
+        case .refresh: return "arrow.clockwise"
+        case .developer: return "curlybraces"
+        case .about: return "info.circle"
+        }
     }
 }
