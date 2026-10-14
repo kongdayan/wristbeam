@@ -134,7 +134,7 @@ enum PulseRuntime { static let isPreview = true }
     finally:
         receiver.shutdown()
         receiver.server_close()
-    body = b'{"synthetic":true}' 
+    body = b'{"synthetic":true}'
     stamp, secret = str(int(time.time())), 'fixture-webhook'
     signature = 'sha256=' + hmac.new(secret.encode(), stamp.encode()+b'.'+body, hashlib.sha256).hexdigest()
     assert verify_webhook(secret, stamp, signature, body); checks += 1
