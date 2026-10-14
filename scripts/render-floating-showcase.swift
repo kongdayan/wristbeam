@@ -14,7 +14,7 @@ import SwiftUI
             guard let image = renderer.cgImage, let bytes = NSBitmapImageRep(cgImage:image).representation(using:.png,properties:[:]) else { fatalError("Showcase rendering failed") }
             try bytes.write(to:outputs.appendingPathComponent("showcase-floating\(chinese ? "-zh" : "").png"))
             print("PASS floating showcase \(language): \(image.width)x\(image.height)")
-            for scene in ["hero","themes","settings"] {
+            for scene in ["hero","themes","settings","menu"] {
                 let renderer = ImageRenderer(content:WindowShowcase(inputs:inputs,assets:outputs,chinese:chinese,scene:scene).environment(\.colorScheme,.light))
                 renderer.scale = 1
                 guard let image = renderer.cgImage, let bytes = NSBitmapImageRep(cgImage:image).representation(using:.png,properties:[:]) else { fatalError("Window showcase failed") }
@@ -69,6 +69,7 @@ struct WindowShowcase: View {
     let scene:String
     private var language:String { chinese ? "zh" : "en" }
     private var title:String {
+        if scene == "menu" { return chinese ? "抬眼看状态，点击看更多。" : "A glance above. More with a click." }
         if scene == "settings" { return chinese ? "顺手的设置，自己的节奏。" : "Your preferences. Your rhythm." }
         if scene == "themes" { return chinese ? "从清晨，看到夜晚。" : "For every part of your day." }
         return chinese ? "腕上健康，桌面可见。" : "Your wrist, in view."
@@ -79,7 +80,12 @@ struct WindowShowcase: View {
             Text(title).font(.system(size:43,weight:.semibold))
             Text(scene == "settings" ? (chinese ? "外观、连接、开发者集成与更新，分组管理。" : "Appearance, connections, developer access and updates, grouped together.") : (chinese ? "健康看板 · 菜单栏 · 浮窗" : "Dashboard · menu bar · floating panel")).font(.system(size:17)).foregroundStyle(.secondary)
             Spacer(minLength:15)
-            if scene == "settings" {
+            if scene == "menu" {
+                VStack(spacing: 24) {
+                    Image(nsImage:NSImage(contentsOf:assets.appendingPathComponent("raw-menu-bar.png"))!).resizable().aspectRatio(contentMode:.fit).frame(width:330).padding(12).background(Color(red:0.13,green:0.15,blue:0.16)).clipShape(RoundedRectangle(cornerRadius:12))
+                    native("menu-\(language)-dark.png",width:390)
+                }.frame(maxWidth:.infinity)
+            } else if scene == "settings" {
                 native("page-appearance-\(language)-light.png",width:920).frame(maxWidth:.infinity)
             } else if scene == "themes" {
                 ZStack {

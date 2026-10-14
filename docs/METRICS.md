@@ -1,6 +1,6 @@
 # Metric catalog
 
-The catalog below is generated from [Metrics.swift](../Sources/GarminBar/Models/Metrics.swift). A definition is a supported parser/display field, not a promise that every watch supplies it. Only valid received fields are selectable. This app uses normal Garmin Bluetooth services; heart-rate broadcast is not required.
+The catalog below follows [Metrics.swift](../Sources/GarminBar/Models/Metrics.swift): 60 health fields and one device-status field. A definition is a supported parser/display field, not a promise that every watch supplies it. Only valid received health fields are selectable. Watch battery appears beside device information, without a health card or history chart. This app uses normal Garmin Bluetooth services; heart-rate broadcast is not required.
 
 ## Evidence and presentation
 
@@ -29,7 +29,7 @@ The catalog below is generated from [Metrics.swift](../Sources/GarminBar/Models/
 | `activeTime` | 活动时长 | Active time | min | Bluetooth + daily cloud |
 | `trainingReadiness` | 训练准备度 | Training readiness | / 100 | Bluetooth; watch support unverified |
 | `pushes` | 推行次数 | Pushes | times | Bluetooth; watch support unverified |
-| `watchBattery` | 手表电池 | Watch battery | % | Garmin device status / standard GATT |
+| `watchBattery` | 手表电池 | Watch battery | % | Device status only; Garmin device status / standard GATT |
 | `hrv.lastNight` | 夜间 HRV | Overnight HRV | ms | Cloud night summary |
 | `hrv.weeklyAverage` | HRV 七天平均 | 7-day HRV average | ms | Cloud night summary; optional |
 | `hrv.status` | HRV 状态 | HRV status | — | Cloud status; optional |

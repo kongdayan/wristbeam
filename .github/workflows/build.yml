@@ -60,7 +60,43 @@ jobs:
         run: python3 scripts/test-dashboard-render.py
       - name: Native settings and floating render smoke checks
         if: matrix.arch == 'arm64'
-        run: python3 scripts/test-interface-render.py
+        run: python3 scripts/test-interface-render.py dist/interface-renders
+      - name: Render showcase images
+        if: matrix.runner == 'macos-15'
+        run: |
+          mkdir -p dist/showcase
+          cp docs/images/raw-menu-bar.png dist/showcase/
+          cp dist/interface-renders/menu-en-dark.png dist/showcase/raw-menu-popup.png
+          cp dist/interface-renders/menu-zh-dark.png dist/showcase/raw-menu-popup-zh.png
+          swiftc -parse-as-library scripts/render-floating-showcase.swift -o dist/render-showcase
+          dist/render-showcase dist/interface-renders dist/showcase
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          source, target = Path('dist/interface-renders'), Path('dist/showcase')
+          for language in ('zh', 'en'):
+              suffix = '-zh' if language == 'zh' else ''
+              for theme in ('light', 'dark'):
+                  shutil.copy2(source / f'page-overview-{language}-{theme}.png', target / f'dashboard-{theme}{suffix}.png')
+              shutil.copy2(source / f'page-overview-{language}-dark.png', target / f'raw-dashboard-{language}.png')
+              shutil.copy2(source / f'page-appearance-{language}-dark.png', target / f'display-settings{suffix}.png')
+              for mode, theme in (('compact', 'light'), ('detailed', 'dark')):
+                  shutil.copy2(source / f'floating-{language}-{theme}-{mode}-100.png', target / f'raw-floating-{mode}-{language}.png')
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.runner == 'macos-15'
+        with:
+          name: showcase-macos15
+          path: dist/showcase/*.png
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.runner == 'macos-15'
+        with:
+          name: native-interface-macos15
+          path: dist/interface-renders/*.png
+          if-no-files-found: error
+          retention-days: 14
       - name: Native XCTest suite
         run: swift test
       - name: Build and sign application

@@ -19,8 +19,8 @@ final class DisplayTests: XCTestCase {
     }
     func testGroupingKeepsEveryMetricExactlyOnce() {
         let grouped = MetricCategory.allCases.flatMap(\.metrics)
-        XCTAssertEqual(Set(grouped), Set(MetricKind.allCases))
-        XCTAssertEqual(grouped.count, MetricKind.allCases.count)
+        XCTAssertEqual(Set(grouped), Set(MetricKind.allCases.filter { !$0.isDeviceStatus }))
+        XCTAssertEqual(grouped.count, MetricKind.allCases.count - 1)
         XCTAssertEqual(MetricKind.solarIntensity.category, .solar)
         XCTAssertEqual(MetricKind(rawValue: "daily.restingHeartRate")!.category, .heart)
         XCTAssertEqual(MetricKind(rawValue: "daily.sleepingSeconds")!.category, .sleep)
@@ -42,5 +42,18 @@ final class DisplayTests: XCTestCase {
         XCTAssertEqual(MetricLayout.selected(keys[0], fallback: [.heartRate]), [])
         XCTAssertEqual(MetricLayout.selected(keys[1], fallback: [.heartRate]), [.steps, .solarIntensity])
         XCTAssertEqual(MetricLayout.selected(keys[2], fallback: [.bodyBattery]), [.bodyBattery])
+    }
+    func testWatchBatteryIsDeviceStatusWithoutHealthSelectionOrTimeline() {
+        XCTAssertTrue(MetricKind.watchBattery.isDeviceStatus)
+        XCTAssertNil(MetricKind.watchBattery.timelineKind)
+        XCTAssertNil(MetricKind.watchBattery.relatedTrend)
+        XCTAssertFalse(MetricKind.watchBattery.acceptsLiveTimeline)
+        XCTAssertEqual(MetricLayout.available(readings: [.heartRate, .watchBattery], registered: [.watchBattery], discovered: [.watchBattery]), [.heartRate])
+        XCTAssertEqual(MetricLayout.ordered(selection: [.watchBattery, .heartRate], order: ["watchBattery", "heartRate"]), [.heartRate])
+        let key = "battery-selection-\(UUID().uuidString)"
+        defer { AppPreferences.shared.removeObject(forKey: key) }
+        XCTAssertEqual(MetricLayout.selected(key, fallback: [.watchBattery, .bodyBattery]), [.bodyBattery])
+        AppPreferences.shared.set(["watchBattery", "steps"], forKey: key)
+        XCTAssertEqual(MetricLayout.selected(key, fallback: []), [.steps])
     }
 }

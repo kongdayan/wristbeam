@@ -22,11 +22,17 @@ import CoreFoundation
         }
         switch route {
         case "status":
-            return ["schemaVersion":1,"watchConnected":bluetooth.isConnected,"fileChannelReady":bluetooth.canSyncFiles,"cloudConnected":cloud.isAuthenticated,"pendingFiles":uploads.pendingCount,"readOnly":true,"demo":preview]
+            var status: [String:Any] = ["schemaVersion":1,"watchConnected":bluetooth.isConnected,"fileChannelReady":bluetooth.canSyncFiles,"cloudConnected":cloud.isAuthenticated,"pendingFiles":uploads.pendingCount,"readOnly":true,"demo":preview]
+            status["watchBattery"] = NSNull()
+            if let battery = metrics[.watchBattery], battery.value.isFinite, (0...100).contains(battery.value) {
+                status["watchBattery"] = ["percent":battery.value,"recordedAt":stamp(battery.timestamp),"stale":isStale(.watchBattery),"charging":bluetooth.batteryCharging as Any? ?? NSNull()] as [String:Any]
+            }
+            return status
         case "metrics":
             let rows: [[String:Any]] = MetricKind.allCases.compactMap { kind in
                 guard let sample = metrics[kind], sample.value.isFinite else { return nil }
                 var row: [String:Any] = ["id":kind.rawValue,"name":kind.title,"value":sample.value,"unit":kind.unit,"origin":sample.origin.rawValue,"recordedAt":stamp(sample.timestamp),"stale":isStale(kind)]
+                row["deviceStatus"] = kind.isDeviceStatus
                 if kind == .hrvStatus { row["status"] = GarminHRVStatus(rawValue:Int(sample.value)).map { String(describing:$0) } ?? "unknown" }
                 if kind.rawValue == "hrv" { row["limitation"] = "Provisional service-12 reading; not a validated continuous RR stream or realtime HRV." }
                 if kind.isOvernightHRV { row["recordDate"] = GarminHealthMetrics.calendarDate(sample.timestamp); row["syncedAt"] = hrvReport.map { stamp($0.refreshedAt) } ?? "" }
@@ -35,7 +41,7 @@ import CoreFoundation
             return ["schemaVersion":1,"observedAt":stamp(Date()),"metrics":rows]
         case "catalog":
             return ["schemaVersion":1,"metrics":MetricKind.allCases.map { kind -> [String:Any] in
-                ["id":kind.rawValue,"name":kind.title,"unit":kind.unit,"available":metrics[kind] != nil,"timeline":kind.timelineKind != nil || kind.isOvernightHRV,"overnightHRV":kind.isOvernightHRV]
+                ["id":kind.rawValue,"name":kind.title,"unit":kind.unit,"available":metrics[kind] != nil,"timeline":kind.timelineKind != nil || kind.isOvernightHRV,"overnightHRV":kind.isOvernightHRV,"deviceStatus":kind.isDeviceStatus]
             }]
         case "series":
             guard let raw = arguments["metric"] as? String, let kind = MetricKind(rawValue:raw), !kind.isOvernightHRV else { throw DeveloperError.invalid("Use a valid time-series metric ID; use hrv for overnight HRV") }

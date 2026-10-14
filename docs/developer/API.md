@@ -51,6 +51,8 @@ JSON objects contain `schemaVersion: 1`. Metric IDs come from [the catalog](../M
 
 Unavailable metrics are omitted from current readings and marked `available: false` in the catalog. Missing HRV fields and series values are `null`, never invented zeroes. A day with no cached series returns `cached: false` and empty points. Series are the app's minute-resolution display history, not full raw beat samples. Cloud/estimated/watch origins remain distinct. A cloud night card may describe an older day: use `recordDate` and `syncedAt`, not only `stale`. RR/service 12 is provisional and must not be used to calculate a claimed live RMSSD/SDNN. Queries never trigger network sync or fill missing days automatically; use the app to sync first.
 
+From 0.3.2, status includes `watchBattery`: `null` when unavailable, otherwise `{percent, recordedAt, stale, charging}`; unknown charging state is `null`. The legacy `watchBattery` ID remains in metrics/catalog for compatibility and has `deviceStatus: true`, `timeline: false`. It is excluded from health selections, exports and new history; series requests for it are rejected. Other fields have `deviceStatus: false`.
+
 ## Python SDK and stdio bridge
 
 ```sh

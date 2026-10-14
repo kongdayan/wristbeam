@@ -27,7 +27,7 @@ if current.returncode == 0 and not json.loads(current.stdout)['isDraft']:
     raise ValueError('Published releases are immutable; create a new version instead')
 with tempfile.TemporaryDirectory(prefix='pulse-release-notes-') as temporary:
     notes = Path(temporary) / 'notes.md'
-    notes.write_text(f'''Native macOS companion for Garmin watches.\n\nDownload a ZIP for Apple Silicon, Intel, or Universal (both). Requires macOS 13+. Allow Bluetooth access and use the app pairing guide. These builds are ad hoc signed and are not Apple notarized.\n\nAll PR/release quality checks, full-history secret scanning, CodeQL, native XCTest and signed-package tests must pass before publication. China account sync is verified on Instinct 2 Solar; real Global account uploads and other watch models remain unverified.\n\nSee [README](https://github.com/{repo}#readme), [verification scope](https://github.com/{repo}/blob/{args.tag}/VERIFICATION.md), SHA256SUMS.txt and release-manifest.json. The ZIPs have GitHub build-provenance attestations.\n''')
+    notes.write_text(f'''Download the Apple Silicon, Intel, or Universal ZIP for your Mac. Requires macOS 13 or later.\n\n[What's new](https://github.com/{repo}/blob/{args.tag}/CHANGELOG.md) · [Setup guide](https://github.com/{repo}/blob/{args.tag}/docs/SETUP.md) · [Package verification](https://github.com/{repo}/blob/{args.tag}/docs/RELEASING.md)\n''')
     if current.returncode != 0:
         subprocess.run(['gh', 'release', 'create', args.tag, '--repo', repo, '--verify-tag', '--draft', '--title', 'WristBeam ' + version, '--generate-notes', '--notes-file', str(notes)], check=True)
     assets = [args.directory / archive_name(a) for a in ARCHITECTURES]

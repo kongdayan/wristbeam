@@ -1,5 +1,35 @@
 import SwiftUI
 
+struct WatchBatteryBadge: View {
+    @ObservedObject var model: AppModel
+    private var sample: MetricSample? {
+        guard let sample = model.metrics[.watchBattery], sample.value.isFinite, (0...100).contains(sample.value) else { return nil }
+        return sample
+    }
+    private func symbol(_ percent: Int) -> String {
+        if model.bluetooth.batteryCharging == true { return "battery.100percent.bolt" }
+        if percent <= 10 { return "battery.0percent" }
+        if percent <= 30 { return "battery.25percent" }
+        if percent <= 55 { return "battery.50percent" }
+        if percent <= 80 { return "battery.75percent" }
+        return "battery.100percent"
+    }
+    var body: some View {
+        if let sample {
+            let percent = Int(sample.value.rounded())
+            HStack(spacing: 4) {
+                Image(systemName: symbol(percent))
+                    .foregroundStyle(model.isStale(.watchBattery) ? Color.secondary : percent <= 20 ? Color.orange : PulseTheme.mint)
+                Text("\(percent)%").monospacedDigit()
+            }.font(PulseTheme.font(size: 11, weight: .medium))
+                .foregroundStyle(model.isStale(.watchBattery) ? Color.secondary : Color.primary)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(L10n.format("手表电量：{0}%", String(percent)))
+                .help(L10n.format("上次更新：{0}", sample.timestamp.formatted(.dateTime.hour().minute().locale(L10n.locale))))
+        }
+    }
+}
+
 struct DashboardConnectionStatus: View {
     @ObservedObject var model: AppModel
     var body: some View {
@@ -8,6 +38,7 @@ struct DashboardConnectionStatus: View {
                 HStack(spacing: 7) {
                     Image(systemName: "applewatch")
                     Text(L10n.text(model.bluetooth.isConnected ? "手表已连接" : "连接手表"))
+                    WatchBatteryBadge(model: model)
                     StatusDot(active: model.bluetooth.isConnected)
                 }
             }.help(L10n.text(model.bluetooth.status))

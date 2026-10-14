@@ -11,6 +11,7 @@ struct MenuPopover: View {
                     Text(L10n.text(model.preview ? "演示预览" : model.bluetooth.connectedName)).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                 }
                 Spacer()
+                WatchBatteryBadge(model: model)
                 StatusDot(active: model.bluetooth.isConnected || model.preview)
             }
             ScrollView {

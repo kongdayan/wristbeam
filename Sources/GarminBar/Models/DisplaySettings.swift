@@ -45,11 +45,12 @@ enum MetricCategory: String, CaseIterable, Identifiable {
         case .movement: return "figure.walk"; case .sleep: return "bed.double.fill"; case .respiratory: return "lungs.fill"; case .solar: return "sun.max.fill"; case .energy: return "flame.fill"
         }
     }
-    var metrics: [MetricKind] { MetricKind.allCases.filter { $0.category == self } }
+    var metrics: [MetricKind] { MetricKind.allCases.filter { !$0.isDeviceStatus && $0.category == self } }
 }
 
 extension MetricKind {
     var relatedTrend: MetricKind? {
+        if isDeviceStatus { return nil }
         if isOvernightHRV { return nil }
         guard timelineKind == nil else { return timelineKind }
         switch category {
@@ -85,9 +86,10 @@ enum MetricLayout {
     static func available(readings: Set<MetricKind>, registered: Set<MetricKind>, discovered: Set<MetricKind>) -> Set<MetricKind> {
         // A registration acknowledgement can exist for a service which never
         // yields measurements on this model (for example wheelchair pushes).
-        readings
+        readings.filter { !$0.isDeviceStatus }
     }
     static func ordered(selection: Set<MetricKind>, order: [String]) -> [MetricKind] {
+        let selection = selection.filter { !$0.isDeviceStatus }
         var result: [MetricKind] = [], seen: Set<MetricKind> = []
         for raw in order {
             if let kind = MetricKind(rawValue: raw), selection.contains(kind), seen.insert(kind).inserted { result.append(kind) }
@@ -102,7 +104,7 @@ enum MetricLayout {
         return result.map(\.rawValue)
     }
     static func selected(_ key: String, fallback: Set<MetricKind>) -> Set<MetricKind> {
-        guard let ids = AppPreferences.shared.object(forKey: key) as? [String] else { return fallback }
-        return Set(ids.compactMap(MetricKind.init(rawValue:)))
+        guard let ids = AppPreferences.shared.object(forKey: key) as? [String] else { return fallback.filter { !$0.isDeviceStatus } }
+        return Set(ids.compactMap(MetricKind.init(rawValue:)).filter { !$0.isDeviceStatus })
     }
 }

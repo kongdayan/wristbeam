@@ -45,7 +45,6 @@ struct SoftwareUpdatePage: View {
             }
             if updater.parsedRepository == nil { Text(L10n.text("请输入有效的 GitHub owner/repo 或仓库链接")).foregroundStyle(.orange) }
             Text(L10n.text("升级会保留账户授权、显示设置与本地原始数据，并保留上一版应用用于恢复。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
-            Text(L10n.text("当前安装包使用临时签名，尚未进行 Apple 公证。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
         }
     }
 }

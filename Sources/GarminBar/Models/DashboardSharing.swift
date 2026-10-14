@@ -18,10 +18,10 @@ struct SharedMetric: Identifiable {
 }
 
 enum DashboardSharing {
-    static let basicMetrics: Set<MetricKind> = [.heartRate, .bodyBattery, .stress, .steps, .solarIntensity, .sunlightMinutes, .hrvNight, .hrvWeekly, .hrvStatus, .watchBattery, MetricKind(rawValue: "hrv")!]
+    static let basicMetrics: Set<MetricKind> = [.heartRate, .bodyBattery, .stress, .steps, .solarIntensity, .sunlightMinutes, .hrvNight, .hrvWeekly, .hrvStatus, MetricKind(rawValue: "hrv")!]
     static func selected(_ metrics: [SharedMetric], ids: Set<MetricKind>, valueOnly: Bool) -> [SharedMetric] {
         var seen: Set<MetricKind> = []
-        let chosen = metrics.filter { ids.contains($0.kind) && seen.insert($0.kind).inserted }
+        let chosen = metrics.filter { !$0.kind.isDeviceStatus && ids.contains($0.kind) && seen.insert($0.kind).inserted }
         return valueOnly ? Array(chosen.prefix(1)).map {
             SharedMetric(kind: $0.kind, value: $0.value, updatedAt: $0.updatedAt, unavailable: $0.unavailable, series: nil)
         } : chosen
