@@ -3,10 +3,14 @@
 from pathlib import Path
 import subprocess
 import tempfile
-import sys
+import argparse
 
 root = Path(__file__).resolve().parent.parent
-output = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(tempfile.mkdtemp(prefix='wristbeam-interface-renders-'))
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('output', nargs='?', type=Path)
+parser.add_argument('--compile-only', action='store_true', help='Compile native views without invoking the GPU renderer')
+args = parser.parse_args()
+output = args.output or Path(tempfile.mkdtemp(prefix='wristbeam-native-renders-'))
 output.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='wristbeam-interface-test-') as temporary:
     stage = Path(temporary)
@@ -68,4 +72,7 @@ import SwiftUI
 ''')
     binary = stage / 'render-interface'
     subprocess.run(['swiftc', '-swift-version', '5', '-o', str(binary), *map(str, sources), str(runner)], check=True, cwd=root)
-    subprocess.run([str(binary), str(output), '--preview'], check=True, cwd=root)
+    if args.compile_only:
+        print('PASS: native views compiled; GPU rendering explicitly not executed')
+    else:
+        subprocess.run([str(binary), str(output), '--preview'], check=True, cwd=root)

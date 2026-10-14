@@ -15,7 +15,7 @@ struct DashboardShareSheet: View {
     @State private var error: String?
     @State private var notice = ""
 
-    init(model: AppModel, request: DashboardShareRequest) {
+    @MainActor init(model: AppModel, request: DashboardShareRequest) {
         let snapshot: [SharedMetric] = request.kinds.compactMap { kind in
             guard let sample = model.metrics[kind] else { return nil }
             return SharedMetric(kind: kind, value: model.display(kind), updatedAt: sample.timestamp,

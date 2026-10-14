@@ -48,9 +48,18 @@ jobs:
         run: python3 scripts/test-core.py
       - name: Developer HTTP, TLS, MCP, SDK and webhook integration
         run: python3 scripts/test-developer.py
+      # Hosted Intel VMs abort in MTLLoader (no usable target GPU). Compile
+      # the same views there; execute native rendering on all three ARM images.
+      - name: Compile native share and settings views on Intel
+        if: matrix.arch == 'x86_64'
+        run: |
+          python3 scripts/test-dashboard-render.py --compile-only
+          python3 scripts/test-interface-render.py --compile-only
       - name: Native share image rendering
+        if: matrix.arch == 'arm64'
         run: python3 scripts/test-dashboard-render.py
       - name: Native settings and floating render smoke checks
+        if: matrix.arch == 'arm64'
         run: python3 scripts/test-interface-render.py
       - name: Native XCTest suite
         run: swift test

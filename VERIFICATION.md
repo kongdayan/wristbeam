@@ -26,6 +26,8 @@ Mac 解锁后，computer-use 已完成以下原生交互验收：
 
 README 已更新看板、日夜、设置与浮窗的中英文原生视图展示；菜单截图沿用先前 computer-use 捕获，来源和复现方法见 [SHOWCASE.md](docs/SHOWCASE.md)。本轮先完成本地自动与交互测试，再提交 GitHub；PR 与 Release 的远端 CI、合并和发布状态应以相应提交/工作流为准。
 
+CI 首次运行发现并修复旧 SwiftUI SDK 的分享初始化 actor 隔离：明确使用 `@MainActor`。Intel 托管虚拟机实际在 `MTLLoader` 以 `Target device architecture is nil` 断言退出，尚未进入测试断言；该 runner 的 GPU 渲染不计为通过。矩阵在 Intel 上显式编译相同原生视图，并继续执行核心/网络/XCTest/正式包检查；三组 ARM runner 执行真实图像渲染。真实 Intel GPU 的 UI/分享渲染仍待实机验证。未禁用 Metal 保护或吞掉渲染错误。
+
 ## 0.3.1 build 6 · 健康看板与分享（本地待交互验收）
 
 - 81 项核心检查通过，新增分享选择顺序、单值不含全天记录、来源/注释剥离与有效基础选择。
