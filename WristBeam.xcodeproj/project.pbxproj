@@ -1,0 +1,633 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0C0BF6D1C7481FB98DCADB2D /* WidgetSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC8B1C9BE9DF1A3D0AF2D7A5 /* WidgetSharing.swift */; };
+		14D3EFCEC953C8734BCED50C /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87AF7893C4D9145A57063C78 /* Localization.swift */; };
+		15A7091F99D3B1ADDFF62769 /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4390F1708BDA4216CCC29F07 /* AppStorage.swift */; };
+		251DE8250A9F1E39CCAAA7FD /* PairingGuide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */; };
+		2C33C2A0233FF546A8CE525C /* GarminLoginWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1226B0ECC7A4666D7B18EC44 /* GarminLoginWebView.swift */; };
+		3286AF51FAF12A718CDABE87 /* DisplaySettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DE05FF35D55A6F2096C55AB /* DisplaySettings.swift */; };
+		343848C76CC2383A83F2B913 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6E77C39F52A8AF89FABADB /* AppModel.swift */; };
+		3A49FFBCE9CCCDA169D2DF76 /* SettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE6D8089EAC5A0865596248 /* SettingsViews.swift */; };
+		3DF66E54E56EBF4C49837054 /* SoftwareRelease.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAD5A529B0DFF5FDA41DA64C /* SoftwareRelease.swift */; };
+		43310FE456B77357ED679C8A /* GFDISession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8165BB61079BA3E65778C48 /* GFDISession.swift */; };
+		47B4315EFC7CCE430926D1FC /* MetricTimeSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBABD4A2BC15D29B37B80899 /* MetricTimeSeries.swift */; };
+		4E42D1886D7F23F366CCFD3A /* SoftwareUpdatePage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1567591CAA0ACD83546F48D8 /* SoftwareUpdatePage.swift */; };
+		53D6381DFF54D61E58183D69 /* Localization in Resources */ = {isa = PBXBuildFile; fileRef = F4B9E73D8296726092B575AA /* Localization */; };
+		5517E3D18EBA21BB70D66BF9 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 438299E8402BF4ECD3FF7D91 /* Metrics.swift */; };
+		5ABCCFFA57FD51CA11603ED3 /* AppControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F2CB29F44039DC1B4CA0E5 /* AppControl.swift */; };
+		5B77E1271D8A790748ABD031 /* PulseWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */; };
+		5ED588FAF4A399DE56EE9B40 /* GarminPulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 055778CAE682D8980585183D /* GarminPulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		69F3E298410A32C4066253BC /* GarminCloudModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0CA653FBDE6CE33E4229619 /* GarminCloudModels.swift */; };
+		7BA3F89B2ADA63E439997DA8 /* WatchDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF0C72726181B9D0FF2428B /* WatchDiscovery.swift */; };
+		7FF618F5CFF87BB85E5867D2 /* MetricIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55221495574C8ACC34CC95D /* MetricIcon.swift */; };
+		85B01A490C10CF22909F9FDB /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 051E6225A85174601A16F8F0 /* Theme.swift */; };
+		8F2E4A752238B0EB66A1B4C3 /* PulseWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */; };
+		A25AD073C9FB17DE960927DC /* GFDIFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B239BE2900F5FF25136C71E /* GFDIFiles.swift */; };
+		A59B3505A975EF75A8DB39D7 /* GarminChinaCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB678CE0A78BCD6BBD5B15FC /* GarminChinaCloud.swift */; };
+		A8B0AACC23F9BB694756F2AB /* GarminPulseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 771947003FAF57AB0DF4666E /* GarminPulseWidget.swift */; };
+		AAF7A41CC6D725FEF693906C /* update-helper.sh in Resources */ = {isa = PBXBuildFile; fileRef = F68A64487C0CBEC01E89E79B /* update-helper.sh */; };
+		B1945007D8447A2B375A47AB /* GarminUploadQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA30E959D448E857D4B0A3F7 /* GarminUploadQueue.swift */; };
+		BE4826C9B4287F361064E6A8 /* GarminPulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5AD3F98B9CF89CDBB8F376A /* GarminPulseApp.swift */; };
+		C0F2A0415CF1DDC515F1B58C /* GarminFITFileClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EEEF67C42548DE6F1DE453C /* GarminFITFileClassifier.swift */; };
+		CD4E0D69D2B3BA664857E9B0 /* WatchBluetooth.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6E1802A80614116E71B085 /* WatchBluetooth.swift */; };
+		CFE7F65B0B302D823EB3135F /* CompactViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9F9D43C690A9CF38B09F93 /* CompactViews.swift */; };
+		CFE88F410F13FD7F6925D1B0 /* GFDICoreIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */; };
+		D51551B6234ACE6599922D93 /* GarminDailySeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710743E4633786864C240414 /* GarminDailySeries.swift */; };
+		D5EEBF34114598A5D0A5C976 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = CAFB2020AD6DD8ABC67A8D8B /* LICENSE */; };
+		D9A9052D942B0B98FD0DBD00 /* GFDICodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4F4074157D37AAA55840884 /* GFDICodec.swift */; };
+		DF9A41AE118373090A866DD7 /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2389E19745ED094D5057B2BB /* SoftwareUpdater.swift */; };
+		E6E570B7C61BBBD04CD81D4C /* GarminHealthMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94430862DC1AA4AC270CF11E /* GarminHealthMetrics.swift */; };
+		FFBD14A96EBE64AE027D1955 /* MetricCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F28C1570B0E554EADD2E8D /* MetricCharts.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AD950F412DC59BF81DA83656 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 53F3788D1C14D314B794A5FB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 84B091EFBAB79026BC9B7AAB;
+			remoteInfo = GarminPulseWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		72E56AB9C4CEF57D2FA21289 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				5ED588FAF4A399DE56EE9B40 /* GarminPulseWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		051E6225A85174601A16F8F0 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		055778CAE682D8980585183D /* GarminPulseWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GarminPulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		1226B0ECC7A4666D7B18EC44 /* GarminLoginWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminLoginWebView.swift; sourceTree = "<group>"; };
+		1567591CAA0ACD83546F48D8 /* SoftwareUpdatePage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdatePage.swift; sourceTree = "<group>"; };
+		1C9F9D43C690A9CF38B09F93 /* CompactViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactViews.swift; sourceTree = "<group>"; };
+		2389E19745ED094D5057B2BB /* SoftwareUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdater.swift; sourceTree = "<group>"; };
+		2E6E77C39F52A8AF89FABADB /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		438299E8402BF4ECD3FF7D91 /* Metrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Metrics.swift; sourceTree = "<group>"; };
+		4390F1708BDA4216CCC29F07 /* AppStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorage.swift; sourceTree = "<group>"; };
+		459CEFCFB97553A1949A7299 /* GarminPulse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GarminPulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingGuide.swift; sourceTree = "<group>"; };
+		4FF0C72726181B9D0FF2428B /* WatchDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchDiscovery.swift; sourceTree = "<group>"; };
+		59F28C1570B0E554EADD2E8D /* MetricCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCharts.swift; sourceTree = "<group>"; };
+		5B239BE2900F5FF25136C71E /* GFDIFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIFiles.swift; sourceTree = "<group>"; };
+		5DE05FF35D55A6F2096C55AB /* DisplaySettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaySettings.swift; sourceTree = "<group>"; };
+		710743E4633786864C240414 /* GarminDailySeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminDailySeries.swift; sourceTree = "<group>"; };
+		771947003FAF57AB0DF4666E /* GarminPulseWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminPulseWidget.swift; sourceTree = "<group>"; };
+		7EE6D8089EAC5A0865596248 /* SettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViews.swift; sourceTree = "<group>"; };
+		7EEEF67C42548DE6F1DE453C /* GarminFITFileClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminFITFileClassifier.swift; sourceTree = "<group>"; };
+		87AF7893C4D9145A57063C78 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		94430862DC1AA4AC270CF11E /* GarminHealthMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminHealthMetrics.swift; sourceTree = "<group>"; };
+		A0CA653FBDE6CE33E4229619 /* GarminCloudModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminCloudModels.swift; sourceTree = "<group>"; };
+		A4F4074157D37AAA55840884 /* GFDICodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDICodec.swift; sourceTree = "<group>"; };
+		B8165BB61079BA3E65778C48 /* GFDISession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDISession.swift; sourceTree = "<group>"; };
+		BA30E959D448E857D4B0A3F7 /* GarminUploadQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminUploadQueue.swift; sourceTree = "<group>"; };
+		BAD5A529B0DFF5FDA41DA64C /* SoftwareRelease.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareRelease.swift; sourceTree = "<group>"; };
+		CAFB2020AD6DD8ABC67A8D8B /* LICENSE */ = {isa = PBXFileReference; path = LICENSE; sourceTree = "<group>"; };
+		CB6E1802A80614116E71B085 /* WatchBluetooth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBluetooth.swift; sourceTree = "<group>"; };
+		CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseWidgetSnapshot.swift; sourceTree = "<group>"; };
+		DBABD4A2BC15D29B37B80899 /* MetricTimeSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricTimeSeries.swift; sourceTree = "<group>"; };
+		DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDICoreIdentity.swift; sourceTree = "<group>"; };
+		EC8B1C9BE9DF1A3D0AF2D7A5 /* WidgetSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSharing.swift; sourceTree = "<group>"; };
+		F4B9E73D8296726092B575AA /* Localization */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Localization; path = Sources/GarminBar/Resources/Localization; sourceTree = SOURCE_ROOT; };
+		F4F2CB29F44039DC1B4CA0E5 /* AppControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppControl.swift; sourceTree = "<group>"; };
+		F55221495574C8ACC34CC95D /* MetricIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricIcon.swift; sourceTree = "<group>"; };
+		F5AD3F98B9CF89CDBB8F376A /* GarminPulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminPulseApp.swift; sourceTree = "<group>"; };
+		F68A64487C0CBEC01E89E79B /* update-helper.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "update-helper.sh"; sourceTree = "<group>"; };
+		FB678CE0A78BCD6BBD5B15FC /* GarminChinaCloud.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminChinaCloud.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		13EAC2E9AEFFAE64FA053D1F /* GarminBar */ = {
+			isa = PBXGroup;
+			children = (
+				BB0BA83DC2AB19C055A5AA1A /* App */,
+				432EB0D1F7A71258AFAA0DAC /* Bluetooth */,
+				3487D8D5A451B511BDBE5E80 /* Cloud */,
+				9925CCA50B6F3300A56BFBF7 /* Models */,
+				5C90BD763CB8601E4468F52A /* Protocol */,
+				27D24694EDE547A3D4AA3B02 /* UI */,
+			);
+			name = GarminBar;
+			path = Sources/GarminBar;
+			sourceTree = "<group>";
+		};
+		14ADC9AF8FCC55D6D2136271 /* WidgetExtension */ = {
+			isa = PBXGroup;
+			children = (
+				771947003FAF57AB0DF4666E /* GarminPulseWidget.swift */,
+			);
+			path = WidgetExtension;
+			sourceTree = "<group>";
+		};
+		27D24694EDE547A3D4AA3B02 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				1C9F9D43C690A9CF38B09F93 /* CompactViews.swift */,
+				59F28C1570B0E554EADD2E8D /* MetricCharts.swift */,
+				F55221495574C8ACC34CC95D /* MetricIcon.swift */,
+				4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */,
+				7EE6D8089EAC5A0865596248 /* SettingsViews.swift */,
+				1567591CAA0ACD83546F48D8 /* SoftwareUpdatePage.swift */,
+				051E6225A85174601A16F8F0 /* Theme.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		3487D8D5A451B511BDBE5E80 /* Cloud */ = {
+			isa = PBXGroup;
+			children = (
+				FB678CE0A78BCD6BBD5B15FC /* GarminChinaCloud.swift */,
+				A0CA653FBDE6CE33E4229619 /* GarminCloudModels.swift */,
+				710743E4633786864C240414 /* GarminDailySeries.swift */,
+				7EEEF67C42548DE6F1DE453C /* GarminFITFileClassifier.swift */,
+				94430862DC1AA4AC270CF11E /* GarminHealthMetrics.swift */,
+				1226B0ECC7A4666D7B18EC44 /* GarminLoginWebView.swift */,
+				BA30E959D448E857D4B0A3F7 /* GarminUploadQueue.swift */,
+			);
+			path = Cloud;
+			sourceTree = "<group>";
+		};
+		432EB0D1F7A71258AFAA0DAC /* Bluetooth */ = {
+			isa = PBXGroup;
+			children = (
+				CB6E1802A80614116E71B085 /* WatchBluetooth.swift */,
+			);
+			path = Bluetooth;
+			sourceTree = "<group>";
+		};
+		502F427A98AAD8B0587B0EF0 /* scripts */ = {
+			isa = PBXGroup;
+			children = (
+				F68A64487C0CBEC01E89E79B /* update-helper.sh */,
+			);
+			path = scripts;
+			sourceTree = "<group>";
+		};
+		5C90BD763CB8601E4468F52A /* Protocol */ = {
+			isa = PBXGroup;
+			children = (
+				A4F4074157D37AAA55840884 /* GFDICodec.swift */,
+				DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */,
+				5B239BE2900F5FF25136C71E /* GFDIFiles.swift */,
+				B8165BB61079BA3E65778C48 /* GFDISession.swift */,
+			);
+			path = Protocol;
+			sourceTree = "<group>";
+		};
+		9925CCA50B6F3300A56BFBF7 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				2E6E77C39F52A8AF89FABADB /* AppModel.swift */,
+				4390F1708BDA4216CCC29F07 /* AppStorage.swift */,
+				5DE05FF35D55A6F2096C55AB /* DisplaySettings.swift */,
+				87AF7893C4D9145A57063C78 /* Localization.swift */,
+				438299E8402BF4ECD3FF7D91 /* Metrics.swift */,
+				DBABD4A2BC15D29B37B80899 /* MetricTimeSeries.swift */,
+				CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */,
+				BAD5A529B0DFF5FDA41DA64C /* SoftwareRelease.swift */,
+				4FF0C72726181B9D0FF2428B /* WatchDiscovery.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AE60748EE804234CDF4D5999 = {
+			isa = PBXGroup;
+			children = (
+				CAFB2020AD6DD8ABC67A8D8B /* LICENSE */,
+				F4B9E73D8296726092B575AA /* Localization */,
+				13EAC2E9AEFFAE64FA053D1F /* GarminBar */,
+				502F427A98AAD8B0587B0EF0 /* scripts */,
+				14ADC9AF8FCC55D6D2136271 /* WidgetExtension */,
+				BB3988CD325002167DF2FAFB /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BB0BA83DC2AB19C055A5AA1A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F4F2CB29F44039DC1B4CA0E5 /* AppControl.swift */,
+				F5AD3F98B9CF89CDBB8F376A /* GarminPulseApp.swift */,
+				2389E19745ED094D5057B2BB /* SoftwareUpdater.swift */,
+				EC8B1C9BE9DF1A3D0AF2D7A5 /* WidgetSharing.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		BB3988CD325002167DF2FAFB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				459CEFCFB97553A1949A7299 /* GarminPulse.app */,
+				055778CAE682D8980585183D /* GarminPulseWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0594C9AB8520421068582FBD /* GarminPulse */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4A5F8E73CB9F5C04C4F21418 /* Build configuration list for PBXNativeTarget "GarminPulse" */;
+			buildPhases = (
+				E281D50789731AC74C478D1E /* Sources */,
+				E789911D60EA31584749A602 /* Resources */,
+				72E56AB9C4CEF57D2FA21289 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9F6650AADE80FA6C16CB4855 /* PBXTargetDependency */,
+			);
+			name = GarminPulse;
+			packageProductDependencies = (
+			);
+			productName = GarminPulse;
+			productReference = 459CEFCFB97553A1949A7299 /* GarminPulse.app */;
+			productType = "com.apple.product-type.application";
+		};
+		84B091EFBAB79026BC9B7AAB /* GarminPulseWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 77451CE496677FBEEBA8F5F3 /* Build configuration list for PBXNativeTarget "GarminPulseWidget" */;
+			buildPhases = (
+				68286DE49D1DACE3F8D31260 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GarminPulseWidget;
+			packageProductDependencies = (
+			);
+			productName = GarminPulseWidget;
+			productReference = 055778CAE682D8980585183D /* GarminPulseWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		53F3788D1C14D314B794A5FB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0594C9AB8520421068582FBD = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					84B091EFBAB79026BC9B7AAB = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = B2A0D796F13189027F4E8D44 /* Build configuration list for PBXProject "WristBeam" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = AE60748EE804234CDF4D5999;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = BB3988CD325002167DF2FAFB /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0594C9AB8520421068582FBD /* GarminPulse */,
+				84B091EFBAB79026BC9B7AAB /* GarminPulseWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E789911D60EA31584749A602 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5EEBF34114598A5D0A5C976 /* LICENSE in Resources */,
+				53D6381DFF54D61E58183D69 /* Localization in Resources */,
+				AAF7A41CC6D725FEF693906C /* update-helper.sh in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		68286DE49D1DACE3F8D31260 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A8B0AACC23F9BB694756F2AB /* GarminPulseWidget.swift in Sources */,
+				8F2E4A752238B0EB66A1B4C3 /* PulseWidgetSnapshot.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E281D50789731AC74C478D1E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5ABCCFFA57FD51CA11603ED3 /* AppControl.swift in Sources */,
+				343848C76CC2383A83F2B913 /* AppModel.swift in Sources */,
+				15A7091F99D3B1ADDFF62769 /* AppStorage.swift in Sources */,
+				CFE7F65B0B302D823EB3135F /* CompactViews.swift in Sources */,
+				3286AF51FAF12A718CDABE87 /* DisplaySettings.swift in Sources */,
+				D9A9052D942B0B98FD0DBD00 /* GFDICodec.swift in Sources */,
+				CFE88F410F13FD7F6925D1B0 /* GFDICoreIdentity.swift in Sources */,
+				A25AD073C9FB17DE960927DC /* GFDIFiles.swift in Sources */,
+				43310FE456B77357ED679C8A /* GFDISession.swift in Sources */,
+				A59B3505A975EF75A8DB39D7 /* GarminChinaCloud.swift in Sources */,
+				69F3E298410A32C4066253BC /* GarminCloudModels.swift in Sources */,
+				D51551B6234ACE6599922D93 /* GarminDailySeries.swift in Sources */,
+				C0F2A0415CF1DDC515F1B58C /* GarminFITFileClassifier.swift in Sources */,
+				E6E570B7C61BBBD04CD81D4C /* GarminHealthMetrics.swift in Sources */,
+				2C33C2A0233FF546A8CE525C /* GarminLoginWebView.swift in Sources */,
+				BE4826C9B4287F361064E6A8 /* GarminPulseApp.swift in Sources */,
+				B1945007D8447A2B375A47AB /* GarminUploadQueue.swift in Sources */,
+				14D3EFCEC953C8734BCED50C /* Localization.swift in Sources */,
+				FFBD14A96EBE64AE027D1955 /* MetricCharts.swift in Sources */,
+				7FF618F5CFF87BB85E5867D2 /* MetricIcon.swift in Sources */,
+				47B4315EFC7CCE430926D1FC /* MetricTimeSeries.swift in Sources */,
+				5517E3D18EBA21BB70D66BF9 /* Metrics.swift in Sources */,
+				251DE8250A9F1E39CCAAA7FD /* PairingGuide.swift in Sources */,
+				5B77E1271D8A790748ABD031 /* PulseWidgetSnapshot.swift in Sources */,
+				3A49FFBCE9CCCDA169D2DF76 /* SettingsViews.swift in Sources */,
+				3DF66E54E56EBF4C49837054 /* SoftwareRelease.swift in Sources */,
+				4E42D1886D7F23F366CCFD3A /* SoftwareUpdatePage.swift in Sources */,
+				DF9A41AE118373090A866DD7 /* SoftwareUpdater.swift in Sources */,
+				85B01A490C10CF22909F9FDB /* Theme.swift in Sources */,
+				CD4E0D69D2B3BA664857E9B0 /* WatchBluetooth.swift in Sources */,
+				7BA3F89B2ADA63E439997DA8 /* WatchDiscovery.swift in Sources */,
+				0C0BF6D1C7481FB98DCADB2D /* WidgetSharing.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9F6650AADE80FA6C16CB4855 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 84B091EFBAB79026BC9B7AAB /* GarminPulseWidget */;
+			targetProxy = AD950F412DC59BF81DA83656 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3920BFE5F669FFC1F50B8DB6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 4;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.3.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		5A55792DF824CF06C7CD1CAE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Configuration/GarminPulseWidget.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/GarminPulseWidget-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = cn.wenyankong.garminpulse.widget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		7EE66A422BB393022E952496 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Configuration/GarminPulse.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				EXECUTABLE_NAME = GarminPulse;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/GarminPulse-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = cn.wenyankong.garminpulse;
+				PRODUCT_NAME = WristBeam;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		830BA08F2DAAB6B213EDBF30 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Configuration/GarminPulse.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				EXECUTABLE_NAME = GarminPulse;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/GarminPulse-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = cn.wenyankong.garminpulse;
+				PRODUCT_NAME = WristBeam;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		A7FBF3B30B870CF4ECDACEA6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Configuration/GarminPulseWidget.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/GarminPulseWidget-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = cn.wenyankong.garminpulse.widget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		E57B181A077172E88F891313 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 4;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.3.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4A5F8E73CB9F5C04C4F21418 /* Build configuration list for PBXNativeTarget "GarminPulse" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7EE66A422BB393022E952496 /* Debug */,
+				830BA08F2DAAB6B213EDBF30 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		77451CE496677FBEEBA8F5F3 /* Build configuration list for PBXNativeTarget "GarminPulseWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7FBF3B30B870CF4ECDACEA6 /* Debug */,
+				5A55792DF824CF06C7CD1CAE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B2A0D796F13189027F4E8D44 /* Build configuration list for PBXProject "WristBeam" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E57B181A077172E88F891313 /* Debug */,
+				3920BFE5F669FFC1F50B8DB6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 53F3788D1C14D314B794A5FB /* Project object */;
+}

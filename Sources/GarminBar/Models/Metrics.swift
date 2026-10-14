@@ -48,9 +48,9 @@ struct MetricKind: RawRepresentable, Codable, Hashable, CaseIterable, Identifiab
     static let definitions: [MetricDefinition] = {
         var values: [MetricDefinition] = [
             .init(id: "heartRate", title: "心率", unit: "BPM", symbol: "heart.fill", group: .live, short: "♥", service: 6, characteristic: 0x2501, freshness: 45),
-            .init(id: "bodyBattery", title: "身体电量", unit: "/ 100", symbol: "battery.75percent", group: .live, short: "身电", service: 20, characteristic: 0x250D, dailyKey: "bodyBatteryMostRecentValue", freshness: 900),
-            .init(id: "stress", title: "身体压力", unit: "/ 100", symbol: "waveform.path", group: .live, short: "压", service: 13, characteristic: 0x2508, freshness: 60),
-            .init(id: "steps", title: "今日步数", unit: "步", symbol: "figure.walk", group: .live, short: "步", service: 7, characteristic: 0x2502, dailyKey: "totalSteps", freshness: 1800),
+            .init(id: "bodyBattery", title: "身体电量", unit: "/ 100", symbol: "battery.75percent", group: .live, short: "身体电量", service: 20, characteristic: 0x250D, dailyKey: "bodyBatteryMostRecentValue", freshness: 900),
+            .init(id: "stress", title: "身体压力", unit: "/ 100", symbol: "speedometer", group: .live, short: "压", service: 13, characteristic: 0x2508, freshness: 60),
+            .init(id: "steps", title: "今日步数", unit: "步", symbol: "shoeprints.fill", group: .live, short: "步", service: 7, characteristic: 0x2502, dailyKey: "totalSteps", freshness: 1800),
             .init(id: "calories", title: "今日总热量", unit: "千卡", symbol: "flame.fill", group: .live, short: "热量", service: 8, characteristic: 0x2503, dailyKey: "totalKilocalories"),
             .init(id: "floors", title: "上楼层数", unit: "层", symbol: "stairs", group: .live, short: "楼层", service: 9, characteristic: 0x2504, dailyKey: "floorsAscended"),
             .init(id: "intensityMinutes", title: "今日强度分钟", unit: "分", symbol: "figure.run", group: .live, short: "强度", service: 10, characteristic: 0x2505),

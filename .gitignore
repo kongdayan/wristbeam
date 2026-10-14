@@ -15,3 +15,8 @@ Charts/
 .env
 .env.*
 *.log
+
+__pycache__/
+*.py[cod]
+.swiftlint_cache/
+*.sarif

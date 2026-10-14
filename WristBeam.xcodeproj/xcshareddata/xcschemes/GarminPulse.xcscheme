@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CCC53CE4BC4046E5594B4EE0"
+               BlueprintIdentifier = "0594C9AB8520421068582FBD"
                BuildableName = "GarminPulse.app"
                BlueprintName = "GarminPulse"
-               ReferencedContainer = "container:GarminPulse.xcodeproj">
+               ReferencedContainer = "container:WristBeam.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CCC53CE4BC4046E5594B4EE0"
+            BlueprintIdentifier = "0594C9AB8520421068582FBD"
             BuildableName = "GarminPulse.app"
             BlueprintName = "GarminPulse"
-            ReferencedContainer = "container:GarminPulse.xcodeproj">
+            ReferencedContainer = "container:WristBeam.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -55,10 +55,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CCC53CE4BC4046E5594B4EE0"
+            BlueprintIdentifier = "0594C9AB8520421068582FBD"
             BuildableName = "GarminPulse.app"
             BlueprintName = "GarminPulse"
-            ReferencedContainer = "container:GarminPulse.xcodeproj">
+            ReferencedContainer = "container:WristBeam.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -74,10 +74,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CCC53CE4BC4046E5594B4EE0"
+            BlueprintIdentifier = "0594C9AB8520421068582FBD"
             BuildableName = "GarminPulse.app"
             BlueprintName = "GarminPulse"
-            ReferencedContainer = "container:GarminPulse.xcodeproj">
+            ReferencedContainer = "container:WristBeam.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

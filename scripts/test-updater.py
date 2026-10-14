@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Validate real signed packages and reject unsafe packages without launching them."""
 from pathlib import Path
+import os
+import platform
 import plistlib
 import shutil
 import stat
@@ -10,25 +12,24 @@ import zipfile
 
 root = Path(__file__).resolve().parent.parent
 sources = root / "Sources/GarminBar"
-archive = root / "dist/GarminPulse-macOS-arm64.zip"
-if not archive.exists():
-    archive = root / "dist/GarminPulse-macOS-x86_64.zip"
+dist = Path(os.environ.get("PULSE_OUTPUT_DIR", root / "dist"))
+archive = Path(os.environ.get("PULSE_UPDATE_ARCHIVE", dist / f"WristBeam-macOS-{platform.machine()}.zip"))
 
 with tempfile.TemporaryDirectory(prefix="pulse-update-checks-") as temporary:
     stage = Path(temporary)
     target = stage / "Installed.app"
-    shutil.copytree(root / "dist/Garmin Pulse.app", target)
-    for name, member in [("traversal", "Garmin Pulse.app/../../escaped"), ("absolute", "/tmp/pulse-escaped")]:
+    shutil.copytree(dist / "WristBeam.app", target)
+    for name, member in [("traversal", "WristBeam.app/../../escaped"), ("absolute", "/tmp/pulse-escaped")]:
         with zipfile.ZipFile(stage / (name + ".zip"), "w") as package:
             package.writestr(member, b"unsafe")
     with zipfile.ZipFile(stage / "symlink.zip", "w") as package:
-        link = zipfile.ZipInfo("Garmin Pulse.app/Contents/Resources/link")
+        link = zipfile.ZipInfo("WristBeam.app/Contents/Resources/link")
         link.create_system = 3
         link.external_attr = (stat.S_IFLNK | 0o777) << 16
         package.writestr(link, "../../../../escaped")
     for name in ["tampered", "identity", "minimum"]:
         folder = stage / name
-        app = folder / "Garmin Pulse.app"
+        app = folder / "WristBeam.app"
         shutil.copytree(target, app)
         if name == "tampered":
             (app / "Contents/Resources/Localization/en.json").write_text("{}")
@@ -39,6 +40,13 @@ with tempfile.TemporaryDirectory(prefix="pulse-update-checks-") as temporary:
             info.write_bytes(plistlib.dumps(values))
             subprocess.run(["codesign", "--force", "--sign", "-", str(app)], check=True, capture_output=True)
         subprocess.run(["ditto", "-c", "-k", "--keepParent", str(app), str(stage / (name + ".zip"))], check=True)
+    legacy_app = stage / "legacy" / "Garmin Pulse.app"
+    shutil.copytree(target, legacy_app)
+    subprocess.run(["ditto", "-c", "-k", "--keepParent", str(legacy_app), str(stage / "legacy.zip")], check=True)
+    with zipfile.ZipFile(archive) as original, zipfile.ZipFile(stage / "mixed-roots.zip", "w") as mixed:
+        for item in original.infolist():
+            mixed.writestr(item, original.read(item.filename))
+        mixed.writestr("Garmin Pulse.app/Contents/unexpected", b"ambiguous")
     runner = stage / "Runner.swift"
     runner.write_text('''import Foundation
 import AppKit
@@ -56,7 +64,11 @@ import AppKit
   let prepared=try PulseUpdatePreparation.prepare(archive:archive,directory:directory,target:target,version:version,architecture:architecture)
   guard FileManager.default.fileExists(atPath:prepared.appendingPathComponent("Contents/MacOS/GarminPulse").path) else {fatalError("No validated stage")}
   print("PASS signed package extraction, version, architecture and staged copy")
-  for name in ["traversal","absolute","symlink","tampered","identity","minimum","version","architecture"] {
+  let legacyDirectory=root.appendingPathComponent("legacy-accepted")
+  try FileManager.default.createDirectory(at:legacyDirectory,withIntermediateDirectories:true)
+  _ = try PulseUpdatePreparation.prepare(archive:root.appendingPathComponent("legacy.zip"),directory:legacyDirectory,target:target,version:version,architecture:architecture)
+  print("PASS legacy application archive retains verified identity")
+  for name in ["mixed-roots","traversal","absolute","symlink","tampered","identity","minimum","version","architecture"] {
    let dir=root.appendingPathComponent("reject-"+name);try FileManager.default.createDirectory(at:dir,withIntermediateDirectories:true)
    let input=["version","architecture"].contains(name) ? archive : root.appendingPathComponent(name+".zip")
    var rejected=false
@@ -66,7 +78,7 @@ import AppKit
    print("PASS rejected "+name)
   }
   guard !FileManager.default.fileExists(atPath:root.appendingPathComponent("escaped").path) else {fatalError("Archive escaped extraction root")}
-  print("PASS: 9 real-package update checks; nothing installed or launched")
+  print("PASS: 11 real-package update checks; nothing installed or launched")
  }
 }
 ''')

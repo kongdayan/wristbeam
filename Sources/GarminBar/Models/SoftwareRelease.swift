@@ -22,7 +22,8 @@ struct PulseVersion: Comparable, Equatable {
 }
 
 struct PulseRepository: Equatable {
-    static let defaultName = "kongdayan/garmin-pulse"
+    static let defaultName = "kongdayan/wristbeam"
+    static let legacyName = "kongdayan/garmin-pulse"
     let owner: String
     let name: String
     var slug: String { "\(owner)/\(name)" }
@@ -36,6 +37,7 @@ struct PulseRepository: Equatable {
             raw = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         }
         if raw.hasSuffix(".git") { raw = String(raw.dropLast(4)) }
+        if raw.lowercased() == Self.legacyName { raw = Self.defaultName }
         let parts = raw.split(separator: "/", omittingEmptySubsequences: false)
         guard parts.count == 2 else { return nil }
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
@@ -71,7 +73,10 @@ struct PulseRelease: Decodable {
     var version: PulseVersion? { PulseVersion(tagName) }
     func asset(repository: PulseRepository, architecture: String) -> PulseReleaseAsset? {
         guard !draft, !prerelease, version != nil, repository.permitsReleaseURL(htmlURL) else { return nil }
-        return assets.first { $0.name == "GarminPulse-macOS-\(architecture).zip" && (1...100_000_000).contains($0.size) && $0.sha256 != nil && repository.permitsReleaseURL($0.browserDownloadURL) && $0.browserDownloadURL.path.hasPrefix("/\(repository.slug)/releases/download/") }
+        for name in ["WristBeam-macOS-\(architecture).zip", "GarminPulse-macOS-\(architecture).zip"] {
+            if let asset = assets.first(where: { $0.name == name && (1...100_000_000).contains($0.size) && $0.sha256 != nil && repository.permitsReleaseURL($0.browserDownloadURL) && $0.browserDownloadURL.path.hasPrefix("/\(repository.slug)/releases/download/") }) { return asset }
+        }
+        return nil
     }
 }
 
@@ -84,7 +89,7 @@ enum PulseUpdatePolicy {
         guard !path.isEmpty, !path.hasPrefix("/"), !path.contains("\\"), !path.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { return false }
         let components = path.split(separator: "/", omittingEmptySubsequences: false)
         guard !components.contains(".."), !components.contains("."), !components.dropLast().contains("") else { return false }
-        return components.first == "Garmin Pulse.app" || (components.first == "__MACOSX" && components.count > 1)
+        return ["WristBeam.app", "Garmin Pulse.app"].contains(components.first ?? "") || (components.first == "__MACOSX" && components.count > 1)
     }
     static func fileDigest(_ url: URL) throws -> String {
         let file = try FileHandle(forReadingFrom: url); defer { try? file.close() }

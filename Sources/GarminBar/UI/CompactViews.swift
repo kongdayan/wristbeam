@@ -7,7 +7,7 @@ struct MenuPopover: View {
             HStack {
                 Image(systemName: "waveform.path.ecg").foregroundStyle(PulseTheme.mint).font(PulseTheme.font(size: 20))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(L10n.text("Garmin Pulse")).font(PulseTheme.font(size: 15, weight: .semibold))
+                    Text(L10n.text("腕映")).font(PulseTheme.font(size: 15, weight: .semibold))
                     Text(L10n.text(model.preview ? "演示预览" : model.bluetooth.connectedName)).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                 }
                 Spacer()
@@ -45,7 +45,7 @@ struct FloatingPulseView: View {
         VStack(spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "waveform.path.ecg").font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.mint)
-                Text(L10n.text("GARMIN PULSE")).font(PulseTheme.font(size: 9, weight: .semibold)).tracking(1.4)
+                Text(L10n.text("WRISTBEAM")).font(PulseTheme.font(size: 9, weight: .semibold)).tracking(1.4)
                 Spacer()
                 StatusDot(active: model.bluetooth.isConnected || model.preview)
                 Text(L10n.text(model.preview ? "DEMO" : model.bluetooth.isConnected ? "LIVE" : "OFFLINE")).font(PulseTheme.font(size: 8, weight: .medium)).foregroundStyle(PulseTheme.secondary)
@@ -57,7 +57,7 @@ struct FloatingPulseView: View {
                         Button { model.openMetric(kind) } label: {
                         VStack(alignment: .leading, spacing: 5) {
                             HStack(spacing: 4) {
-                                Image(systemName: kind.symbol).foregroundStyle(PulseTheme.color(kind))
+                                MetricIcon(kind: kind).foregroundStyle(PulseTheme.color(kind))
                                 Text(L10n.text(kind.title.components(separatedBy: "（").first ?? kind.title)).foregroundStyle(PulseTheme.secondary).lineLimit(1)
                             }.font(PulseTheme.font(size: 12))
                             Text(L10n.text(model.display(kind))).font(PulseTheme.font(size: 28, weight: .medium, design: .rounded)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)

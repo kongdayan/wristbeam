@@ -396,7 +396,7 @@ extension WatchBluetooth {
             stopScan(); session?.disconnected(); session = nil; clearConnectionData()
             if !autoReconnect { connectRequested = false }
             bluetoothStatus = "蓝牙已关闭"; status = "请开启 Mac 蓝牙"
-        case .unauthorized: bluetoothStatus = "蓝牙权限未授权"; status = "请在系统设置中允许 Garmin Pulse 使用蓝牙"
+        case .unauthorized: bluetoothStatus = "蓝牙权限未授权"; status = "请在系统设置中允许 WristBeam 使用蓝牙"
         case .unsupported: bluetoothStatus = "此电脑不支持蓝牙 LE"
         case .resetting: bluetoothStatus = "蓝牙正在重新启动"
         case .unknown: bluetoothStatus = "正在初始化蓝牙"

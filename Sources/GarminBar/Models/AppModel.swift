@@ -81,6 +81,7 @@ final class AppModel: ObservableObject {
     var onFloatingChange: ((Bool) -> Void)?
     var onFloatingLayoutChange: (() -> Void)?
     var onAppearanceChange: (() -> Void)?
+    var onShowMenu: (() -> Void)?
     var onQuit: (() -> Void)?
     private let journal = TelemetryJournal()
     private var subscriptions: Set<AnyCancellable> = []
@@ -201,7 +202,7 @@ final class AppModel: ObservableObject {
                 if self.cloud.isAuthenticated { Task { await self.uploads.syncNow(force: false) } }
             }
         }.store(in: &subscriptions)
-        log("Garmin Pulse 已启动")
+        log("WristBeam 已启动")
     }
 
     var visibleMetrics: [MetricKind] {
@@ -245,13 +246,11 @@ final class AppModel: ObservableObject {
         guard !preview, force || Date().timeIntervalSince(lastWidgetBuild) >= 30 else { return }
         lastWidgetBuild = Date(); widgetPublisher.publish(widgetSnapshot(), force: force)
     }
-    var menuText: String {
-        let selected = menuVisibleMetrics
-        var text = selected.prefix(5).map { kind in
-            "\(kind.short) \(display(kind))"
-        }.joined(separator: "  ")
-        if selected.count > 5 { text += " +\(selected.count - 5)" }
-        return text.isEmpty ? "Garmin Pulse" : text
+    var menuAccessibilityText: String {
+        let readings = menuVisibleMetrics.prefix(5).map { kind in
+            "\(kind.title): \(display(kind)) \(kind.unit)"
+        }.joined(separator: "; ")
+        return readings.isEmpty ? "WristBeam" : "WristBeam · " + readings
     }
     func display(_ kind: MetricKind) -> String {
         guard let sample = metrics[kind], metricNotes[kind] == nil, !isStale(kind) else { return "—" }
@@ -408,7 +407,7 @@ final class AppModel: ObservableObject {
             "uploadJobs": uploads.jobs.map { ["type": $0.dataType.rawValue, "state": $0.state.rawValue,
                 "httpStatus": $0.cloudStatus?.httpStatus ?? 0, "detail": $0.detail] as [String: Any] },
             "lastControlRequest": lastControlRequest,
-            "windows": NSApp.windows.map { ["title": $0.title, "visible": $0.isVisible, "minimized": $0.isMiniaturized] as [String: Any] },
+            "windows": NSApp.windows.map { ["title": $0.title, "number": $0.windowNumber, "visible": $0.isVisible, "minimized": $0.isMiniaturized] as [String: Any] },
             "recentEvents": events.prefix(12).map(\.message)
         ]
         if let data = try? JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys]) {
@@ -496,10 +495,12 @@ final class AppModel: ObservableObject {
 }
 
 enum AppPage: String, CaseIterable, Identifiable {
+    static var navigationPages: [Self] { allCases.filter { $0 != .account } }
+    var navigationPage: Self { self == .account ? .watch : self }
     case overview, watch, account, sync, appearance, updates
     var id: String { rawValue }
     var title: String {
-        switch self { case .overview: return L10n.text("健康看板"); case .watch: return L10n.text("手表连接"); case .account: return L10n.text("佳明账户"); case .sync: return L10n.text("同步记录"); case .appearance: return L10n.text("显示设置"); case .updates: return L10n.text("软件更新") }
+        switch self { case .overview: return L10n.text("健康看板"); case .watch: return L10n.text("设备"); case .account: return L10n.text("设备账号"); case .sync: return L10n.text("同步记录"); case .appearance: return L10n.text("显示设置"); case .updates: return L10n.text("软件更新") }
     }
     var symbol: String {
         switch self { case .overview: return "square.grid.2x2"; case .watch: return "applewatch"; case .account: return "person.crop.circle"; case .sync: return "arrow.triangle.2.circlepath"; case .appearance: return "menubar.rectangle"; case .updates: return "arrow.down.circle" }

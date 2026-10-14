@@ -1,25 +1,70 @@
-name: macOS checks
+name: CI
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
+  merge_group:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      release-tag:
+        type: string
+        default: ''
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 jobs:
-  checks:
-    runs-on: macos-14
+  quality:
+    name: Quality and secrets
+    runs-on: macos-15
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7.0.1
-      - name: Protocol, cloud, display and localization regression checks
-        run: python3 scripts/test-core.py
-      - name: Translation coverage
-        run: python3 scripts/check-localization.py
-      - name: Build and verify application
-        run: zsh scripts/build.sh
-      - name: Real-package update checks
-        run: python3 scripts/test-updater.py
-      - uses: actions/upload-artifact@v7.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          name: GarminPulse-macOS
-          path: dist/GarminPulse-macOS-*.zip
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install analysis tools
+        run: brew install actionlint gitleaks shellcheck swiftlint
+      - name: Workflow, shell and Swift analysis
+        run: zsh scripts/lint.sh
+      - name: Source, translations and documentation
+        run: |
+          python3 scripts/check-localization.py
+          python3 scripts/check-repository.py
+          python3 -m unittest discover -s Tests/ReleasePipeline -p 'test_*.py' -v
+      - name: Full Git history secret scan
+        run: python3 scripts/check-secrets.py
+  build:
+    name: Build and test
+    uses: ./.github/workflows/build.yml
+    with:
+      release-tag: ${{ inputs.release-tag || '' }}
+  security:
+    name: Code analysis
+    uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+  required:
+    name: CI passed
+    if: always()
+    needs: [quality, build, security]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every check to pass
+        env:
+          PULSE_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          jobs = json.loads(os.environ['PULSE_JOB_RESULTS'])
+          failed = [name for name, job in jobs.items() if job['result'] != 'success']
+          if failed:
+              sys.exit('Required checks did not pass: ' + ', '.join(failed))
+          print('All required checks passed')
+          PY

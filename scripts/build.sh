@@ -4,18 +4,24 @@ task_root="${0:A:h:h}"
 cd "$task_root"
 task_config="${PULSE_BUILD_CONFIGURATION:-release}"
 task_version="${PULSE_BUILD_VERSION:-$(cat VERSION)}"
-task_build="${PULSE_BUILD_NUMBER:-3}"
-swift build -c "$task_config"
-task_app="$task_root/dist/Garmin Pulse.app"
+task_build="${PULSE_BUILD_NUMBER:-4}"
+task_arch="${PULSE_BUILD_ARCHITECTURE:-$(uname -m)}"
+task_dist="${PULSE_OUTPUT_DIR:-$task_root/dist}"
+task_dist="${task_dist:A}"
+[[ "$task_version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || { print -u2 'Invalid release version'; exit 1; }
+[[ "$task_build" =~ '^[0-9]+$' ]] || { print -u2 'Invalid build number'; exit 1; }
+[[ "$task_arch" == arm64 || "$task_arch" == x86_64 ]] || { print -u2 'Unsupported architecture'; exit 1; }
+swift build -c "$task_config" --arch "$task_arch"
+task_app="$task_dist/WristBeam.app"
 mkdir -p "$task_app/Contents/MacOS" "$task_app/Contents/Resources"
-cp ".build/$task_config/GarminPulse" "$task_app/Contents/MacOS/GarminPulse.next"
+cp ".build/$task_arch-apple-macosx/$task_config/GarminPulse" "$task_app/Contents/MacOS/GarminPulse.next"
 mv "$task_app/Contents/MacOS/GarminPulse.next" "$task_app/Contents/MacOS/GarminPulse"
 cat > "$task_app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleName</key><string>Garmin Pulse</string>
-<key>CFBundleDisplayName</key><string>Garmin Pulse</string>
+<key>CFBundleName</key><string>WristBeam</string>
+<key>CFBundleDisplayName</key><string>WristBeam</string>
 <key>CFBundleExecutable</key><string>GarminPulse</string>
 <key>CFBundleIdentifier</key><string>cn.wenyankong.garminpulse</string>
 <key>CFBundlePackageType</key><string>APPL</string>
@@ -39,11 +45,12 @@ PLIST
 mkdir -p "$task_app/Contents/Resources/Localization"
 cp Sources/GarminBar/Resources/Localization/en.json "$task_app/Contents/Resources/Localization/en.json"
 cp scripts/update-helper.sh "$task_app/Contents/Resources/update-helper.sh"
-swift scripts/make-icon.swift "$task_root/dist/AppIcon.iconset"
-iconutil -c icns "$task_root/dist/AppIcon.iconset" -o "$task_app/Contents/Resources/AppIcon.icns"
+cp LICENSE "$task_app/Contents/Resources/LICENSE"
+swift scripts/make-icon.swift "$task_dist/AppIcon.iconset"
+iconutil -c icns "$task_dist/AppIcon.iconset" -o "$task_app/Contents/Resources/AppIcon.icns"
 codesign --force --sign - --identifier cn.wenyankong.garminpulse "$task_app"
 codesign --verify --deep --strict "$task_app"
 plutil -lint "$task_app/Contents/Info.plist"
-ditto -c -k --keepParent "$task_app" "$task_root/dist/GarminPulse-macOS.zip"
-cp "$task_root/dist/GarminPulse-macOS.zip" "$task_root/dist/GarminPulse-macOS-$(uname -m).zip"
+ditto -c -k --keepParent "$task_app" "$task_dist/WristBeam-macOS.zip"
+cp "$task_dist/WristBeam-macOS.zip" "$task_dist/WristBeam-macOS-$task_arch.zip"
 printf '%s\n' "$task_app"

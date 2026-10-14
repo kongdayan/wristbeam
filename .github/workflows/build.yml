@@ -1,0 +1,60 @@
+name: macOS build
+on:
+  workflow_call:
+    inputs:
+      release-tag:
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  macos:
+    name: ${{ matrix.label }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            label: macOS 14 · Apple Silicon
+            arch: arm64
+            artifact: package-macos14-arm64
+          - runner: macos-15
+            label: macOS 15 · Apple Silicon
+            arch: arm64
+            artifact: release-arm64
+          - runner: macos-15-intel
+            label: macOS 15 · Intel
+            arch: x86_64
+            artifact: release-x86_64
+          - runner: macos-26
+            label: macOS 26 · Apple Silicon
+            arch: arm64
+            artifact: package-macos26-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate architecture and version
+        env:
+          PULSE_EXPECTED_ARCH: ${{ matrix.arch }}
+          PULSE_RELEASE_TAG: ${{ inputs.release-tag }}
+        run: |
+          test "$(uname -m)" = "$PULSE_EXPECTED_ARCH"
+          python3 scripts/check-release.py --tag "$PULSE_RELEASE_TAG"
+          swift --version
+      - name: Core regression checks
+        run: python3 scripts/test-core.py
+      - name: Native XCTest suite
+        run: swift test
+      - name: Build and sign application
+        run: zsh scripts/build.sh
+      - name: Validate real signed package
+        run: python3 scripts/test-updater.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/WristBeam-macOS-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          retention-days: 14

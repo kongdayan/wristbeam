@@ -1,0 +1,47 @@
+name: Device support / 设备支持反馈
+description: Help verify a model and firmware without sharing private data.
+title: '[Device] '
+body:
+  - type: markdown
+    attributes:
+      value: 'Record the exact model/firmware and what succeeded. Never attach account identifiers, original FIT, raw health data or device serials. 请记录具体型号、固件与成功步骤，不上传账户标识、原始记录或序列号。'
+  - type: input
+    id: model
+    attributes:
+      label: Exact watch model / 具体型号
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version / 固件版本
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: App version, macOS, Mac architecture / 软件版本与 Mac 环境
+    validations:
+      required: true
+  - type: dropdown
+    id: region
+    attributes:
+      label: Account region / 账户区域
+      options: [China, Global, Not signed in]
+  - type: checkboxes
+    id: success
+    attributes:
+      label: Verified capabilities / 实际验证成功的能力
+      options:
+        - label: Pairing / 配对
+        - label: Fresh Garmin notifications / 新的佳明实时通知
+        - label: Original FIT download / 原 FIT 下载
+        - label: Cloud accepted upload / 云端接收上传
+        - label: Daily cloud charts / 云端全天图表
+        - label: Solar records / 太阳能记录
+  - type: textarea
+    id: details
+    attributes:
+      label: Available metrics, errors and sanitized evidence / 可用指标、错误与脱敏证据
+    validations:
+      required: true

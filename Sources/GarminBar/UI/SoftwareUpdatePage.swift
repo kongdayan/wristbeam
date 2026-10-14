@@ -10,7 +10,7 @@ struct SoftwareUpdatePage: View {
             PulseCard {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        Label(L10n.text("Garmin Pulse"), systemImage: "waveform.path.ecg").font(PulseTheme.font(size: 18, weight: .semibold))
+                        Label(L10n.text("腕映"), systemImage: "waveform.path.ecg").font(PulseTheme.font(size: 18, weight: .semibold))
                         Spacer()
                         Text(L10n.text("v\(updater.currentVersion)")).font(PulseTheme.font(size: 15, design: .monospaced))
                     }

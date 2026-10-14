@@ -48,7 +48,7 @@ struct MetricCard: View {
         Button { model.openMetric(kind) } label: {
         VStack(alignment: .leading, spacing: compact ? 9 : 14) {
             HStack {
-                Image(systemName: kind.symbol).foregroundStyle(PulseTheme.color(kind))
+                MetricIcon(kind: kind).foregroundStyle(PulseTheme.color(kind))
                 Text(L10n.text(kind.title)).font(PulseTheme.font(size: compact ? 11 : 13, weight: .medium)).foregroundStyle(PulseTheme.secondary).lineLimit(2)
                 Spacer(minLength: 0)
                 if !compact { Image(systemName: "chevron.right").font(PulseTheme.font(size: 8)).foregroundStyle(PulseTheme.secondary) }

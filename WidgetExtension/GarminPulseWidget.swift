@@ -33,12 +33,12 @@ struct PulseSystemWidgetView: View {
         VStack(alignment: .leading, spacing: family == .systemSmall ? 8 : 12) {
             HStack(spacing: 6) {
                 Image(systemName: "waveform.path.ecg").foregroundStyle(.green)
-                Text("Garmin Pulse").font(.system(size: 12, weight: .semibold))
+                Text("WristBeam").font(.system(size: 12, weight: .semibold))
                 Spacer(minLength: 0)
                 if family != .systemSmall { Text(entry.snapshot.generatedAt, style: .time).font(.system(size: 10)).foregroundStyle(.secondary) }
             }
             if readings.isEmpty {
-                Text("打开 Garmin Pulse，选择指标并连接手表。").font(.system(size: 12)).foregroundStyle(.secondary)
+                Text("打开 WristBeam，选择指标并连接手表。").font(.system(size: 12)).foregroundStyle(.secondary)
                 Spacer()
             } else {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: columns), spacing: 10) {
@@ -105,7 +105,7 @@ struct PulseSystemWidgetView: View {
 struct GarminPulseHealthWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: PulseWidgetSnapshot.widgetKind, provider: PulseWidgetProvider()) { PulseSystemWidgetView(entry: $0) }
-            .configurationDisplayName("Garmin Pulse 健康指标")
+            .configurationDisplayName("WristBeam 健康指标")
             .description("显示所选指标和更新时间。打开应用设置内容，点按查看全天趋势。")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }

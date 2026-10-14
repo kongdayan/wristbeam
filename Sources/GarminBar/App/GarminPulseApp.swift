@@ -23,6 +23,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
     private var floatingPanel: NSPanel?
     private var subscriptions: Set<AnyCancellable> = []
     private var controlObserver: NSObjectProtocol?
+    private var menuAppearanceObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if PulseRuntime.isPreview { model.enablePreview() }
@@ -32,6 +33,11 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
             guard let self, self.model.floatingEnabled else { return }; self.setFloating(true)
         }
         model.onAppearanceChange = { [weak self] in self?.applyAppearance() }
+        model.onShowMenu = { [weak self] in
+            guard let self else { return }
+            if self.model.preview { self.settingsWindow?.orderOut(nil); self.floatingPanel?.orderOut(nil) }
+            self.togglePopover(nil)
+        }
         model.onQuit = { NSApplication.shared.terminate(nil) }
         model.updater.canInstall = { [weak self] in self?.model.uploads.isSyncing == false && self?.model.bluetooth.isTransferringFiles == false && self?.model.preview == false }
         model.updater.onConfirmation = { [weak self] in self?.confirmUpdate() }
@@ -58,17 +64,29 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
         if let button = statusItem.button {
             button.target = self; button.action = #selector(togglePopover(_:))
             button.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-            button.toolTip = "Garmin Pulse · 心率、身体压力与步数"
         }
         popover = NSPopover(); popover.behavior = .transient
         popover.contentSize = NSSize(width: 420, height: 500)
         popover.contentViewController = NSHostingController(rootView: MenuPopover(model: model))
         model.objectWillChange.receive(on: RunLoop.main).sink { [weak self] in
-            DispatchQueue.main.async { self?.statusItem.button?.title = self?.model.menuText ?? "Garmin Pulse" }
+            DispatchQueue.main.async { self?.refreshStatusItem() }
         }.store(in: &subscriptions)
-        statusItem.button?.title = model.menuText
+        menuAppearanceObserver = DistributedNotificationCenter.default().addObserver(forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
+            DispatchQueue.main.async { self?.refreshStatusItem() }
+        }
+        refreshStatusItem()
         if model.floatingEnabled { setFloating(true) }
         showSettings(.overview)
+        if model.preview {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self else { return }
+                self.exportPreviewWindow()
+                let windows = NSApp.windows.map { ["title": $0.title, "visible": $0.isVisible, "frame": NSStringFromRect($0.frame)] as [String: Any] }
+                if let data = try? JSONSerialization.data(withJSONObject: windows) {
+                    try? GarminPrivateFile.write(data, to: AppPaths.directory("Showcase").appendingPathComponent("window-geometry.json"))
+                }
+            }
+        }
         if !model.preview && model.bluetooth.autoReconnect { model.bluetooth.reconnectSaved() }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(wokeUp), name: NSWorkspace.didWakeNotification, object: nil)
         if !model.preview {
@@ -77,7 +95,29 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showSettings(.overview); return true }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettings(.overview); return true
+    }
+
+    private func refreshStatusItem() {
+        guard let button = statusItem?.button else { return }
+        let selected = model.menuVisibleMetrics
+        let title = NSMutableAttributedString(string: "")
+        for kind in selected.prefix(5) {
+            if title.length > 0 { title.append(NSAttributedString(string: "   ")) }
+            let attachment = NSTextAttachment()
+            attachment.image = MetricIconArtwork.menuImage(for: kind, appearance: button.effectiveAppearance)
+            attachment.bounds = NSRect(x: 0, y: -4, width: 18, height: 18)
+            title.append(NSAttributedString(attachment: attachment))
+            title.append(NSAttributedString(string: " \(model.display(kind))"))
+        }
+        if selected.count > 5 { title.append(NSAttributedString(string: "  +\(selected.count - 5)")) }
+        title.addAttributes([.font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.labelColor], range: NSRange(location: 0, length: title.length))
+        button.attributedTitle = title
+        button.image = selected.isEmpty ? NSImage(systemSymbolName: "waveform.path.ecg", accessibilityDescription: "WristBeam") : nil
+        button.toolTip = model.menuAccessibilityText
+        button.setAccessibilityLabel(model.menuAccessibilityText)
+    }
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             if let destination = PulseWidgetLink.destination(url), let kind = MetricKind(rawValue: destination.metricID) {
@@ -90,20 +130,52 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
     @objc private func togglePopover(_ sender: Any?) {
         guard let button = statusItem.button else { return }
         if popover.isShown { popover.performClose(sender) }
-        else { popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY); NSApp.activate(ignoringOtherApps: true) }
+        else {
+            if model.preview { captureShowcase(button, name: "menu-bar.png") }
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.title = "WristBeam Menu"
+            NSApp.activate(ignoringOtherApps: true)
+            if model.preview {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                    guard let self, self.popover.isShown, let view = self.popover.contentViewController?.view else { return }
+                    view.layoutSubtreeIfNeeded(); view.displayIfNeeded()
+                    self.captureShowcase(view, name: "menu-popup.png")
+                }
+            }
+        }
+    }
+
+    private func captureShowcase(_ view: NSView, name: String) {
+        guard model.preview, view.bounds.width > 0, view.bounds.height > 0,
+              let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * 3), pixelsHigh: Int(view.bounds.height * 3), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return }
+        bitmap.size = view.bounds.size
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        if let data = bitmap.representation(using: .png, properties: [:]) {
+            try? GarminPrivateFile.write(data, to: AppPaths.directory("Showcase").appendingPathComponent(name))
+        }
+    }
+
+    @objc private func exportPreviewWindow() {
+        guard model.preview, let view = settingsWindow?.contentView else { return }
+        view.layoutSubtreeIfNeeded(); view.displayIfNeeded()
+        captureShowcase(view, name: "window.png")
     }
 
     func showSettings(_ page: AppPage) {
         model.page = page; popover?.performClose(nil)
         if settingsWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1020, height: 740), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            window.title = "Garmin Pulse"
+            let window = PulseSettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 1020, height: 740), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+            window.title = L10n.text("腕映")
             window.titlebarAppearsTransparent = true
             window.backgroundColor = NSColor(PulseTheme.background)
             window.minSize = NSSize(width: 880, height: 640)
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(rootView: SettingsRootView(model: model))
-            window.center(); window.setFrameAutosaveName("GarminPulseSettings")
+            if model.preview, let screen = NSScreen.screens.first {
+                window.setFrameOrigin(NSPoint(x: screen.visibleFrame.minX + 40, y: screen.visibleFrame.maxY - window.frame.height - 60))
+            } else { window.center() }
+            if model.preview { window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]; window.onPreviewSnapshot = { [weak self] in self?.exportPreviewWindow() } }
+            else { window.setFrameAutosaveName("GarminPulseSettings") }
             settingsWindow = window
         }
         applyAppearance(); settingsWindow?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
@@ -113,7 +185,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
         if !enabled { floatingPanel?.orderOut(nil); return }
         if floatingPanel == nil {
             let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: model.floatingWidth, height: model.floatingHeight), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-            panel.title = "Garmin Pulse 浮动指标"
+            panel.title = "WristBeam 浮动指标"
             panel.isFloatingPanel = true; panel.level = .floating
             panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -155,9 +227,20 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
 
     private func applyAppearance() {
         let appearance = model.appearance == .system ? nil : NSAppearance(named: model.appearance == .light ? .aqua : .darkAqua)
-        settingsWindow?.appearance = appearance; floatingPanel?.appearance = appearance
+        settingsWindow?.appearance = appearance; settingsWindow?.title = L10n.text("腕映"); floatingPanel?.appearance = appearance
         popover?.appearance = appearance
-        statusItem?.button?.toolTip = L10n.text("Garmin Pulse · 心率、身体压力与步数")
-        floatingPanel?.title = L10n.text("Garmin Pulse 浮动指标")
+        refreshStatusItem()
+        floatingPanel?.title = L10n.text("WristBeam 浮动指标")
+    }
+}
+
+@MainActor
+final class PulseSettingsWindow: NSWindow {
+    var onPreviewSnapshot: (() -> Void)?
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "s", let onPreviewSnapshot {
+            onPreviewSnapshot(); return true
+        }
+        return super.performKeyEquivalent(with: event)
     }
 }
