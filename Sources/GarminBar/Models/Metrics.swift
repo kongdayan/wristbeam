@@ -28,6 +28,7 @@ struct MetricKind: RawRepresentable, Codable, Hashable, CaseIterable, Identifiab
     var unit: String { L10n.text(definition.unit) }
     var symbol: String { definition.symbol }
     var group: MetricGroup { definition.group }
+    var isDeviceStatus: Bool { self == .watchBattery }
     var short: String { definition.short.isEmpty ? title : L10n.text(definition.short) }
     static var allCases: [Self] { definitions.map { Self(rawValue: $0.id)! } }
     static let heartRate = Self(rawValue: "heartRate")!

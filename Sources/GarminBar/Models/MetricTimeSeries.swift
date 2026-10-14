@@ -95,6 +95,7 @@ enum MetricSeriesStyle { case line, area, bars }
 extension MetricKind {
     static var dailyTimelineMetrics: [MetricKind] { [solarIntensity, heartRate, stress, bodyBattery, steps] + ["respiration", "spo2", "floors"].compactMap(Self.init(rawValue:)) }
     var timelineKind: MetricKind? {
+        if isDeviceStatus { return nil }
         if group == .live { return self }
         if group == .solar { return .solarIntensity }
         let key = definition.dailyKey ?? ""
@@ -114,7 +115,7 @@ extension MetricKind {
     var acceptsLiveTimeline: Bool {
         // These live counters are cumulative. Their cloud charts contain interval
         // increments, so putting a live total into a bar would corrupt the chart.
-        group == .live && !["steps", "floors", "pushes"].contains(rawValue)
+        group == .live && !isDeviceStatus && !["steps", "floors", "pushes"].contains(rawValue)
     }
     var seriesUnit: String { ["stress", "bodyBattery", "trainingReadiness"].contains(rawValue) ? L10n.text("点") : unit }
     var seriesExplanation: String {

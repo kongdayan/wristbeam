@@ -34,7 +34,7 @@ struct PairingGuide: View {
                     }.disabled(model.preview || bluetooth.access == .denied || bluetooth.access == .restricted)
                     if bluetooth.isScanning { ProgressView(L10n.text("在下方选择出现的 Garmin 手表…")).controlSize(.small) }
                 } else {
-                    Text(L10n.text("如 Mac 或手表出现配对码，请核对并确认。蓝牙连接后，还需要完成佳明通道注册、设备协商和文件握手。")).font(PulseTheme.font(size: 13)).lineSpacing(4)
+                    Text(L10n.text("如 Mac 或手表出现配对码，请核对并确认，然后等待连接完成。")).font(PulseTheme.font(size: 13)).lineSpacing(4)
                 }
                 VStack(alignment: .leading, spacing: 12) {
                     check("蓝牙连接", done: bluetooth.isConnected, detail: bluetooth.status)
@@ -64,7 +64,6 @@ struct PairingGuide: View {
                         Text(L10n.text("2. 搜到但连不上：暂时关闭手机蓝牙。重配对后，手表的蓝牙标识可能改变，请选择新扫描到的手表。"))
                         Text(L10n.text("3. 已连上但没有读数：核对系统与手表的确认提示；查看上方协议状态，再点“重新建立协议通道”。"))
                         Text(L10n.text("4. 有读数但文件不同步：登录手表绑定的同一区域、同一佳明账户。运动结束后要选择“保存”；待上传目录为空时，可在同步记录中读取最近一次运动。"))
-                        Text(L10n.text("5. 如果明确提示应用层加密或 CoreTransfer / MLR 未支持，本版本会显示该限制，已保存的文件继续保留。"))
                         Link(L10n.text("佳明本能 2 官方配对说明 ↗"), destination: URL(string: "https://www8.garmin.com/manuals/webhelp/GUID-31D23DBB-57C2-4DF7-A0C9-8D1A00AB4BE7/EN-US/GUID-4C14822E-F472-4C3A-B33C-BB50407ADDE5.html")!)
                     }.font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
                 }

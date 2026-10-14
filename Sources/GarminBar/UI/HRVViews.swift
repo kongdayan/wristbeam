@@ -57,8 +57,6 @@ struct HRVDetailView: View {
                     .disabled(model.preview || model.isRefreshingHealth || model.hrvLoading).buttonStyle(.bordered)
             }
             Text(L10n.text("夜间 HRV 与恢复趋势")).font(PulseTheme.font(size: 25, weight: .semibold))
-            Text(L10n.text("来自佳明云的睡眠期 HRV。与实时心搏间期（RR）分别展示，不计算或冒充实时 HRV。"))
-                .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
             HStack {
                 DatePicker(L10n.text("夜间记录日期"), selection: Binding(get: { day }, set: { selectedDay = $0; cursor = nil }), in: ...Date(), displayedComponents: .date)
                     .datePickerStyle(.field).frame(maxWidth: 270)
@@ -74,10 +72,9 @@ struct HRVDetailView: View {
                     Text(summary?.status?.title ?? "—").font(PulseTheme.font(size: 19, weight: .semibold))
                     if let lower = summary?.baselineLow, let upper = summary?.baselineHigh {
                         Text(L10n.format("个人基线：{0}–{1} 毫秒", number(lower), number(upper))).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                    } else { Text(L10n.text("云端尚未提供个人基线")).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary) }
+                    } else { Text(L10n.text("暂无个人基线")).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary) }
                 } }
             }
-            if summary?.weekly == nil { Text(L10n.text("云端尚未提供七天平均；已有夜间记录仍可查看。")).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary) }
             PulseCard {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -115,7 +112,7 @@ struct HRVDetailView: View {
                                 }
                             }
                     }
-                    Text(L10n.text("按真实夜间时间绘制，跨午夜记录保留；移动鼠标查看毫秒读数，缺测留空。"))
+                    Text(L10n.text("移动指针查看读数。"))
                         .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                     if !model.hrvMessage(for: day).isEmpty { Text(L10n.text(model.hrvMessage(for: day))).foregroundStyle(.orange) }
                 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2
+
+- Move watch battery to device information beside connection status, with a battery icon and percentage; exclude it from health selections, cards, sharing and history. Expose the latest battery reading in the developer status API.
+- Simplify device, settings, HRV and update pages by removing redundant subtitles and developer-facing notices.
+- Keep charts, missing values, connection guidance and actionable errors; update English translations to match.
+- Build application packages and showcase images in GitHub Actions.
+
 ## 0.3.1
 
 - Group settings into General, Appearance, Metrics, Refresh, Developer, Updates and About with native-sized preference rows.

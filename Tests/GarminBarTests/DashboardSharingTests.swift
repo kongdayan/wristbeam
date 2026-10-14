@@ -34,6 +34,7 @@ final class DashboardSharingTests: XCTestCase {
         XCTAssertNil(DashboardSharing.sanitizedSeries(nil))
     }
     func testEssentialsNeverInventUnsupportedCapabilities() {
-        XCTAssertEqual(DashboardSharing.basicMetrics.intersection([.heartRate, .steps, .watchBattery]), [.heartRate, .steps, .watchBattery])
+        XCTAssertEqual(DashboardSharing.basicMetrics.intersection([.heartRate, .steps, .watchBattery]), [.heartRate, .steps])
+        XCTAssertEqual(DashboardSharing.selected([metric(.watchBattery), metric(.steps)], ids: [.watchBattery, .steps], valueOnly: false).map(\.kind), [.steps])
     }
 }

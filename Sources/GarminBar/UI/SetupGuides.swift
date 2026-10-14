@@ -47,7 +47,7 @@ struct BackgroundConnectionGuide: View {
     var body: some View {
         PulseCard {
             VStack(alignment: .leading, spacing: 14) {
-                Text(L10n.text("按你的方式连接")).font(PulseTheme.font(size: 16, weight: .semibold))
+                Text(L10n.text("连接设置")).font(PulseTheme.font(size: 16, weight: .semibold))
                 Toggle(L10n.text("启动时连接已配对手表"), isOn: $bluetooth.connectsOnLaunch)
                     .disabled(bluetooth.access != .allowed || !bluetooth.hasSavedWatch)
                 Text(L10n.text("默认关闭。完成授权和首次配对后，可主动开启；以后启动只恢复已保存的手表，不会弹出首次授权。"))

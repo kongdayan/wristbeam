@@ -61,7 +61,7 @@ private struct FloatingReading: View {
     private var series: MetricDaySeries? { model.series(for:kind) }
     private var progress: Double? {
         guard let value = model.metrics[kind]?.value else { return nil }
-        if ["bodyBattery","stress","watchBattery","spo2"].contains(kind.rawValue) { return min(1,max(0,value / 100)) }
+        if ["bodyBattery","stress","spo2"].contains(kind.rawValue) { return min(1,max(0,value / 100)) }
         if kind == .steps, let goal = model.metrics[MetricKind(rawValue:"daily.dailyStepGoal")!]?.value, goal > 0 { return min(1,max(0,value / goal)) }
         return nil
     }

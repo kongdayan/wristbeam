@@ -27,6 +27,16 @@ import SwiftUI
         let output = URL(fileURLWithPath:CommandLine.arguments[1],isDirectory:true)
         let model = AppModel()
         model.enablePreview()
+        model.receive(MetricSample(kind:.watchBattery,value:77,source:"fixture"))
+        precondition(model.metrics[.watchBattery]?.value == 77)
+        precondition(model.history[.watchBattery] == nil && model.series(for:.watchBattery) == nil)
+        precondition(!model.availableMetricKinds.contains(.watchBattery))
+        let status = try model.developerQuery("status",arguments:[:]) as! [String:Any]
+        precondition((status["watchBattery"] as? [String:Any])?["percent"] as? Double == 77)
+        let catalog = try model.developerQuery("catalog",arguments:[:]) as! [String:Any]
+        let battery = (catalog["metrics"] as! [[String:Any]]).first { $0["id"] as? String == "watchBattery" }!
+        precondition(battery["deviceStatus"] as? Bool == true && battery["timeline"] as? Bool == false)
+        print("PASS device battery stays current without health history, selection or timeline")
         for english in [false,true] {
             model.language = english ? .en : .zhHans
             let language = english ? "en" : "zh"
@@ -38,19 +48,23 @@ import SwiftUI
                     for scale in [1.0,1.6] {
                         model.fontScale = scale
                         model.floatingSize = .small
-                        model.floatingMetrics = [.bodyBattery,.hrvNight,.watchBattery]
+                        model.floatingMetrics = [.bodyBattery,.hrvNight,.heartRate]
                         let name = "floating-\(language)-\(theme)-\(detailed ? "detailed" : "compact")-\(Int(scale*100))"
                         try render(FloatingPulseView(model:model),name:name,dark:dark,output:output)
                     }
                 }
                 model.fontScale = 1.15
-                for page in [AppPage.overview,.settings,.appearance,.developer,.updates,.about] {
+                for page in [AppPage.overview,.watch,.settings,.appearance,.developer,.updates,.about] {
                     model.page = page
                     try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
+                try render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
+                model.page = .overview; model.detailMetric = .hrvNight
+                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)
+                model.detailMetric = nil
             }
         }
-        print("PASS: 40 production-view renders; Chinese/English, light/dark, compact/detailed, 100%/160% font")
+        print("PASS: 52 production-view renders; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font")
     }
     @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL) throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))

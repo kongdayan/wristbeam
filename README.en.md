@@ -66,14 +66,14 @@ Support depends on firmware and available services; an entire family is not assu
 | Respiration, SpO₂ | Measurements emitted by watch / cloud | Readings, daily trends |
 | RR intervals | Bluetooth | Milliseconds; not an overnight HRV score |
 | Overnight HRV | Cloud sleep records | Nightly / seven-day average, status, baseline and night chart; missing fields stay empty |
-| Watch battery | Garmin Bluetooth protocol | Verified on Instinct 2; change notifications + periodic refresh |
+| Watch battery | Garmin Bluetooth protocol | Battery icon and percentage beside device status; change notifications + periodic refresh |
 | Calories, floors, intensity minutes | Fields supplied by watch / cloud | Daily totals; some interval data |
 | Resting heart rate, sleep duration, recovery summaries | Daily cloud summary | Summary values and related trends |
 | Solar intensity | Valid cloud minute records | Midnight-to-midnight curve |
 | Sunlight / solar charging duration | Estimated from valid input minutes | Explicitly labeled estimates |
 | Activity and health FIT | Original watch files | Retained locally, uploaded to cloud |
 
-The catalog has **61 metric definitions**. Only metrics with valid received data appear; availability varies by watch. [Full catalog and evidence](docs/METRICS.md).
+The catalog has **60 health metrics and one device-status field**. Only metrics with valid received data appear; availability varies by watch. [Full catalog and evidence](docs/METRICS.md).
 
 ## Install
 

@@ -245,10 +245,10 @@ final class AppModel: ObservableObject {
     func refreshMetricsNow() { Task { await refreshHealthMetrics(force: true) } }
     func widgetSnapshot() -> PulseWidgetSnapshot {
         let day = Calendar.current.startOfDay(for: now)
-        let readings = MetricKind.allCases.filter { widgetMetrics.contains($0) }.map { kind -> PulseWidgetReading in
+        let readings = MetricKind.allCases.filter { !$0.isDeviceStatus && widgetMetrics.contains($0) }.map { kind -> PulseWidgetReading in
             let sample = metrics[kind], series = series(for: kind)
             let canonical = kind.timelineKind ?? kind
-            let fixedRange = ["solarIntensity", "bodyBattery", "stress", "spo2", "watchBattery", "trainingReadiness"].contains(canonical.rawValue)
+            let fixedRange = ["solarIntensity", "bodyBattery", "stress", "spo2", "trainingReadiness"].contains(canonical.rawValue)
             let lower = fixedRange || canonical.seriesStyle == .bars ? 0 : max(0, (series?.minimum ?? 0) - 5)
             let upper = fixedRange ? 100 : max(lower + 1, (series?.maximum ?? 1) * 1.1 + 5)
             let segments = (series?.segments ?? []).map { segment in segment.map { PulseWidgetPoint(seconds: max(0, $0.timestamp.timeIntervalSince(day)), value: $0.value!, endSeconds: $0.end.map { $0.timeIntervalSince(day) }) } }
@@ -297,6 +297,7 @@ final class AppModel: ObservableObject {
     func receive(_ sample: MetricSample) {
         if sample.origin != .watch, let current = metrics[sample.kind], current.origin == .watch, !isStale(sample.kind) { return }
         metrics[sample.kind] = sample; metricNotes.removeValue(forKey: sample.kind)
+        guard !sample.kind.isDeviceStatus else { return }
         var points = history[sample.kind] ?? []; points.append(sample)
         if points.count > 60 { points.removeFirst(points.count - 60) }
         history[sample.kind] = points
@@ -376,7 +377,8 @@ final class AppModel: ObservableObject {
     }
 
     func developerCachedSeries(kind: MetricKind, day: Date) -> MetricDaySeries? {
-        series(for: kind, day: day) ?? seriesStore?.load(day: day)[kind.timelineKind ?? kind]
+        guard !kind.isDeviceStatus else { return nil }
+        return series(for: kind, day: day) ?? seriesStore?.load(day: day)[kind.timelineKind ?? kind]
     }
     func series(for kind: MetricKind, day: Date? = nil) -> MetricDaySeries? {
         if kind.isOvernightHRV { return hrvReport?.trend(kind) }
@@ -386,7 +388,7 @@ final class AppModel: ObservableObject {
     func mergeSeries(_ incoming: [MetricKind: MetricDaySeries], day: Date) {
         let key = GarminHealthMetrics.calendarDate(day)
         var collection = seriesDays[key] ?? [:]
-        for (kind, series) in incoming { collection[kind] = collection[kind].map { $0.merging(series) } ?? series }
+        for (kind, series) in incoming where !kind.isDeviceStatus { collection[kind] = collection[kind].map { $0.merging(series) } ?? series }
         seriesDays[key] = collection
         // Bound memory without deleting stored history. Requested dates reload.
         if seriesDays.count > 10, let oldest = seriesDays.keys.sorted().first, oldest != key { seriesDays.removeValue(forKey: oldest) }
@@ -430,6 +432,7 @@ final class AppModel: ObservableObject {
         }
     }
     func openMetric(_ kind: MetricKind, day: Date? = nil) {
+        if kind.isDeviceStatus { openSettings(.watch); return }
         detailDay = day ?? Date(); openSettings(.overview); detailMetric = kind
         Task { await refreshSeries(day: detailDay) }
     }
@@ -543,7 +546,7 @@ final class AppModel: ObservableObject {
             receive(MetricSample(kind: MetricKind(rawValue: id)!, value: value, source: "演示", origin: .cloud))
         }
         dashboardMetrics = [.heartRate, .bodyBattery, .stress, .steps, .solarIntensity, .sunlightMinutes, MetricKind(rawValue: "daily.restingHeartRate")!, MetricKind(rawValue: "respiration")!, MetricKind(rawValue: "spo2")!]
-        dashboardMetrics.formUnion([.hrvNight, .hrvWeekly, .hrvStatus, MetricKind(rawValue: "hrv")!, .watchBattery])
+        dashboardMetrics.formUnion([.hrvNight, .hrvWeekly, .hrvStatus, MetricKind(rawValue: "hrv")!])
         dashboardColumns = 3; cardSize = .regular; fontScale = 1.15
         let day = Calendar.current.startOfDay(for: Date()), minute = min(1439, Int(Date().timeIntervalSince(day) / 60))
         for kind in [MetricKind.heartRate, .bodyBattery, .stress, .solarIntensity, MetricKind(rawValue: "respiration")!, MetricKind(rawValue: "spo2")!] {

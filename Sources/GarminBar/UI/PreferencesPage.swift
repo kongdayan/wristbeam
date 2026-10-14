@@ -20,7 +20,7 @@ struct PreferencesPage: View {
     private var general: some View {
         VStack(spacing:23) {
             PreferenceBlock(title:"语言与地区") {
-                PreferenceLine(title:"语言 / Language",note:"云服务区域随设备账号设置，语言选择不会切换账户。") {
+                PreferenceLine(title:"语言 / Language") {
                     Picker("",selection:$model.language) { ForEach(PulseLanguage.allCases) { Text(L10n.text($0.title)).tag($0) } }.labelsHidden()
                 }
             }
@@ -46,7 +46,7 @@ struct PreferencesPage: View {
                 PreferenceLine(title:"颜色模式") {
                     Picker("",selection:$model.appearance) { ForEach(PulseAppearance.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.segmented).labelsHidden()
                 }
-                PreferenceLine(title:"字体大小",note:"字体大小应用于看板、图表、设置、菜单弹窗和浮窗。") {
+                PreferenceLine(title:"字体大小") {
                     HStack { Slider(value:$model.fontScale,in:1...1.6,step:0.05); Text("\(Int((model.fontScale * 100).rounded()))%").monospacedDigit().frame(width:45) }
                 }
             }
@@ -58,7 +58,7 @@ struct PreferencesPage: View {
                 PreferenceLine(title:"浮窗尺寸") {
                     Picker("",selection:$model.floatingSize) { ForEach(PulsePanelSize.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.segmented).labelsHidden()
                 }
-                PreferenceLine(title:"指标选择",note:"点击浮窗图标切换指标；横向滚动查看更多，不显示滚动条。") { Button(L10n.text("选择指标")) { model.page = .metricSelection } }
+                PreferenceLine(title:"指标选择",note:"点击图标切换指标，横向滚动查看更多。") { Button(L10n.text("选择指标")) { model.page = .metricSelection } }
             }
             PreferenceBlock(title:"健康看板") {
                 PreferenceLine(title:"看板每行") {
@@ -70,7 +70,7 @@ struct PreferencesPage: View {
     }
     private var refresh: some View {
         PreferenceBlock(title:"指标刷新") {
-            PreferenceLine(title:"自动刷新云端指标与全天曲线",note:"实时指标按佳明协议通知更新。云端按设置定时刷新，上传完成后立即刷新。连接恢复后继续同步。") { Toggle("",isOn:$model.autoRefreshMetrics).labelsHidden().toggleStyle(.switch) }
+            PreferenceLine(title:"自动刷新云端指标与全天曲线",note:"按设定间隔刷新，文件同步完成后立即更新。") { Toggle("",isOn:$model.autoRefreshMetrics).labelsHidden().toggleStyle(.switch) }
             PreferenceLine(title:"指标刷新间隔") { Picker("",selection:$model.metricRefreshInterval) { Text(L10n.text("1 分钟")).tag(1); Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15) }.labelsHidden().disabled(!model.autoRefreshMetrics) }
             PreferenceLine(title:"刷新同步指标") { Button(L10n.text("立即刷新指标与曲线")) { model.refreshMetricsNow() }.disabled(model.preview || !model.cloud.isAuthenticated || model.isRefreshingHealth) }
         }
@@ -84,12 +84,11 @@ struct PreferencesPage: View {
                 Text("v\(model.updater.currentVersion) · \(Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "—")").font(PulseTheme.font(size:12,design:.monospaced))
             }.frame(maxWidth:.infinity).padding(.vertical,18)
             PreferenceBlock(title:"开源项目") {
-                PreferenceLine(title:"源代码",note:"独立开源的 macOS 健康伴侣，采用 MIT 许可证。") { Link("GitHub ↗",destination:URL(string:"https://github.com/kongdayan/wristbeam")!) }
+                PreferenceLine(title:"源代码") { Link("GitHub ↗",destination:URL(string:"https://github.com/kongdayan/wristbeam")!) }
                 PreferenceLine(title:"提交反馈 ↗") { Link(L10n.text("提交反馈 ↗"),destination:URL(string:"https://github.com/kongdayan/wristbeam/issues")!) }
                 PreferenceLine(title:"开源许可") { Link("MIT License ↗",destination:URL(string:"https://github.com/kongdayan/wristbeam/blob/main/LICENSE")!) }
                 PreferenceLine(title:"软件更新") { Button(L10n.text("检查更新")) { model.page = .updates } }
             }
-            Text(L10n.text("目前兼容 Garmin（佳明）设备，与设备厂商无隶属关系。")).font(PulseTheme.font(size:11)).foregroundStyle(PulseTheme.secondary)
         }
     }
 }

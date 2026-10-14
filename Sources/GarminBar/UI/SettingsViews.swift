@@ -51,7 +51,6 @@ struct SettingsRootView: View {
                     HStack { StatusDot(active: model.cloud.isAuthenticated); Text(L10n.text(model.cloud.isAuthenticated ? "\(model.cloud.region.title)已连接" : "账户待登录")) }
                 }.font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                 HStack {
-                    Text(L10n.text("本能 2 太阳能 · macOS")).font(PulseTheme.font(size: 9)).foregroundStyle(Color.primary.opacity(0.25))
                     Spacer()
                     Button(L10n.text("退出")) { model.onQuit?() }.buttonStyle(.plain).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                 }.padding(.bottom, 10)
@@ -80,18 +79,8 @@ struct SettingsRootView: View {
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
     }
     private var pageHeader: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title)).font(PulseTheme.font(size: 27, weight: .semibold))
-            Text(L10n.text(subtitle)).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
-        }
-    }
-    private var subtitle: String {
-        switch model.page {
-        case .overview: return "让手表的数据，在你的 Mac 上安静地流动。"
-        case .watch, .account: return "目前兼容 Garmin（佳明）手表，后续可扩展其他品牌和设备。"
-        case .sync: return "实时读数保存在本地，手表文件进入持久上传队列。"
-        case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about: return "按你的习惯设置腕映。"
-        }
+        Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title))
+            .font(PulseTheme.font(size: 27, weight: .semibold))
     }
 }
 
@@ -195,7 +184,7 @@ struct WatchPage: View {
             PairingGuide(model: model)
             PulseCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.status)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer() }
+                    HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.status)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer(); WatchBatteryBadge(model: model) }
                     Text(L10n.text(bluetooth.bluetoothStatus)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                     HStack(spacing: 10) {
                         if bluetooth.isConnected || bluetooth.isConnecting { Button(L10n.text(bluetooth.isConnecting ? "取消连接" : "断开")) { bluetooth.disconnect() }.buttonStyle(.bordered) }
@@ -229,13 +218,12 @@ struct WatchPage: View {
                 }
             }
             Toggle(L10n.text("显示其他附近设备"), isOn: $bluetooth.showAllDevices).font(PulseTheme.font(size: 11)).toggleStyle(.checkbox)
-            Text(L10n.text("按蓝牙标识去重，扫描时清理 20 秒未出现的设备，最多显示 40 台，佳明手表优先。相同名称可能属于不同设备。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
             BackgroundConnectionGuide(bluetooth: bluetooth)
             if bluetooth.isConnected {
                 PulseCard {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(L10n.text("已发现的指标")).font(PulseTheme.font(size: 13, weight: .semibold))
-                        ForEach(MetricKind.allCases.filter { $0.definition.service != nil || $0 == .watchBattery }) { kind in
+                        ForEach(MetricKind.allCases.filter { !$0.isDeviceStatus && $0.definition.service != nil }) { kind in
                             HStack { MetricIcon(kind: kind).foregroundStyle(PulseTheme.color(kind)); Text(L10n.text(kind.title)); Spacer(); Text(L10n.text(bluetooth.availableMetrics.contains(kind) ? "已收到或已发现" : bluetooth.registeredMetrics.contains(kind) ? "已订阅，等待读数" : "未开放或待检测")).foregroundStyle(PulseTheme.secondary) }.font(PulseTheme.font(size: 12))
                         }
                         Divider().overlay(Color.primary.opacity(0.07))
@@ -261,7 +249,6 @@ struct AccountPage: View {
                     }.pickerStyle(.segmented).disabled(model.uploads.isSyncing)
                     Text(L10n.text("先选择手表绑定的账户区域：中国账户使用佳明中国，其他账户使用国际区。请选择同一个佳明账号，避免文件归属不匹配。"))
                         .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
-                    Text(L10n.text("中国与国际账户分别保存登录授权、关联设备、图表缓存和上传任务。切换区域会保留另一边的会话与记录。")).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
                 }
             }
             PulseCard {
@@ -308,7 +295,7 @@ struct AccountPage: View {
                             }.onChange(of: cloud.deviceId) { value in model.watchUnitID = value }
                         }
                         TextField(L10n.text("设备编号（连接手表后自动识别）"), text: $model.watchUnitID).textFieldStyle(.roundedBorder)
-                        Text(L10n.text("\(cloud.devices.count) 台设备已关联当前账户。原始文件的设备归属保持不变。"))
+                        Text(L10n.text("\(cloud.devices.count) 台设备已关联当前账户。"))
                             .font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                     }
                 }
