@@ -74,7 +74,7 @@
 | Intel | [x86_64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-x86_64.zip) |
 | 両方のアーキテクチャ | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
 
-macOS 13 以降が必要です。展開して書き込み可能な Applications フォルダへ移し、Bluetooth を許可してください。時計で「スマートフォン → ペアリング」を開き、心拍ブロードキャストはオフにします。アプリのガイドに従い、中国／グローバルを選んで Garmin 公式ページでログインします。
+macOS 13 以降が必要です。展開して書き込み可能な Applications フォルダへ移します。「デバイス → 接続」で心拍ブロードキャストをオフにした時計を準備し、接続ボタンを押して Bluetooth を許可します。デバイスアカウントで中国／グローバルを選び、Garmin 公式ページでログイン後、同期履歴で手動／自動アップロードを選びます。起動時の自動接続は既定でオフです。ペアリング後に有効にできます。
 
 アドホック署名で、Apple 公証は未実施です。実際のグローバルアカウント送信と他のファームウェアは未検証。アプリ層暗号化、native MLR / CoreTransfer、デスクトップウィジェットは未対応です。Mac のスリープ中は即時同期できません。[検証範囲](VERIFICATION.md)。
 

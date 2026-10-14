@@ -6,6 +6,7 @@ import Combine
 enum GarminPulseMain {
     @MainActor static func main() {
         if PulseLocalControl.handleCommandLine() { return }
+        AppPreferences.shared.prepareSetupDefaults()
         let app = NSApplication.shared
         let delegate = PulseAppDelegate()
         app.delegate = delegate
@@ -87,7 +88,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
-        if !model.preview && model.bluetooth.autoReconnect { model.bluetooth.reconnectSaved() }
+        model.bluetooth.connectAutomaticallyAtLaunch()
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(wokeUp), name: NSWorkspace.didWakeNotification, object: nil)
         if !model.preview {
             Task { await model.updater.check(automatic: true) }
@@ -204,7 +205,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
         floatingPanel?.orderFrontRegardless()
     }
 
-    @objc private func wokeUp() { if model.bluetooth.autoReconnect && !model.preview { model.bluetooth.reconnectSaved() } }
+    @objc private func wokeUp() { if !model.preview { model.bluetooth.resumeRequestedConnection() } }
 
     private func confirmUpdate() {
         guard let release = model.updater.release, model.updater.available, !model.updater.isInstalling else { return }

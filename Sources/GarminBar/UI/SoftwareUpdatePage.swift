@@ -40,6 +40,8 @@ struct SoftwareUpdatePage: View {
                     Text(L10n.text("更新设置")).font(PulseTheme.font(size: 16, weight: .semibold))
                     Toggle(L10n.text("自动检查新版本"), isOn: $updater.automaticChecks).toggleStyle(.switch)
                     Text(L10n.text("启动后检查，运行期间每 12 小时检查一次。发现新版本时提示，确认后才下载和安装。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                    Text(L10n.text("检查只查询 GitHub 的版本信息。升级按“查看版本 → 确认下载 → 校验并重启”进行；正在同步时等任务结束，再安装新版本。"))
+                        .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
                     TextField(L10n.text("GitHub 仓库，例如 owner/repo"), text: $updater.repository).textFieldStyle(.roundedBorder)
                     if updater.parsedRepository == nil { Text(L10n.text("请输入有效的 GitHub owner/repo 或仓库链接")).foregroundStyle(.orange) }
                     Text(L10n.text("升级会保留账户授权、显示设置与本地原始数据，并保留上一版应用用于恢复。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)

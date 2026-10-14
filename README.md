@@ -14,7 +14,7 @@
 
 </div>
 
-![WristBeam](docs/images/showcase-hero.png)
+![腕映：菜单栏、浮窗与健康看板](docs/images/showcase-hero-zh.png)
 
 **菜单栏 · 浮窗 · 健康看板**。通过正常 Garmin 蓝牙协议接收手表数据，下载原始 FIT 并同步到佳明中国或国际账户。Instinct 2 Solar 与中国账户已完成真机验证。
 
@@ -22,11 +22,11 @@
 
 ## 展示
 
-![菜单栏与点击后的弹窗](docs/images/showcase-menu.png)
+![菜单栏与点击后的弹窗](docs/images/showcase-menu-zh.png)
 
-![主题与看板](docs/images/showcase-themes.png)
+![主题与看板](docs/images/showcase-themes-zh.png)
 
-![显示配置](docs/images/showcase-settings.png)
+![显示配置](docs/images/showcase-settings-zh.png)
 
 真实应用界面，使用隔离演示数据。[原始截图与制作说明](docs/SHOWCASE.md)。
 
@@ -74,7 +74,7 @@
 | Intel | [x86_64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-x86_64.zip) |
 | 两种架构 | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
 
-要求 macOS 13+。解压，将应用放入可写的 Applications 文件夹，允许蓝牙访问。在手表进入“手机 → 配对手机”，保持心率广播关闭，按应用内教程连接；再选择中国／国际区域并在佳明官方页面登录。
+要求 macOS 13+。解压，将应用放入可写的 Applications 文件夹。打开“设备 → 连接”，按引导准备手表，点击连接按钮后允许蓝牙访问；保持心率广播关闭。到“设备账号”选择中国／国际区域，在佳明官方页面登录，再到“同步记录”选择手动或自动同步。启动自动连接默认关闭，可在首次配对后主动开启。
 
 当前为临时签名，尚未 Apple 公证。真实国际账户上传、其他固件、应用层加密与 native MLR / CoreTransfer 尚未验证或支持。Mac 休眠时不能即时同步，当前不提供系统桌面小组件。[验证范围](VERIFICATION.md)。
 

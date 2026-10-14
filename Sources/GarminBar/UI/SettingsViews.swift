@@ -89,6 +89,10 @@ struct OverviewPage: View {
     var body: some View {
         VStack(spacing: 20) {
             if model.preview { Label(L10n.text("演示数据 · 用于功能展示"), systemImage: "info.circle").font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.mint).frame(maxWidth: .infinity, alignment: .leading) }
+            if model.preview && model.previewSetup {
+                Button(L10n.text("加载演示数据")) { model.previewSetup = false; model.enablePreview() }.buttonStyle(.bordered)
+            }
+            if (!model.preview || model.previewSetup) && !model.bluetooth.sessionActivated && !model.bluetooth.isConnected { FirstConnectionGuide(model: model) }
             HStack {
                 Picker(L10n.text("每行"), selection: $model.dashboardColumns) {
                     Text(L10n.text("自动适应")).tag(0)
@@ -140,7 +144,7 @@ struct OverviewPage: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 7) {
                         Label(L10n.text("\(model.cloud.region.title)云"), systemImage: "cloud").font(PulseTheme.font(size: 14, weight: .semibold))
-                        Text(L10n.text(model.cloud.isAuthenticated ? model.cloud.accountName : "登录后自动上传运动与健康文件")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                        Text(L10n.text(model.cloud.isAuthenticated ? model.cloud.accountName : "登录后查看云端记录，并选择是否上传原始文件")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                     }
                     Spacer()
                     Button(L10n.text(model.cloud.isAuthenticated ? "查看同步" : "连接账户")) { model.page = model.cloud.isAuthenticated ? .sync : .account }
@@ -181,15 +185,13 @@ struct WatchPage: View {
     init(model: AppModel) { self.model = model; bluetooth = model.bluetooth }
     var body: some View {
         VStack(alignment: .leading, spacing: 19) {
+            BluetoothPermissionGuide(bluetooth: bluetooth)
             PairingGuide(model: model)
             PulseCard {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.status)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer() }
                     Text(L10n.text(bluetooth.bluetoothStatus)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                     HStack(spacing: 10) {
-                        Button { bluetooth.isScanning ? bluetooth.stopScan() : bluetooth.scan() } label: {
-                            Label(L10n.text(bluetooth.isScanning ? "停止扫描" : "扫描附近手表"), systemImage: bluetooth.isScanning ? "stop.circle" : "antenna.radiowaves.left.and.right")
-                        }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview)
                         if bluetooth.isConnected || bluetooth.isConnecting { Button(L10n.text(bluetooth.isConnecting ? "取消连接" : "断开")) { bluetooth.disconnect() }.buttonStyle(.bordered) }
                         Button(L10n.text("忘记软件中的手表")) { bluetooth.forgetSavedWatch() }.buttonStyle(.bordered).disabled(model.preview)
                         Spacer()
@@ -214,7 +216,7 @@ struct WatchPage: View {
                                     Text(L10n.text("\(watch.serviceSummary) · \(watch.rssi) dBm · \(watch.shortID)")).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                                 }
                                 Spacer()
-                                Button(L10n.text("连接")) { bluetooth.connect(watch.id) }.buttonStyle(.bordered).disabled(!watch.offersGarmin)
+                                Button(L10n.text("连接")) { bluetooth.connect(watch.id) }.buttonStyle(.bordered).disabled(model.preview || !watch.offersGarmin)
                             }
                         }
                     }
@@ -222,6 +224,7 @@ struct WatchPage: View {
             }
             Toggle(L10n.text("显示其他附近设备"), isOn: $bluetooth.showAllDevices).font(PulseTheme.font(size: 11)).toggleStyle(.checkbox)
             Text(L10n.text("按蓝牙标识去重，扫描时清理 20 秒未出现的设备，最多显示 40 台，佳明手表优先。相同名称可能属于不同设备。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+            BackgroundConnectionGuide(bluetooth: bluetooth)
             if bluetooth.isConnected {
                 PulseCard {
                     VStack(alignment: .leading, spacing: 12) {
@@ -250,6 +253,8 @@ struct AccountPage: View {
                     Picker(L10n.text("账户区域"), selection: Binding(get: { cloud.region }, set: { model.showLogin = false; cloud.switchRegion($0) })) {
                         ForEach(GarminRegion.allCases) { Text(L10n.text($0.title)).tag($0) }
                     }.pickerStyle(.segmented).disabled(model.uploads.isSyncing)
+                    Text(L10n.text("先选择手表绑定的账户区域：中国账户使用佳明中国，其他账户使用国际区。请选择同一个佳明账号，避免文件归属不匹配。"))
+                        .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
                     Text(L10n.text("中国与国际账户分别保存登录授权、关联设备、图表缓存和上传任务。切换区域会保留另一边的会话与记录。")).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
                 }
             }
@@ -271,6 +276,8 @@ struct AccountPage: View {
                             Button(L10n.text("退出账户")) { cloud.logout() }.buttonStyle(.plain).foregroundStyle(PulseTheme.secondary)
                         }
                     } else {
+                        Text(L10n.text("点击登录后，在佳明官方页面输入账号、密码和验证码。软件仅保存可续期的授权令牌，不保存密码；上传方式由你在同步记录中选择。"))
+                            .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
                         Button { cloud.prepareLogin(); model.showLogin = true } label: { Label(L10n.text("登录并连接\(cloud.region.title)"), systemImage: "person.crop.circle.badge.checkmark") }
                             .buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview)
                     }
@@ -278,9 +285,10 @@ struct AccountPage: View {
             }
             PulseCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(L10n.text("你的登录过程")).font(PulseTheme.font(size: 13, weight: .semibold))
-                    Text(L10n.text("在佳明官方页面填写账号、密码和验证码。认证成功后，软件保存授权令牌并自动续期，密码不保存在本地。"))
+                    Text(L10n.text("登录完成之后")).font(PulseTheme.font(size: 13, weight: .semibold))
+                    Text(L10n.text("先确认下方关联设备与你的手表一致，再到同步记录选择手动或自动上传。退出账户会停止该账户的云访问，本地原始文件继续保留。"))
                         .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
+                    Button(L10n.text("前往同步设置")) { model.openSettings(.sync) }.buttonStyle(.bordered)
                     Link(L10n.text("打开\(cloud.region.title)网站 ↗"), destination: cloud.region.portal).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.mint)
                 }
             }
@@ -307,6 +315,7 @@ struct SyncPage: View {
     @ObservedObject var model: AppModel
     var body: some View {
         VStack(alignment: .leading, spacing: 19) {
+            SyncSetupGuide(model: model)
             PulseCard {
                 HStack {
                     VStack(alignment: .leading, spacing: 7) {
@@ -495,10 +504,7 @@ struct AppearancePage: View {
             }
             PulseCard {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text(L10n.text("自动连接与同步")).font(PulseTheme.font(size: 14, weight: .semibold))
-                    Toggle(L10n.text("断线后自动重连"), isOn: Binding(get: { model.bluetooth.autoReconnect }, set: { model.bluetooth.autoReconnect = $0 }))
-                    Toggle(L10n.text("自动接收并上传手表文件"), isOn: $model.autoSync)
-                    Picker(L10n.text("检查新文件的间隔"), selection: $model.syncInterval) { Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15); Text(L10n.text("30 分钟")).tag(30) }.frame(maxWidth: 300)
+                    Text(L10n.text("指标刷新")).font(PulseTheme.font(size: 14, weight: .semibold))
                     Toggle(L10n.text("自动刷新云端指标与全天曲线"), isOn: $model.autoRefreshMetrics)
                     Picker(L10n.text("指标刷新间隔"), selection: $model.metricRefreshInterval) { Text(L10n.text("1 分钟")).tag(1); Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15) }.frame(maxWidth: 300).disabled(!model.autoRefreshMetrics)
                     Button(L10n.text("立即刷新指标与曲线")) { model.refreshMetricsNow() }.buttonStyle(.bordered).disabled(!model.cloud.isAuthenticated || model.isRefreshingHealth)

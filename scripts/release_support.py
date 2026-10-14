@@ -79,7 +79,7 @@ def read_archive(path: Path, expected_version: str) -> dict:
                 or info.get('CFBundleExecutable') != 'GarminPulse'
                 or info.get('CFBundleShortVersionString') != expected_version
                 or info.get('LSMinimumSystemVersion') != '13.0'
-                or 'GarminPulsePreview' in info or 'GarminPulseUpdateFixture' in info):
+                or 'GarminPulsePreview' in info or 'WristBeamPreviewOnboarding' in info or 'GarminPulseUpdateFixture' in info):
             raise ValueError('Unexpected application identity, version, platform or preview mode')
         license_text = archive.read(APP_NAME + '/Contents/Resources/LICENSE').decode('utf-8')
         if not license_text.startswith('MIT License\n'):

@@ -9,6 +9,8 @@ The README uses actual app views from the isolated **WristBeam Demo** instance. 
 | [Themes](images/showcase-themes.png) | Native light and dark dashboard captures |
 | [Settings](images/showcase-settings.png) | Grouped three-surface selection matrix |
 
+The Chinese README uses a separate Chinese set: [hero](images/showcase-hero-zh.png), [menu](images/showcase-menu-zh.png), [themes](images/showcase-themes-zh.png), and [settings](images/showcase-settings-zh.png). Both captions and captured app views are Chinese; the English set remains English. Chinese native captures are [dashboard](images/raw-dashboard-zh.png), [light](images/dashboard-light-zh.png), [dark](images/dashboard-dark-zh.png), [settings](images/display-settings-zh.png), and [menu panel](images/raw-menu-popup-zh.png).
+
 ## Capture method
 
 Computer-use opens and operates the native demo app. The native computer-use screenshot service returned oversized Retina extents on this Mac. To keep the real UI intact, computer-use invokes the Demo's Save demo screenshot command (⌘S), which exports only its own actual AppKit hosting view at 3× resolution. Native view captures are [raw-dashboard-en.png](images/raw-dashboard-en.png), [dashboard-light.png](images/dashboard-light.png), [dashboard-dark.png](images/dashboard-dark.png) and [display-settings.png](images/display-settings.png).
@@ -18,6 +20,8 @@ Clicking **Open menu bar** opens the real `NSPopover`. Only in Demo mode, the ap
 The human-battery and footprint glyphs are original code-drawn vectors in [MetricIcon.swift](../Sources/GarminBar/UI/MetricIcon.swift). Other glyphs use macOS SF Symbols. Body Battery keeps its full name in panels and accessibility descriptions; no BB abbreviation is used.
 
 [HTML/CSS artwork](showcase/index.html) places the unmodified native PNGs on a background with rounded frames and shadows. [The local WKWebView viewer](../scripts/showcase-viewer.swift) renders four scenes; keys 1–4 switch scenes. Computer-use operates the resulting viewer and its “Save showcase image” command. The viewer exports its actual WKWebView rectangle through WebKit snapshot rendering, avoiding an incorrect Retina window extent in the native computer-use screenshot service. No AI-generated controls, values or fake product UI are added. Rounded shells and shadows are decorative layout around unchanged captures.
+
+[The Chinese layout](showcase/index.zh-CN.html) uses the same 1280 × 860 canvas. In the viewer, ⌘Z selects Chinese and ⌘E selects English; ⌘S exports the selected scene with a language-specific filename. Native display scale determines PNG pixel dimensions; the Chinese set was captured at 2560 × 1720. The first-use capture comes from a separately stored onboarding Demo with Bluetooth, account restoration and uploading disabled.
 
 ## Background brief
 

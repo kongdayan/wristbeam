@@ -28,6 +28,7 @@
 		7BA3F89B2ADA63E439997DA8 /* WatchDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF0C72726181B9D0FF2428B /* WatchDiscovery.swift */; };
 		7FF618F5CFF87BB85E5867D2 /* MetricIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55221495574C8ACC34CC95D /* MetricIcon.swift */; };
 		85B01A490C10CF22909F9FDB /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 051E6225A85174601A16F8F0 /* Theme.swift */; };
+		8EB5F786E5C95EB9C0B38322 /* ConnectionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05C64C7135506BD9DE85049B /* ConnectionPolicy.swift */; };
 		8F2E4A752238B0EB66A1B4C3 /* PulseWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */; };
 		A25AD073C9FB17DE960927DC /* GFDIFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B239BE2900F5FF25136C71E /* GFDIFiles.swift */; };
 		A59B3505A975EF75A8DB39D7 /* GarminChinaCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB678CE0A78BCD6BBD5B15FC /* GarminChinaCloud.swift */; };
@@ -43,6 +44,7 @@
 		D5EEBF34114598A5D0A5C976 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = CAFB2020AD6DD8ABC67A8D8B /* LICENSE */; };
 		D9A9052D942B0B98FD0DBD00 /* GFDICodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4F4074157D37AAA55840884 /* GFDICodec.swift */; };
 		DF9A41AE118373090A866DD7 /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2389E19745ED094D5057B2BB /* SoftwareUpdater.swift */; };
+		E2041D82193F32CC2524E2B2 /* SetupGuides.swift in Sources */ = {isa = PBXBuildFile; fileRef = E187BE3DED6BA0AFD0F55EB7 /* SetupGuides.swift */; };
 		E6E570B7C61BBBD04CD81D4C /* GarminHealthMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94430862DC1AA4AC270CF11E /* GarminHealthMetrics.swift */; };
 		FFBD14A96EBE64AE027D1955 /* MetricCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F28C1570B0E554EADD2E8D /* MetricCharts.swift */; };
 /* End PBXBuildFile section */
@@ -74,6 +76,7 @@
 /* Begin PBXFileReference section */
 		051E6225A85174601A16F8F0 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		055778CAE682D8980585183D /* GarminPulseWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GarminPulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		05C64C7135506BD9DE85049B /* ConnectionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPolicy.swift; sourceTree = "<group>"; };
 		1226B0ECC7A4666D7B18EC44 /* GarminLoginWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminLoginWebView.swift; sourceTree = "<group>"; };
 		1567591CAA0ACD83546F48D8 /* SoftwareUpdatePage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdatePage.swift; sourceTree = "<group>"; };
 		1C9F9D43C690A9CF38B09F93 /* CompactViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactViews.swift; sourceTree = "<group>"; };
@@ -103,6 +106,7 @@
 		CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseWidgetSnapshot.swift; sourceTree = "<group>"; };
 		DBABD4A2BC15D29B37B80899 /* MetricTimeSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricTimeSeries.swift; sourceTree = "<group>"; };
 		DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDICoreIdentity.swift; sourceTree = "<group>"; };
+		E187BE3DED6BA0AFD0F55EB7 /* SetupGuides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupGuides.swift; sourceTree = "<group>"; };
 		EC8B1C9BE9DF1A3D0AF2D7A5 /* WidgetSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSharing.swift; sourceTree = "<group>"; };
 		F4B9E73D8296726092B575AA /* Localization */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Localization; path = Sources/GarminBar/Resources/Localization; sourceTree = SOURCE_ROOT; };
 		F4F2CB29F44039DC1B4CA0E5 /* AppControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppControl.swift; sourceTree = "<group>"; };
@@ -143,6 +147,7 @@
 				F55221495574C8ACC34CC95D /* MetricIcon.swift */,
 				4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */,
 				7EE6D8089EAC5A0865596248 /* SettingsViews.swift */,
+				E187BE3DED6BA0AFD0F55EB7 /* SetupGuides.swift */,
 				1567591CAA0ACD83546F48D8 /* SoftwareUpdatePage.swift */,
 				051E6225A85174601A16F8F0 /* Theme.swift */,
 			);
@@ -195,6 +200,7 @@
 			children = (
 				2E6E77C39F52A8AF89FABADB /* AppModel.swift */,
 				4390F1708BDA4216CCC29F07 /* AppStorage.swift */,
+				05C64C7135506BD9DE85049B /* ConnectionPolicy.swift */,
 				5DE05FF35D55A6F2096C55AB /* DisplaySettings.swift */,
 				87AF7893C4D9145A57063C78 /* Localization.swift */,
 				438299E8402BF4ECD3FF7D91 /* Metrics.swift */,
@@ -348,6 +354,7 @@
 				343848C76CC2383A83F2B913 /* AppModel.swift in Sources */,
 				15A7091F99D3B1ADDFF62769 /* AppStorage.swift in Sources */,
 				CFE7F65B0B302D823EB3135F /* CompactViews.swift in Sources */,
+				8EB5F786E5C95EB9C0B38322 /* ConnectionPolicy.swift in Sources */,
 				3286AF51FAF12A718CDABE87 /* DisplaySettings.swift in Sources */,
 				D9A9052D942B0B98FD0DBD00 /* GFDICodec.swift in Sources */,
 				CFE88F410F13FD7F6925D1B0 /* GFDICoreIdentity.swift in Sources */,
@@ -369,6 +376,7 @@
 				251DE8250A9F1E39CCAAA7FD /* PairingGuide.swift in Sources */,
 				5B77E1271D8A790748ABD031 /* PulseWidgetSnapshot.swift in Sources */,
 				3A49FFBCE9CCCDA169D2DF76 /* SettingsViews.swift in Sources */,
+				E2041D82193F32CC2524E2B2 /* SetupGuides.swift in Sources */,
 				3DF66E54E56EBF4C49837054 /* SoftwareRelease.swift in Sources */,
 				4E42D1886D7F23F366CCFD3A /* SoftwareUpdatePage.swift in Sources */,
 				DF9A41AE118373090A866DD7 /* SoftwareUpdater.swift in Sources */,
@@ -425,7 +433,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -565,7 +573,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

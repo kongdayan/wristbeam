@@ -10,6 +10,9 @@ ditto "$task_dist/WristBeam.app" "$task_demo"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier cn.wenyankong.wristbeam.demo' "$task_demo/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName WristBeam Demo' "$task_demo/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Add :GarminPulsePreview bool true' "$task_demo/Contents/Info.plist"
+if [[ "${PULSE_PREVIEW_ONBOARDING:-0}" == 1 ]]; then
+  /usr/libexec/PlistBuddy -c 'Add :WristBeamPreviewOnboarding bool true' "$task_demo/Contents/Info.plist"
+fi
 codesign --force --sign - --identifier cn.wenyankong.wristbeam.demo "$task_demo"
 codesign --verify --deep --strict "$task_demo"
 printf '%s\n' "$task_demo"

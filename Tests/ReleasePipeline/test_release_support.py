@@ -67,7 +67,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(read_archive(self.package(), '0.3.1')['CFBundleIdentifier'], BUNDLE_ID)
 
     def test_identity_version_minimum_and_demo_mismatch(self):
-        for changes in [{'CFBundleIdentifier': 'other.app'}, {'CFBundleExecutable': 'Other'}, {'CFBundleShortVersionString': '0.3.0'}, {'LSMinimumSystemVersion': '14.0'}, {'GarminPulsePreview': False}, {'GarminPulseUpdateFixture': '/tmp/test.json'}]:
+        for changes in [{'CFBundleIdentifier': 'other.app'}, {'CFBundleExecutable': 'Other'}, {'CFBundleShortVersionString': '0.3.0'}, {'LSMinimumSystemVersion': '14.0'}, {'GarminPulsePreview': False}, {'WristBeamPreviewOnboarding': True}, {'GarminPulseUpdateFixture': '/tmp/test.json'}]:
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 read_archive(self.package(changes=changes), '0.3.1')
 

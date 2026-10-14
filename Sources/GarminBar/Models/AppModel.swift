@@ -58,7 +58,7 @@ final class AppModel: ObservableObject {
     @Published var metricRefreshInterval = AppPreferences.shared.object(forKey: "metricRefreshInterval") as? Int ?? 5 {
         didSet { AppPreferences.shared.set(metricRefreshInterval, forKey: "metricRefreshInterval") }
     }
-    @Published var floatingEnabled = AppPreferences.shared.object(forKey: "floatingEnabled") as? Bool ?? true {
+    @Published var floatingEnabled = AppPreferences.shared.object(forKey: "floatingEnabled") as? Bool ?? false {
         didSet { AppPreferences.shared.set(floatingEnabled, forKey: "floatingEnabled"); onFloatingChange?(floatingEnabled) }
     }
     @Published var floatingMetrics = MetricSelection.load("floatingMetrics", includeSolar: true) {
@@ -72,11 +72,12 @@ final class AppModel: ObservableObject {
     }
     @Published var healthStatus = "等待读取已同步健康指标"
     @Published private(set) var isRefreshingHealth = false
-    @Published var autoSync = AppPreferences.shared.object(forKey: "autoSync") as? Bool ?? true {
+    @Published var autoSync = AppPreferences.shared.object(forKey: "autoSync") as? Bool ?? false {
         didSet { AppPreferences.shared.set(autoSync, forKey: "autoSync"); uploads.automaticSyncEnabled = autoSync && !preview }
     }
     @Published var syncInterval = AppPreferences.shared.object(forKey: "syncInterval") as? Int ?? 15 { didSet { AppPreferences.shared.set(syncInterval, forKey: "syncInterval") } }
     @Published var preview = PulseRuntime.isPreview
+    @Published var previewSetup = PulseRuntime.previewsOnboarding
     var onOpenSettings: ((AppPage) -> Void)?
     var onFloatingChange: ((Bool) -> Void)?
     var onFloatingLayoutChange: (() -> Void)?
@@ -186,9 +187,7 @@ final class AppModel: ObservableObject {
             if authenticated {
                 self.showLogin = false
                 self.log("\(self.cloud.region.title)账户已连接")
-                if !self.preview && self.bluetooth.autoReconnect && !self.bluetooth.isConnected && !self.bluetooth.isConnecting {
-                    Task { @MainActor [weak self] in self?.bluetooth.reconnectSaved() }
-                }
+                if !self.preview { self.bluetooth.resumeRequestedConnection() }
                 if self.autoSync && !self.preview { Task { await self.uploads.syncNow(force: false) } }
             }
         }.store(in: &subscriptions)
@@ -376,6 +375,9 @@ final class AppModel: ObservableObject {
             "bluetoothStatus": bluetooth.bluetoothStatus,
             "bluetoothPermission": bluetooth.permissionState,
             "bluetoothManagerState": bluetooth.managerState ?? -1,
+            "bluetoothSessionActivated": bluetooth.sessionActivated,
+            "connectsOnLaunch": bluetooth.connectsOnLaunch,
+            "automaticFileSync": autoSync,
             "watchConnectionStatus": bluetooth.status,
             "fileChannelReady": bluetooth.canSyncFiles,
             "protocolReady": bluetooth.protocolReady,
@@ -420,8 +422,9 @@ final class AppModel: ObservableObject {
         if bluetooth.canSyncFiles {
             manualFileSync = true; bluetooth.requestFileSync()
         } else {
-            fileSyncRequested = true
-            bluetooth.reconnectSaved()
+            if bluetooth.sessionActivated {
+                fileSyncRequested = true; bluetooth.reconnectSaved()
+            } else { openSettings(.watch) }
         }
         Task { await uploads.syncNow() }
     }
@@ -430,14 +433,16 @@ final class AppModel: ObservableObject {
         if bluetooth.canSyncFiles {
             manualFileSync = true; bluetooth.requestRecentActivity()
         } else {
-            recentSyncRequested = true
-            bluetooth.reconnectSaved()
+            if bluetooth.sessionActivated {
+                recentSyncRequested = true; bluetooth.reconnectSaved()
+            } else { openSettings(.watch) }
         }
         Task { await uploads.syncNow() }
     }
     func importFIT() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [UTType(filenameExtension: "fit") ?? .data]; panel.allowsMultipleSelection = true
-        panel.prompt = "加入上传队列"
+        panel.prompt = L10n.text("加入上传队列")
+        panel.message = L10n.text("只选择手表生成的原始 FIT。文件加入本地队列；自动同步开启后上传到当前设备账号，关闭时等候手动同步。")
         guard panel.runModal() == .OK else { return }
         for url in panel.urls {
             do {
@@ -449,7 +454,8 @@ final class AppModel: ObservableObject {
     }
     func watchFITFolder() {
         let panel = NSOpenPanel(); panel.canChooseFiles = false; panel.canChooseDirectories = true
-        panel.prompt = "自动同步此文件夹"
+        panel.prompt = L10n.text("选择并监测此文件夹")
+        panel.message = L10n.text("只监测你选择的文件夹，将新增 FIT 加入本地队列。自动同步开启后上传到当前设备账号；可随时在同步记录中停止监测。")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         uploads.startWatching(directory: url)
         log(uploads.watchedDirectory == url ? "已启用 FIT 文件夹自动同步" : uploads.status)
@@ -457,6 +463,7 @@ final class AppModel: ObservableObject {
     func enablePreview() {
         preview = true; uploads.automaticSyncEnabled = false
         log("已进入演示预览；蓝牙与上传暂停")
+        if previewSetup { floatingEnabled = false; return }
         for index in 0..<30 {
             receive(MetricSample(kind: .heartRate, value: 66 + (index % 5), source: "演示", timestamp: Date().addingTimeInterval(Double(index - 30))))
         }

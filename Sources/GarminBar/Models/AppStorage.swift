@@ -2,12 +2,13 @@ import Foundation
 
 enum PulseRuntime {
     static var isPreview: Bool { CommandLine.arguments.contains("--preview") || Bundle.main.object(forInfoDictionaryKey: "GarminPulsePreview") as? Bool == true }
+    static var previewsOnboarding: Bool { isPreview && (CommandLine.arguments.contains("--preview-onboarding") || Bundle.main.object(forInfoDictionaryKey: "WristBeamPreviewOnboarding") as? Bool == true) }
 }
 
 final class AppPreferences {
     // Foundation rejects using the app's own bundle identifier as a suite name.
     // Access its persistent domain directly so bundled and direct launches agree.
-    static let shared = AppPreferences(domain: PulseRuntime.isPreview ? "cn.wenyankong.garminpulse.preview" : "cn.wenyankong.garminpulse")
+    static let shared = AppPreferences(domain: PulseRuntime.previewsOnboarding ? "cn.wenyankong.garminpulse.preview.onboarding" : PulseRuntime.isPreview ? "cn.wenyankong.garminpulse.preview" : "cn.wenyankong.garminpulse")
     private let domain: String
     private let defaults = UserDefaults.standard
     init(domain: String = "cn.wenyankong.garminpulse") { self.domain = domain }
@@ -22,12 +23,20 @@ final class AppPreferences {
         defaults.synchronize()
     }
     func removeObject(forKey key: String) { set(nil, forKey: key) }
+    func prepareSetupDefaults() {
+        guard object(forKey: "setupDefaultsVersion") == nil else { return }
+        let legacyWatch = string(forKey: "watchIdentifier").flatMap(UUID.init(uuidString:)) != nil
+        if object(forKey: "autoSync") == nil { set(legacyWatch, forKey: "autoSync") }
+        if object(forKey: "floatingEnabled") == nil { set(legacyWatch, forKey: "floatingEnabled") }
+        if object(forKey: "watchConnectOnLaunch") == nil { set(false, forKey: "watchConnectOnLaunch") }
+        set(1, forKey: "setupDefaultsVersion")
+    }
 }
 
 enum AppPaths {
     static let root: URL = {
         let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(PulseRuntime.isPreview ? "GarminPulsePreview" : "GarminPulse", isDirectory: true)
+            .appendingPathComponent(PulseRuntime.previewsOnboarding ? "WristBeamOnboardingPreview" : PulseRuntime.isPreview ? "GarminPulsePreview" : "GarminPulse", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         return url
     }()

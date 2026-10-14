@@ -74,7 +74,7 @@
 | Intel | [x86_64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-x86_64.zip) |
 | 두 아키텍처 | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
 
-macOS 13 이상이 필요합니다. 압축을 풀고 쓰기 가능한 Applications 폴더에 옮긴 후 Bluetooth를 허용하세요. 시계에서 휴대전화 → 페어링을 열고 심박수 브로드캐스트는 끕니다. 앱 안내에 따라 중국／글로벌 지역을 선택하고 Garmin 공식 페이지에서 로그인하세요.
+macOS 13 이상이 필요합니다. 압축을 풀고 쓰기 가능한 Applications 폴더에 옮기세요. 기기 → 연결에서 심박수 브로드캐스트를 끈 시계를 준비하고 연결 버튼을 눌러 Bluetooth를 허용합니다. 기기 계정에서 중국／글로벌을 선택해 Garmin 공식 페이지에서 로그인한 후 동기화 기록에서 수동／자동 업로드를 선택하세요. 시작 시 자동 연결은 기본적으로 꺼져 있으며 페어링 후 켤 수 있습니다.
 
 현재 임시 서명이며 Apple 공증은 없습니다. 실제 글로벌 계정 업로드와 다른 펌웨어는 미검증입니다. 앱 계층 암호화, native MLR / CoreTransfer와 데스크톱 위젯은 미지원입니다. Mac이 잠들면 즉시 동기화할 수 없습니다. [검증 범위](VERIFICATION.md).
 

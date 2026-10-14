@@ -23,7 +23,7 @@ enum WatchUUID {
 @MainActor
 final class WatchBluetooth: NSObject, ObservableObject {
     @Published var status = "尚未连接"
-    @Published var bluetoothStatus = "点击扫描后请求蓝牙权限"
+    @Published var bluetoothStatus = "前往设备页面，按引导授权并连接"
     @Published var isScanning = false
     @Published var isConnected = false
     @Published var isConnecting = false
@@ -43,6 +43,10 @@ final class WatchBluetooth: NSObject, ObservableObject {
     @Published var autoReconnect = AppPreferences.shared.object(forKey: "watchAutoReconnect") as? Bool ?? true {
         didSet { AppPreferences.shared.set(autoReconnect, forKey: "watchAutoReconnect"); if !autoReconnect { reconnectTask?.cancel(); recoveryTarget = nil } }
     }
+    @Published var connectsOnLaunch = AppPreferences.shared.bool(forKey: "watchConnectOnLaunch") {
+        didSet { AppPreferences.shared.set(connectsOnLaunch, forKey: "watchConnectOnLaunch") }
+    }
+    @Published private(set) var sessionActivated = false
     var onSample: ((MetricSample) -> Void)?
     var onUnavailable: ((MetricKind, String) -> Void)?
     var onLog: ((String) -> Void)?
@@ -74,11 +78,15 @@ final class WatchBluetooth: NSObject, ObservableObject {
     private var writeCompletion: ((Error?) -> Void)?
     var permissionState: Int { CBCentralManager.authorization.rawValue }
     var managerState: Int? { central?.state.rawValue }
+    var access: BluetoothAccess { BluetoothAccess(rawValue: permissionState) ?? .restricted }
+    var hasSavedWatch: Bool { AppPreferences.shared.string(forKey: "watchIdentifier").flatMap(UUID.init(uuidString:)) != nil }
+    var savedWatchName: String { AppPreferences.shared.string(forKey: "watchName") ?? "已配对手表" }
 
-    func initialize() {
-        guard central == nil else { return }
+    private func initialize() {
+        guard central == nil, !PulseRuntime.isPreview else { return }
+        sessionActivated = true
         bluetoothStatus = "正在初始化蓝牙；首次使用需确认系统授权提示"
-        central = CBCentralManager(delegate: self, queue: .main, options: [CBCentralManagerOptionShowPowerAlertKey: true])
+        central = CBCentralManager(delegate: self, queue: .main, options: [CBCentralManagerOptionShowPowerAlertKey: false])
         // Catch up to an already powered-on manager when restoring a background session.
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -196,6 +204,17 @@ final class WatchBluetooth: NSObject, ObservableObject {
         onLog?("正在恢复已保存的手表连接")
         initialize(); connectRequested = true
         if central?.state == .poweredOn { connect(id) }
+    }
+
+    func connectAutomaticallyAtLaunch() {
+        guard ConnectionStartupPolicy.canConnect(automatically: connectsOnLaunch, savedWatch: hasSavedWatch,
+                                                  access: access, preview: PulseRuntime.isPreview) else { return }
+        reconnectSaved()
+    }
+
+    func resumeRequestedConnection() {
+        guard sessionActivated, connectRequested, autoReconnect, !isConnected, !isConnecting else { return }
+        reconnectSaved()
     }
 
     func disconnect() {

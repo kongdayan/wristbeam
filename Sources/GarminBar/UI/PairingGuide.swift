@@ -3,18 +3,17 @@ import SwiftUI
 struct PairingGuide: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var bluetooth: WatchBluetooth
-    @State private var prepared = false
     @State private var showHelp = false
     init(model: AppModel) { self.model = model; bluetooth = model.bluetooth }
     private var stage: Int {
-        bluetooth.canSyncFiles && bluetooth.liveSampleCount > 0 ? 3 : bluetooth.isConnected ? 2 : prepared || bluetooth.isScanning || bluetooth.isConnecting ? 1 : 0
+        bluetooth.canSyncFiles && bluetooth.liveSampleCount > 0 ? 3 : bluetooth.isConnected ? 2 : bluetooth.sessionActivated ? 1 : 0
     }
     var body: some View {
         PulseCard {
             VStack(alignment: .leading, spacing: 18) {
                 Text(L10n.text("一步步连接手表")).font(PulseTheme.font(size: 17, weight: .semibold))
                 HStack(spacing: 12) {
-                    ForEach(Array(["准备手表", "扫描选择", "确认与握手", "验证同步"].enumerated()), id: \.offset) { index, title in
+                    ForEach(Array(["授权与准备", "扫描选择", "确认与握手", "验证同步"].enumerated()), id: \.offset) { index, title in
                         VStack(spacing: 8) {
                             Text(L10n.text("\(index + 1)")).font(PulseTheme.font(size: 14, weight: .semibold)).frame(width: 32, height: 32)
                                 .background(index <= stage ? PulseTheme.mint.opacity(0.18) : Color.primary.opacity(0.06)).clipShape(Circle())
@@ -24,9 +23,15 @@ struct PairingGuide: View {
                 }
                 if stage < 2 {
                     Text(L10n.text("本能 2 太阳能：长按 MENU → 手机 → 配对手机。让手表靠近 Mac；手机若占用连接，暂时关闭手机蓝牙。保持心率广播关闭。")).font(PulseTheme.font(size: 13)).lineSpacing(4)
-                    Button { prepared = true; bluetooth.beginPairing() } label: {
-                        Label(L10n.text(bluetooth.isScanning ? "重新扫描" : "手表已准备，开始扫描"), systemImage: "antenna.radiowaves.left.and.right")
-                    }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview)
+                    HStack(spacing: 10) {
+                        Button { bluetooth.beginPairing() } label: {
+                            Label(L10n.text(bluetooth.access == .notDetermined ? "允许蓝牙并查找手表" : bluetooth.isScanning ? "重新扫描" : "手表已准备，查找设备"), systemImage: "antenna.radiowaves.left.and.right")
+                        }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
+                        if bluetooth.hasSavedWatch && !bluetooth.isScanning && !bluetooth.isConnecting {
+                            Button(L10n.text("连接已配对手表")) { bluetooth.reconnectSaved() }.buttonStyle(.bordered)
+                        }
+                        if bluetooth.isScanning { Button(L10n.text("停止扫描")) { bluetooth.stopScan() }.buttonStyle(.bordered) }
+                    }.disabled(model.preview || bluetooth.access == .denied || bluetooth.access == .restricted)
                     if bluetooth.isScanning { ProgressView(L10n.text("在下方选择出现的 Garmin 手表…")).controlSize(.small) }
                 } else {
                     Text(L10n.text("如 Mac 或手表出现配对码，请核对并确认。蓝牙连接后，还需要完成佳明通道注册、设备协商和文件握手。")).font(PulseTheme.font(size: 13)).lineSpacing(4)
@@ -38,10 +43,20 @@ struct PairingGuide: View {
                     check("原始文件通道", done: bluetooth.canSyncFiles, detail: bluetooth.canSyncFiles ? "就绪，可检查运动与全天健康文件" : "尚未就绪，配对完成并不代表文件通道可用")
                 }
                 HStack {
-                    if bluetooth.isConnected { Button(L10n.text("重新建立协议通道")) { bluetooth.retryProtocol() }.buttonStyle(.bordered) }
+                    if bluetooth.isConnected { Button(L10n.text("重新建立协议通道")) { bluetooth.retryProtocol() }.buttonStyle(.bordered).disabled(model.preview) }
                     Button(L10n.text("检查并同步文件")) { model.syncNow() }.buttonStyle(.bordered).disabled(!bluetooth.canSyncFiles || model.preview)
                     Spacer()
                     Button(L10n.text(showHelp ? "收起排查说明" : "连接不上 / 没有数据")) { showHelp.toggle() }.buttonStyle(.bordered)
+                }
+                if bluetooth.canSyncFiles {
+                    HStack {
+                        Text(L10n.text("通道就绪后，在设备账号登录同一账户，再选择手动或自动同步。"))
+                            .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                        Spacer()
+                        Button(L10n.text(model.cloud.isAuthenticated ? "设置同步方式" : "连接设备账号")) {
+                            model.openSettings(model.cloud.isAuthenticated ? .sync : .account)
+                        }.buttonStyle(.bordered)
+                    }
                 }
                 if showHelp {
                     VStack(alignment: .leading, spacing: 10) {

@@ -74,7 +74,7 @@ The catalog has **57 metric definitions**. Only metrics with valid received data
 | Intel | [x86_64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-x86_64.zip) |
 | Either architecture | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
 
-Requires macOS 13+. Extract, move the app to a writable Applications folder and allow Bluetooth access. On the watch, open Phone → Pair Phone with heart-rate broadcast off; follow the app guide, choose China/Global and sign in on Garmin's official page.
+Requires macOS 13+. Extract and move the app to a writable Applications folder. Open Devices → Connection, prepare the watch with heart-rate broadcast off, then click a connection button to allow Bluetooth. Choose China/Global in Device account and sign in on Garmin's official page; choose manual or automatic uploads in Sync records. Connecting at launch is off by default and can be enabled after pairing.
 
 Ad hoc signed; not Apple notarized. Real Global uploads and other firmware remain unverified. Application-level encryption, native MLR / CoreTransfer and desktop widgets are unsupported. The Mac cannot sync immediately while asleep. [Verification scope](VERIFICATION.md).
 
