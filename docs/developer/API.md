@@ -96,3 +96,7 @@ Default verifier replay window: 300 seconds. The same event ID/body is used acro
 ## Validation and extension points
 
 `DeveloperProtocol.swift` contains protocol/auth/HTTP parsing; `DeveloperServer.swift` the bounded Network.framework listener; `DeveloperQueries.swift` the health projection; `DeveloperAccess.swift` settings, Keychain and webhook lifecycle. `sdk/python` is dependency-free at runtime. Tests use synthetic data/temporary keys and certificates, never a real account or external webhook receiver. See [verification](../../VERIFICATION.md) for what was actually exercised. Future OAuth, per-client scopes, push subscriptions and durable delivery must preserve the existing privacy boundary and versioned schema.
+
+## Local-only operation
+
+Garmin cloud sync is optional. Watch-origin metrics and locally received time series remain available through the existing read-only interfaces while cloud sync is off. Cloud-derived HRV and history do not refresh in this mode; inspect each reading's origin and timestamp instead of assuming every field is live. Developer access and webhooks are independent opt-ins: disabling Garmin cloud sync does not disable endpoints or webhook destinations you explicitly configured. Local ZIP exports in Sync records contain original FIT files, a watch-only CSV and a manifest; no authentication store is included.

@@ -46,7 +46,7 @@ struct DashboardConnectionStatus: View {
             Button { model.page = .account } label: {
                 HStack(spacing: 7) {
                     Image(systemName: "cloud")
-                    Text(L10n.text(model.cloud.isAuthenticated ? "云账号已连接" : "连接账户"))
+                    Text(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "云账号已连接" : "连接账户"))
                     StatusDot(active: model.cloud.isAuthenticated)
                 }
             }.help(L10n.text(model.cloud.region.title))

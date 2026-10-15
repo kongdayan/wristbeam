@@ -17,12 +17,13 @@ struct GarminLoginWebView: NSViewRepresentable {
         view.uiDelegate = context.coordinator
         view.allowsBackForwardNavigationGestures = true
         context.coordinator.revision = cloud.loginRevision
-        view.load(URLRequest(url: cloud.makeLoginURL()))
+        if cloud.networkEnabled { view.load(URLRequest(url: cloud.makeLoginURL())) }
         return view
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
         context.coordinator.cloud = cloud
+        guard cloud.networkEnabled else { view.stopLoading(); return }
         if context.coordinator.revision != cloud.loginRevision {
             context.coordinator.revision = cloud.loginRevision
             view.load(URLRequest(url: cloud.makeLoginURL()))
@@ -65,7 +66,7 @@ struct GarminLoginWebView: NSViewRepresentable {
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
+            guard cloud.networkEnabled, let url = navigationAction.request.url else { decisionHandler(.cancel); return }
             if cloud.handleNavigation(url) { decisionHandler(.cancel); return }
             if GarminChinaURLPolicy.isTrusted(url, region: cloud.region) || url.absoluteString == "about:blank" {
                 decisionHandler(.allow)
@@ -88,7 +89,7 @@ struct GarminLoginWebView: NSViewRepresentable {
 
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                      for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-            if let url = navigationAction.request.url {
+            if cloud.networkEnabled, let url = navigationAction.request.url {
                 if cloud.handleNavigation(url) { return nil }
                 if GarminChinaURLPolicy.isTrusted(url, region: cloud.region) { webView.load(navigationAction.request) }
                 else if url.scheme == "https" { NSWorkspace.shared.open(url) }

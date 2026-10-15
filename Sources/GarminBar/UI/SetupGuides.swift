@@ -84,18 +84,21 @@ struct SyncSetupGuide: View {
         PulseCard {
             VStack(alignment: .leading, spacing: 14) {
                 Text(L10n.text("选择如何同步")).font(PulseTheme.font(size: 17, weight: .semibold))
-                Text(L10n.text("实时指标保存在本机。上传云端的是手表生成的原始运动与健康 FIT，目标为你在设备账号中选择的区域和账户。首次使用默认手动同步。"))
+                Text(L10n.text("接收手表数据不需要云账号。原始 FIT 和实时读数暂存在本机，云同步可在设备账号中开启。"))
                     .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
                 HStack {
-                    Label(L10n.text(model.cloud.isAuthenticated ? "当前目标：\(model.cloud.region.title)" : "请先连接手表绑定的设备账号"), systemImage: "cloud")
+                    Label(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "当前目标：\(model.cloud.region.title)" : "登录后可选择云端补传"), systemImage: "cloud")
                     Spacer()
                     Button(L10n.text("设备账号")) { model.openSettings(.account) }.buttonStyle(.bordered)
                 }.font(PulseTheme.font(size: 13))
-                Toggle(L10n.text("自动接收并上传手表文件"), isOn: $model.autoSync)
+                Toggle(L10n.text("自动接收手表文件"), isOn: $model.autoSync)
+                if model.cloudSyncEnabled {
+                    Toggle(L10n.text("自动上传暂存文件"), isOn: $model.autoUpload).disabled(!model.cloud.isAuthenticated)
+                }
                 Picker(L10n.text("检查新文件的间隔"), selection: $model.syncInterval) {
                     Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15); Text(L10n.text("30 分钟")).tag(30)
                 }.frame(maxWidth: 300).disabled(!model.autoSync)
-                Text(L10n.text("开启后，新收到的文件自动进入队列并上传，失败会保留重试。关闭后停止自动上传，仍可点击“立即同步”；不会删除本地文件。"))
+                Text(L10n.text("自动接收只负责下载到 Mac。云上传单独控制，也可以稍后手动上传暂存文件。"))
                     .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
                 if !model.bluetooth.canSyncFiles {
                     Button(L10n.text("按引导连接手表")) { model.openSettings(.watch) }.buttonStyle(.bordered)

@@ -23,7 +23,16 @@ final class AppPreferences {
         defaults.synchronize()
     }
     func removeObject(forKey key: String) { set(nil, forKey: key) }
+    var cloudSyncEnabled: Bool {
+        if let saved = object(forKey: "cloudSyncEnabled") as? Bool { return saved }
+        // Preserve existing cloud users; a fresh installation is local-first.
+        return bool(forKey: "autoSync") || ["garmin.cn", "garmin.com"].contains {
+            !(string(forKey: "\($0).selectedDeviceID") ?? "").isEmpty
+        }
+    }
     func prepareSetupDefaults() {
+        // Freeze the migration once; receiving files later must not opt into cloud access.
+        if object(forKey: "cloudSyncEnabled") == nil { set(cloudSyncEnabled, forKey: "cloudSyncEnabled") }
         guard object(forKey: "setupDefaultsVersion") == nil else { return }
         let legacyWatch = string(forKey: "watchIdentifier").flatMap(UUID.init(uuidString:)) != nil
         if object(forKey: "autoSync") == nil { set(legacyWatch, forKey: "autoSync") }

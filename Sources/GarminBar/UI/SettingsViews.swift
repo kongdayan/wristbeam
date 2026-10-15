@@ -244,6 +244,17 @@ struct AccountPage: View {
         VStack(spacing: 19) {
             PulseCard {
                 VStack(alignment: .leading, spacing: 12) {
+                    Toggle(L10n.text("同步到佳明云"), isOn: $model.cloudSyncEnabled).toggleStyle(.switch)
+                    Text(L10n.text(model.cloudSyncEnabled ? "登录后可读取云端记录。暂存文件由你选择上传。" : "仅本地：无需云账号，直接接收手表数据。"))
+                        .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary)
+                    if !model.cloudSyncEnabled {
+                        Button(L10n.text("查看本地暂存与导出")) { model.openSettings(.sync) }.buttonStyle(.bordered)
+                    }
+                }
+            }
+            if model.cloudSyncEnabled {
+            PulseCard {
+                VStack(alignment: .leading, spacing: 12) {
                     Picker(L10n.text("账户区域"), selection: Binding(get: { cloud.region }, set: { model.showLogin = false; cloud.switchRegion($0) })) {
                         ForEach(GarminRegion.allCases) { Text(L10n.text($0.title)).tag($0) }
                     }.pickerStyle(.segmented).disabled(model.uploads.isSyncing)
@@ -300,6 +311,7 @@ struct AccountPage: View {
                     }
                 }
             }
+            }
         }
     }
 }
@@ -310,6 +322,23 @@ struct SyncPage: View {
         VStack(alignment: .leading, spacing: 19) {
             SyncSetupGuide(model: model)
             PulseCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L10n.text("本地暂存")).font(PulseTheme.font(size: 17, weight: .semibold))
+                    Text(L10n.format("{0} 份原始文件 · {1} 天读数 · {2}", String(model.localDataSummary.fitFiles), String(model.localDataSummary.telemetryDays), model.localDataSummary.sizeText))
+                        .font(PulseTheme.font(size: 13))
+                    Text(L10n.text("暂存不会自动删除。导出包含原始 FIT 和手表读数 CSV。"))
+                        .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                    HStack {
+                        Button(L10n.text("导出暂存数据")) { model.exportLocalData() }.disabled(model.preview || model.isExportingLocalData)
+                        Button(L10n.text("刷新存储信息")) { model.refreshLocalDataSummary() }
+                        Spacer()
+                        Button(L10n.text("上传暂存文件")) { model.uploadStoredFiles() }
+                            .disabled(model.preview || !model.cloudSyncEnabled || !model.cloud.isAuthenticated || model.uploads.isSyncing || model.uploads.pendingCount == 0)
+                    }.buttonStyle(.bordered)
+                    if !model.localExportStatus.isEmpty { Text(L10n.text(model.localExportStatus)).font(PulseTheme.font(size: 12)) }
+                }
+            }
+            PulseCard {
                 HStack {
                     VStack(alignment: .leading, spacing: 7) {
                         Text(L10n.text("\(model.uploads.pendingCount) 个文件待同步")).font(PulseTheme.font(size: 18, weight: .semibold))
@@ -318,7 +347,7 @@ struct SyncPage: View {
                     }
                     Spacer()
                     VStack(spacing: 8) {
-                        Button(L10n.text("立即同步")) { model.syncNow() }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview)
+                        Button(L10n.text("接收手表数据")) { model.syncNow() }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview)
                         Button(L10n.text("同步最近一次运动")) { model.syncRecentActivity() }.buttonStyle(.bordered).font(PulseTheme.font(size: 10)).disabled(model.preview || !model.bluetooth.canSyncFiles)
                     }
                 }
@@ -335,7 +364,7 @@ struct SyncPage: View {
                     Button(L10n.text("停止文件夹同步")) { model.uploads.stopWatching() }.buttonStyle(.plain).font(PulseTheme.font(size: 11))
                 }
             }
-            Text(L10n.text("已下载文件在本地保存后上传；失败会保留并重试。实时心率、压力和步数另存为本地历史，云端健康记录使用手表生成的原始文件。"))
+            Text(L10n.text("手表读数和原始文件先保存在本机。云端补传使用原始 FIT；导出不会删除暂存。"))
                 .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
             if !model.uploads.visibleJobs.isEmpty {
                 VStack(spacing: 8) {

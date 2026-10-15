@@ -13,6 +13,7 @@
 		111A61A1E10F662C32A5C741 /* GarminHRV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0504F2386FDBC6B80DFC411C /* GarminHRV.swift */; };
 		14D3EFCEC953C8734BCED50C /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87AF7893C4D9145A57063C78 /* Localization.swift */; };
 		15A7091F99D3B1ADDFF62769 /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4390F1708BDA4216CCC29F07 /* AppStorage.swift */; };
+		A10CA1DA7A00000000000001 /* LocalDataArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10CA1DA7A00000000000002 /* LocalDataArchive.swift */; };
 		251DE8250A9F1E39CCAAA7FD /* PairingGuide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */; };
 		2C33C2A0233FF546A8CE525C /* GarminLoginWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1226B0ECC7A4666D7B18EC44 /* GarminLoginWebView.swift */; };
 		3286AF51FAF12A718CDABE87 /* DisplaySettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DE05FF35D55A6F2096C55AB /* DisplaySettings.swift */; };
@@ -102,6 +103,7 @@
 		404AC4A545215804EEBBE174 /* DeveloperSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsPage.swift; sourceTree = "<group>"; };
 		438299E8402BF4ECD3FF7D91 /* Metrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Metrics.swift; sourceTree = "<group>"; };
 		4390F1708BDA4216CCC29F07 /* AppStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorage.swift; sourceTree = "<group>"; };
+		A10CA1DA7A00000000000002 /* LocalDataArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDataArchive.swift; sourceTree = "<group>"; };
 		459CEFCFB97553A1949A7299 /* GarminPulse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GarminPulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingGuide.swift; sourceTree = "<group>"; };
 		4FF0C72726181B9D0FF2428B /* WatchDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchDiscovery.swift; sourceTree = "<group>"; };
@@ -238,6 +240,7 @@
 			children = (
 				2E6E77C39F52A8AF89FABADB /* AppModel.swift */,
 				4390F1708BDA4216CCC29F07 /* AppStorage.swift */,
+				A10CA1DA7A00000000000002 /* LocalDataArchive.swift */,
 				05C64C7135506BD9DE85049B /* ConnectionPolicy.swift */,
 				EC3378D98D83D57B32FB9DA9 /* DashboardSharing.swift */,
 				5DE05FF35D55A6F2096C55AB /* DisplaySettings.swift */,
@@ -403,6 +406,7 @@
 				5ABCCFFA57FD51CA11603ED3 /* AppControl.swift in Sources */,
 				343848C76CC2383A83F2B913 /* AppModel.swift in Sources */,
 				15A7091F99D3B1ADDFF62769 /* AppStorage.swift in Sources */,
+				A10CA1DA7A00000000000001 /* LocalDataArchive.swift in Sources */,
 				CFE7F65B0B302D823EB3135F /* CompactViews.swift in Sources */,
 				8EB5F786E5C95EB9C0B38322 /* ConnectionPolicy.swift in Sources */,
 				83565FF02767CBF01D65F9DF /* DashboardControls.swift in Sources */,
