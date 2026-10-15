@@ -114,7 +114,7 @@ final class WeatherProtocolTests: XCTestCase {
         var snapshot = WatchWeatherSnapshot(location: .init(name: longName, latitude: 0, longitude: 180), fetchedAt: date, current: .init(timestamp: date))
         let values = try records(GFDIWeather.frames(snapshot: snapshot, forecastHours: 0))
         let location = try XCTUnwrap(values.first?.fields[8])
-        XCTAssertLessThanOrEqual(location.count, 64)
+        XCTAssertTrue(location.count <= 64)
         XCTAssertEqual(location.last, 0)
         XCTAssertNotNil(String(bytes: location.dropLast(), encoding: .utf8))
         XCTAssertEqual(values.first?.fields[11], [128, 0, 0, 0])
