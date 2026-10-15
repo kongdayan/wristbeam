@@ -3,6 +3,14 @@ import Foundation
 // Used only by test-core.py when the selected Command Line Tools lack XCTest.
 class XCTestCase {}
 
+func XCTAssertEqual(_ expression: @autoclosure () throws -> Double, _ expected: @autoclosure () throws -> Double,
+                    accuracy: Double, file: StaticString = #filePath, line: UInt = #line) {
+    do {
+        let actual = try expression(), wanted = try expected()
+        if actual != wanted && !(abs(actual - wanted) <= accuracy) { fail("Values differ beyond accuracy", file: file, line: line) }
+    } catch { fail("Unexpected error: \(error)", file: file, line: line) }
+}
+
 private func fail(_ message: String, file: StaticString, line: UInt) -> Never {
     fatalError("\(file):\(line): \(message)")
 }
