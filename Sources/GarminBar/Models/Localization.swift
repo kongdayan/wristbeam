@@ -19,16 +19,26 @@ enum L10n {
     static var isEnglish: Bool { language == .en || (language == .system && !(Locale.preferredLanguages.first ?? "en").hasPrefix("zh")) }
     static var locale: Locale { Locale(identifier: isEnglish ? "en_US" : "zh_CN") }
     private static let english: [String: String] = {
-        var urls: [URL] = []
-        if let url = Bundle.main.url(forResource: "en", withExtension: "json", subdirectory: "Localization") { urls.append(url) }
-        if let url = Bundle.main.url(forResource: "en", withExtension: "json") { urls.append(url) }
-        #if SWIFT_PACKAGE
-        if let url = Bundle.module.url(forResource: "en", withExtension: "json", subdirectory: "Localization") { urls.append(url) }
-        if let url = Bundle.module.url(forResource: "en", withExtension: "json") { urls.append(url) }
-        #endif
-        // CLT test harness and source builds do not have a main application bundle.
-        urls.append(URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources/Localization/en.json"))
-        for url in urls { if let data = try? Data(contentsOf: url), let table = try? JSONDecoder().decode([String: String].self, from: data) { return table } }
+        // Installed apps own their resources. Bundle.module traps when SwiftPM's
+        // build-time resource bundle is absent, even if Bundle.main is valid.
+        var bundles = [Bundle.main]
+        if Bundle.main.bundleURL.pathExtension != "app" {
+            let resource = Bundle.main.bundleURL.appendingPathComponent("WristBeam_GarminBar.bundle")
+            if let bundle = Bundle(url: resource) { bundles.append(bundle) }
+        }
+        for bundle in bundles {
+            for subdirectory in ["Localization", nil] as [String?] {
+                if let url = bundle.url(forResource: "en", withExtension: "json", subdirectory: subdirectory),
+                   let data = try? Data(contentsOf: url),
+                   let table = try? JSONDecoder().decode([String: String].self, from: data) { return table }
+            }
+        }
+        // Source-only harnesses have no app bundle. Never let a packaged app
+        // silently borrow the checkout's catalog and hide a packaging error.
+        if Bundle.main.bundleURL.pathExtension != "app" {
+            let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources/Localization/en.json")
+            if let data = try? Data(contentsOf: url), let table = try? JSONDecoder().decode([String: String].self, from: data) { return table }
+        }
         return [:]
     }()
     private static let templates: [(NSRegularExpression, String)] = english.keys.filter { $0.contains("{0}") }.sorted { $0.count > $1.count }.compactMap { key in
@@ -43,6 +53,21 @@ enum L10n {
         pattern += NSRegularExpression.escapedPattern(for: String(key[position...]))
         guard let expression = try? NSRegularExpression(pattern: "^" + pattern + "$", options: [.dotMatchesLineSeparators]) else { return nil }
         return (expression, english[key]!)
+    }
+    static func verifyPackagedResources() -> Bool {
+        guard Bundle.main.bundleURL.pathExtension == "app", english.count > 800 else { return false }
+        let original = language; defer { language = original }
+        language = .system
+        let expectedEnglish = !(Locale.preferredLanguages.first ?? "en").hasPrefix("zh")
+        guard text("腕映") == (expectedEnglish ? "WristBeam" : "腕映") else { return false }
+        for _ in 0..<3 {
+            language = .en
+            guard text("腕映") == "WristBeam", text("显示设置") == "Display settings",
+                  text("已刷新 51 项云端同步指标") == "Refreshed 51 cloud metrics" else { return false }
+            language = .zhHans
+            guard text("腕映") == "腕映", text("显示设置") == "显示设置" else { return false }
+        }
+        return true
     }
     static func text(_ source: String) -> String { translated(source, depth: 0) }
     static func format(_ key: String, _ arguments: String...) -> String {

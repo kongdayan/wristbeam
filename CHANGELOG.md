@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3
+
+- Fix a crash when switching to English or reopening an installed app with English selected. Load translations from the installed application without depending on SwiftPM build resources.
+- Keep update recovery as a ZIP archive and remove extracted application copies after validation, preventing duplicate app entries.
+- Test the signed, packaged executable in both system languages with the build and source resources unavailable; verify update replacement, cleanup and rollback.
+
 ## 0.3.2
 
 - Move watch battery to device information beside connection status, with a battery icon and percentage; exclude it from health selections, cards, sharing and history. Expose the latest battery reading in the developer status API.

@@ -101,6 +101,10 @@ jobs:
         run: swift test
       - name: Build and sign application
         run: zsh scripts/build.sh
+      - name: Installed application language and update lifecycle regression
+        run: |
+          python3 scripts/test-installed-localization.py
+          python3 scripts/test-update-helper.py
       - name: Validate real signed package
         run: python3 scripts/test-updater.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
