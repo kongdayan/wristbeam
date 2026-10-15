@@ -28,6 +28,7 @@ final class WatchWeatherController: NSObject, ObservableObject, CLLocationManage
     private weak var bluetooth: WatchBluetooth?
     private var subscriptions: Set<AnyCancellable> = []
     private var manager: CLLocationManager?
+    private var locating = false
     private let geocoder = CLGeocoder()
     private var locationTask: Task<Void, Never>?
     private var locationTimeout: Task<Void, Never>?
@@ -51,17 +52,19 @@ final class WatchWeatherController: NSObject, ObservableObject, CLLocationManage
         self.cloud = cloud; self.bluetooth = bluetooth
         bluetooth.weatherProvider = { [weak self] query in
             guard let self else { throw CancellationError() }
-            return try await self.fetch(forecastHours: query.forecastHours)
+            let result = try await self.fetch(forecastHours: query.forecastHours)
+            self.status = "正在发送天气至手表"
+            return result
         }
         bluetooth.onWeatherDelivery = { [weak self] success in
             guard let self else { return }
             if success { self.lastDelivered = Date(); self.status = "天气已发送至手表" }
-            else if self.available { self.status = "天气未能发送，请重试" }
+            else if self.available, self.status == "正在发送天气至手表" { self.status = "天气未能发送，请重试" }
         }
         Publishers.CombineLatest4(cloud.$networkEnabled, cloud.$isAuthenticated, cloud.$region, cloud.$accountGUID)
             .receive(on: RunLoop.main).sink { [weak self] _, _, _, _ in self?.reconcile() }.store(in: &subscriptions)
         bluetooth.$protocolReady.removeDuplicates().receive(on: RunLoop.main).sink { [weak self] ready in
-            if ready { self?.refreshIfDue() }
+            if ready { self?.refresh() }
         }.store(in: &subscriptions)
         Timer.publish(every: 60, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.refreshIfDue() }.store(in: &subscriptions)
         reconcile()
@@ -120,12 +123,12 @@ final class WatchWeatherController: NSObject, ObservableObject, CLLocationManage
 
     private func cancelLocation() {
         locationTask?.cancel(); locationTimeout?.cancel(); geocoder.cancelGeocode(); manager?.stopUpdatingLocation()
-        locationBusy = false
+        locationBusy = false; locating = false
     }
 
     func locate() {
         guard !PulseRuntime.isPreview else { return }
-        cancelLocation(); candidates = []; locationBusy = true; locationStatus = "正在获取当前位置"
+        cancelLocation(); candidates = []; locationBusy = true; locating = true; locationStatus = "正在获取当前位置"
         if manager == nil { manager = CLLocationManager(); manager?.delegate = self; manager?.desiredAccuracy = kCLLocationAccuracyKilometer }
         guard let manager else { return }
         switch manager.authorizationStatus {
@@ -135,13 +138,13 @@ final class WatchWeatherController: NSObject, ObservableObject, CLLocationManage
         }
         locationTimeout = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 30_000_000_000)
-            guard !Task.isCancelled, let self, self.locationBusy else { return }
-            self.manager?.stopUpdatingLocation(); self.locationBusy = false; self.locationStatus = "定位超时，请重试或手动选择城市"
+            guard !Task.isCancelled, let self, self.locationBusy, self.locating else { return }
+            self.cancelLocation(); self.locationStatus = "定位超时，请重试或手动选择城市"
         }
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        guard locationBusy else { return }
+        guard locationBusy, locating else { return }
         switch manager.authorizationStatus {
         case .notDetermined: break
         case .denied, .restricted: locationTimeout?.cancel(); locationBusy = false; locationStatus = "请在系统设置中允许定位，或手动选择城市"
@@ -150,20 +153,20 @@ final class WatchWeatherController: NSObject, ObservableObject, CLLocationManage
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard locationBusy, let found = locations.last, found.horizontalAccuracy >= 0,
+        guard locationBusy, locating, let found = locations.last, found.horizontalAccuracy >= 0,
               abs(found.timestamp.timeIntervalSinceNow) < 300 else { return }
-        locationTimeout?.cancel(); manager.stopUpdatingLocation()
+        manager.stopUpdatingLocation()
         locationTask = Task { [weak self] in
             guard let self else { return }
             let marks = try? await self.geocoder.reverseGeocodeLocation(found)
             guard !Task.isCancelled else { return }
             let value = marks?.first.flatMap(Self.city) ?? .init(name: L10n.text("当前位置"), latitude: found.coordinate.latitude, longitude: found.coordinate.longitude)
-            self.locationBusy = false; self.select(value)
+            self.locationTimeout?.cancel(); self.locationBusy = false; self.locating = false; self.select(value)
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        guard locationBusy else { return }
+        guard locationBusy, locating else { return }
         cancelLocation(); locationStatus = "无法获取位置，请重试或手动选择城市"
     }
 
@@ -175,7 +178,7 @@ final class WatchWeatherController: NSObject, ObservableObject, CLLocationManage
         let selectedSource = source
         let task = Task {
             if selectedSource == .openMeteo { return try await openMeteo.fetch(latitude: location.latitude, longitude: location.longitude, city: location.name) }
-            return try await cloud.fetchWeather(latitude: location.latitude, longitude: location.longitude, city: location.name, forecastHours: max(24, forecastHours))
+            return try await cloud.fetchWeather(latitude: location.latitude, longitude: location.longitude, city: location.name, forecastHours: 48)
         }
         fetchTask = task
         do {
@@ -204,7 +207,15 @@ final class WatchWeatherController: NSObject, ObservableObject, CLLocationManage
             do {
                 let result = try await self.fetch()
                 guard self.generation == id, !Task.isCancelled else { return }
-                self.status = self.bluetooth?.sendWeather(result) == true ? "正在发送天气至手表" : "天气已获取，等待手表连接"
+                var accepted = false
+                // A cancelled transfer keeps its ACK slot until it drains. Retry locally without refetching.
+                for _ in 0..<25 {
+                    guard self.generation == id, !Task.isCancelled else { return }
+                    guard self.bluetooth?.protocolReady == true else { break }
+                    if self.bluetooth?.sendWeather(result) == true { accepted = true; break }
+                    try await Task.sleep(nanoseconds: 1_000_000_000)
+                }
+                self.status = accepted ? "正在发送天气至手表" : (self.bluetooth?.protocolReady == true ? "天气通道忙，请稍后重试" : "天气已获取，等待手表连接")
             } catch { /* fetch publishes a safe, localized error */ }
             if self.generation == id { self.refreshing = false; self.refreshTask = nil }
         }

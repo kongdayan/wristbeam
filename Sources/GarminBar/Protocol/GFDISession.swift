@@ -48,6 +48,8 @@ final class GFDISession {
     private var weatherTask: Task<Void, Never>?
     private var weatherGeneration = UUID()
     private var weatherFrames: [GFDIMessage] = []
+    private var activeWeatherHours = 0
+    private var queuedWeatherQuery: GFDIWeatherRequest?
     /// ALREADY_IN_USE supplies a new Garmin RX short UUID. Enable its notifications and call
     /// `transportReady` when the redirected characteristic pair is ready.
     var onTransportRedirect: ((UUID, UUID) -> Void)?
@@ -513,6 +515,7 @@ final class GFDISession {
         weatherGeneration = UUID()
         weatherTask?.cancel(); weatherTask = nil
         weatherFrames.removeAll()
+        queuedWeatherQuery = nil; activeWeatherHours = 0
         // Keep in-flight ACK correlation until it settles; its generation invalidates the callback.
         for number: UInt16 in [5011, 5012] {
             if var request = pending[number] { request.retries = 0; pending[number] = request }
@@ -520,11 +523,21 @@ final class GFDISession {
     }
 
     private func receiveWeatherRequest(_ message: GFDIMessage) {
-        guard weatherEnabled, isReady, let provider = weatherProvider else { send(message.response(status: 2)); return }
+        guard weatherEnabled, isReady, weatherProvider != nil else { send(message.response(status: 2)); return }
         guard let query = try? GFDIWeatherRequest(payload: message.payload) else { send(message.response(status: 5)); return }
         send(message.response(payload: query.acknowledgementPayload))
-        // Retransmitted requests share the ongoing refresh instead of starting parallel transfers.
-        guard weatherTask == nil, weatherFrames.isEmpty, pending[5011] == nil, pending[5012] == nil else { return }
+        beginWeatherRequest(query)
+    }
+
+    private func beginWeatherRequest(_ query: GFDIWeatherRequest) {
+        guard let provider = weatherProvider, weatherEnabled, isReady else { return }
+        // Coalesce retransmissions, but preserve a request for a longer forecast.
+        guard weatherTask == nil, weatherFrames.isEmpty, pending[5011] == nil, pending[5012] == nil else {
+            let draining = weatherTask == nil && weatherFrames.isEmpty
+            if draining || query.forecastHours > max(activeWeatherHours, queuedWeatherQuery?.forecastHours ?? -1) { queuedWeatherQuery = query }
+            return
+        }
+        activeWeatherHours = query.forecastHours
         let generation = weatherGeneration
         weatherTask = Task { [weak self] in
             do {
@@ -544,6 +557,7 @@ final class GFDISession {
         guard connectedToTransport, isReady, weatherEnabled, weatherTask == nil, weatherFrames.isEmpty,
               pending[5011] == nil, pending[5012] == nil else { return false }
         weatherFrames = GFDIWeather.frames(snapshot: snapshot, forecastHours: forecastHours)
+        activeWeatherHours = forecastHours
         guard !weatherFrames.isEmpty else { return false }
         sendNextWeatherFrame(generation: weatherGeneration)
         return true
@@ -551,7 +565,11 @@ final class GFDISession {
 
     private func sendNextWeatherFrame(generation: UUID) {
         guard weatherEnabled, isReady, generation == weatherGeneration else { return }
-        guard !weatherFrames.isEmpty else { onWeatherDelivery?(true); return }
+        guard !weatherFrames.isEmpty else {
+            onWeatherDelivery?(true)
+            if let query = queuedWeatherQuery { queuedWeatherQuery = nil; beginWeatherRequest(query) }
+            return
+        }
         let frame = weatherFrames.removeFirst()
         request(frame.number, payload: frame.payload) { [weak self] result in
             guard let self, self.weatherGeneration == generation, self.weatherEnabled else { return }
@@ -824,6 +842,9 @@ final class GFDISession {
     // Exposed internally for deterministic timeout tests; no actual sleeps are needed by tests.
     func tick(now: Date) {
         guard connectedToTransport else { return }
+        if let query = queuedWeatherQuery, weatherTask == nil, weatherFrames.isEmpty, pending[5011] == nil, pending[5012] == nil {
+            queuedWeatherQuery = nil; beginWeatherRequest(query)
+        }
         if weatherConfigurationDirty, isReady, pending[5050] == nil {
             weatherConfigurationDirty = false
             request(5050, payload: hostConfiguration()) { [weak self] result in

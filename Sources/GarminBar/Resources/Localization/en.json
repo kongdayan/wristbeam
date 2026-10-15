@@ -1026,5 +1026,6 @@
   "天气数据已过期，请稍后重试": "Weather data is stale. Please retry later.",
   "当前账户无法访问天气服务，请检查云账号": "This account cannot access weather. Check your cloud account.",
   "天气服务暂时不可用，请稍后重试": "Weather service is temporarily unavailable. Please retry later.",
-  "天气请求被重定向，请稍后重试": "Weather request was redirected. Please retry later."
+  "天气请求被重定向，请稍后重试": "Weather request was redirected. Please retry later.",
+  "天气通道忙，请稍后重试": "Weather channel is busy. Please retry shortly."
 }

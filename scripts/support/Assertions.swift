@@ -44,3 +44,7 @@ func XCTUnwrap<T>(_ expression: @autoclosure () throws -> T?, file: StaticString
     guard let value = try expression() else { fail("Missing value", file: file, line: line) }
     return value
 }
+
+func XCTFail(_ message: String = "Assertion failed", file: StaticString = #filePath, line: UInt = #line) {
+    fail(message, file: file, line: line)
+}
