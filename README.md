@@ -3,7 +3,7 @@
 
 # WristBeam
 
-Your wrist, in view.
+Your Mac has a battery indicator. You deserve one too.
 
 [![CI](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kongdayan/wristbeam)](https://github.com/kongdayan/wristbeam/releases/latest)
@@ -14,9 +14,19 @@ Your wrist, in view.
 
 </div>
 
-![WristBeam](docs/images/showcase-hero.png)
+**Garmin → Mac → Garmin Connect. No phone app in the middle.**
 
-**Menu bar · Floating panel · Dashboard.** Receive data through normal Garmin Bluetooth services, download original FIT files and sync to Garmin Connect China or Global. Verified with Instinct 2 Solar and a China account.
+I wanted my watch to talk to the computer I was already sitting in front of. Instead, syncing meant reaching for my phone, opening another app, and then going back to my Mac. So I wrote WristBeam: a direct Bluetooth connection from wrist to desktop, with activity and health data syncing to Garmin Connect in the background.
+
+- **Give your phone a day off.** Connect a supported Garmin watch directly to your Mac and sync its activity and health files to Garmin Connect China or Global.
+- **Put your own battery in the menu bar.** Keep heart rate, Body Battery, stress, steps and more in view, with floating panels, daily charts and a customizable dashboard.
+- **Let your AI check in on you.** Use MCP to make your synced health metrics available to an AI assistant. Ask “How was my sleep?” or “What does my energy look like today?” Build your own tools with the HTTP/HTTPS API, Python SDK and webhooks.
+
+Your AI can already count tokens. Now it can ask how *you're* doing.
+
+[Connect your AI](docs/developer/API.md) · [Supported devices](docs/DEVICES.md) · [Available metrics](docs/METRICS.md)
+
+![WristBeam](docs/images/showcase-hero.png)
 
 [Download](https://github.com/kongdayan/wristbeam/releases/latest) · [Issues & device reports](https://github.com/kongdayan/wristbeam/issues) · [Contribute](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 

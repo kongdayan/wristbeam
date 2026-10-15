@@ -3,7 +3,7 @@
 
 # 腕映 · WristBeam
 
-腕上健康，桌面可见。
+Mac 有电量条，人也该有。
 
 [![CI](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kongdayan/wristbeam)](https://github.com/kongdayan/wristbeam/releases/latest)
@@ -14,9 +14,19 @@
 
 </div>
 
-![腕映：菜单栏、浮窗与健康看板](docs/images/showcase-hero-zh.png)
+**佳明手表 → Mac → 佳明云，手机 App 可以休息了。**
 
-**菜单栏 · 浮窗 · 健康看板**。通过正常 Garmin 蓝牙协议接收手表数据，下载原始 FIT 并同步到佳明中国或国际账户。Instinct 2 Solar 与中国账户已完成真机验证。
+人已经坐在 Mac 前面，手表也戴在腕上，同步数据却还要摸出手机、打开 App，再回到电脑。我就是不想多走这一步，于是写了腕映：让手表直接通过蓝牙连接 Mac，把运动和健康数据同步到佳明云，也把身体状态搬到每天盯着的屏幕上。
+
+- **让手机少上一个班。** Mac 直连支持的佳明手表，无需手机 App 中转，即可同步手表中的运动与健康文件到佳明中国或国际云。
+- **给自己也装个电量条。** 心率、身体电量、压力、步数等指标放进菜单栏、浮窗和健康看板，随时查看数值与全天趋势。
+- **让 AI 除了算 Token，也关心一下你。** 通过 MCP 把已同步的健康指标接入 AI 助手，问问「昨晚睡得怎么样」「今天身体电量如何」。还有 HTTP/HTTPS API、Python SDK 和 Webhook，方便开发自己的玩法。
+
+电脑电量低了知道充，人电量低了还在开会。至少现在，你和你的 AI 都能看见。
+
+[接入你的 AI](docs/developer/API.md) · [支持的设备](docs/DEVICES.md) · [可用指标](docs/METRICS.md)
+
+![腕映：菜单栏、浮窗与健康看板](docs/images/showcase-hero-zh.png)
 
 [下载](https://github.com/kongdayan/wristbeam/releases/latest) · [反馈与设备支持](https://github.com/kongdayan/wristbeam/issues) · [参与贡献](CONTRIBUTING.md) · [版本记录](CHANGELOG.md)
 

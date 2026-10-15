@@ -3,7 +3,7 @@
 
 # WristBeam
 
-시계의 데이터를 Mac에서 조용히 확인하세요.
+Mac에는 배터리 표시가 있죠. 나에게도 하나쯤.
 
 [![CI](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kongdayan/wristbeam)](https://github.com/kongdayan/wristbeam/releases/latest)
@@ -14,9 +14,19 @@
 
 </div>
 
-![WristBeam](docs/images/showcase-hero.png)
+**Garmin → Mac → Garmin Connect. 중간에 휴대폰 앱은 필요 없어요.**
 
-**메뉴 막대 · 플로팅 패널 · 건강 대시보드**. 일반 Garmin Bluetooth 서비스로 데이터를 받고, 원본 FIT 파일을 Garmin Connect 중국 또는 글로벌 계정에 동기화합니다. Instinct 2 Solar와 중국 계정으로 실제 기기 검증을 마쳤습니다.
+Mac 앞에 앉아 있고 손목에는 시계가 있는데, 동기화하려면 또 휴대폰을 꺼내 앱을 열어야 했습니다. 그 번거로움을 없애려고 WristBeam을 만들었습니다. 시계를 Bluetooth로 Mac에 직접 연결하고 운동 및 건강 데이터를 Garmin Connect에 동기화합니다.
+
+- **휴대폰에도 휴식을.** 지원되는 Garmin 시계의 운동 및 건강 파일을 Mac에서 Garmin Connect 중국 또는 글로벌 계정으로 동기화하세요.
+- **내 배터리도 메뉴 막대에.** 심박수, Body Battery, 스트레스, 걸음 수 등을 메뉴 막대, 플로팅 패널, 일일 차트와 대시보드에서 확인하세요.
+- **AI에게 내 상태도 알려주기.** MCP로 동기화된 건강 지표를 AI 비서에 연결하고 “어젯밤 잠은 어땠어?”라고 물어보세요. HTTP/HTTPS API, Python SDK, Webhook으로 나만의 도구도 만들 수 있습니다.
+
+토큰을 세던 AI가 이제 당신의 에너지도 살펴볼 수 있습니다.
+
+[AI 연결하기](docs/developer/API.md) · [지원 기기](docs/DEVICES.md) · [사용 가능한 지표](docs/METRICS.md)
+
+![WristBeam](docs/images/showcase-hero.png)
 
 [다운로드](https://github.com/kongdayan/wristbeam/releases/latest) · [문제 및 기기 보고](https://github.com/kongdayan/wristbeam/issues) · [기여](CONTRIBUTING.md) · [변경 기록](CHANGELOG.md)
 

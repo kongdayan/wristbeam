@@ -3,7 +3,7 @@
 
 # WristBeam
 
-腕時計のデータを、Mac で静かに見守る。
+Mac にバッテリー表示があるなら、自分にも。
 
 [![CI](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kongdayan/wristbeam)](https://github.com/kongdayan/wristbeam/releases/latest)
@@ -14,9 +14,19 @@
 
 </div>
 
-![WristBeam](docs/images/showcase-hero.png)
+**Garmin → Mac → Garmin Connect。スマホアプリを経由せずに。**
 
-**メニューバー · フローティングパネル · ダッシュボード**。通常の Garmin Bluetooth サービスでデータを受信し、元の FIT ファイルを Garmin Connect 中国／グローバルへ同期します。Instinct 2 Solar と中国アカウントで実機検証済みです。
+Mac の前に座り、腕には時計がある。それなのに同期のたびにスマホを取り出してアプリを開く。そのひと手間をなくしたくて、WristBeam を作りました。時計を Bluetooth で Mac に直接つなぎ、アクティビティと健康データを Garmin Connect に同期します。
+
+- **スマホにも休憩を。** 対応する Garmin ウォッチから Mac 経由で Garmin Connect 中国／グローバルへ同期。
+- **自分のバッテリーをメニューバーに。** 心拍数、Body Battery、ストレス、歩数などを、メニューバーやフローティングパネル、日々のグラフで確認。
+- **AI にも体調を伝える。** MCP で同期済みの健康指標を AI アシスタントに接続し、「昨夜の睡眠はどうだった？」と聞いてみましょう。HTTP/HTTPS API、Python SDK、Webhook で独自のツールも作れます。
+
+トークンの残量だけでなく、あなたのエネルギーも気にかけてくれる AI へ。
+
+[AI と接続](docs/developer/API.md) · [対応デバイス](docs/DEVICES.md) · [利用できる指標](docs/METRICS.md)
+
+![WristBeam](docs/images/showcase-hero.png)
 
 [ダウンロード](https://github.com/kongdayan/wristbeam/releases/latest) · [不具合・デバイス報告](https://github.com/kongdayan/wristbeam/issues) · [貢献](CONTRIBUTING.md) · [更新履歴](CHANGELOG.md)
 
