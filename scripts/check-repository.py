@@ -54,7 +54,7 @@ for path in files:
     if any(part in {'dist', '.build', 'Received', 'UploadQueue', 'Telemetry', 'Diagnostics'} for part in path.relative_to(root).parts) or path.suffix.lower() in {'.fit', '.log', '.jsonl'}:
         errors.append(f'{name}: runtime/private artifact is not public source')
 
-readmes = ['README.md', 'README.en.md', 'README.ja.md', 'README.ko.md', 'README.ru.md']
+readmes = ['README.md', 'README.cn.md', 'README.ja.md', 'README.ko.md', 'README.ru.md']
 for name in readmes:
     path = root / name
     if not path.is_file():

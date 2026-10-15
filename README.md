@@ -1,95 +1,94 @@
 <div align="center">
 <img src="docs/images/app-icon.png" width="76" alt="WristBeam" />
 
-# 腕映 · WristBeam
+# WristBeam
 
-腕上健康，桌面可见。
+Your wrist, in view.
 
 [![CI](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kongdayan/wristbeam)](https://github.com/kongdayan/wristbeam/releases/latest)
 [![MIT](https://img.shields.io/badge/license-MIT-91d8b1)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-13%2B-1d2628?logo=apple)](https://github.com/kongdayan/wristbeam/releases/latest)
 
-[简体中文](README.md) · [English](README.en.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Русский](README.ru.md)
+[English](README.md) · [简体中文](README.cn.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Русский](README.ru.md)
 
 </div>
 
-![腕映：菜单栏、浮窗与健康看板](docs/images/showcase-hero-zh.png)
+![WristBeam](docs/images/showcase-hero.png)
 
-**菜单栏 · 浮窗 · 健康看板**。通过正常 Garmin 蓝牙协议接收手表数据，下载原始 FIT 并同步到佳明中国或国际账户。Instinct 2 Solar 与中国账户已完成真机验证。
+**Menu bar · Floating panel · Dashboard.** Receive data through normal Garmin Bluetooth services, download original FIT files and sync to Garmin Connect China or Global. Verified with Instinct 2 Solar and a China account.
 
-[下载](https://github.com/kongdayan/wristbeam/releases/latest) · [反馈与设备支持](https://github.com/kongdayan/wristbeam/issues) · [参与贡献](CONTRIBUTING.md) · [版本记录](CHANGELOG.md)
+[Download](https://github.com/kongdayan/wristbeam/releases/latest) · [Issues & device reports](https://github.com/kongdayan/wristbeam/issues) · [Contribute](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
-## 展示
+## A closer look
 
-![菜单栏与点击后的弹窗](docs/images/showcase-menu-zh.png)
+![Menu bar and click-to-open panel](docs/images/showcase-menu.png)
 
-![主题与看板](docs/images/showcase-themes-zh.png)
+![Themes and dashboard](docs/images/showcase-themes.png)
 
-![显示配置](docs/images/showcase-settings-zh.png)
+![Display configuration](docs/images/showcase-settings.png)
 
-![紧凑与详细浮窗](docs/images/showcase-floating-zh.png)
+![Compact and Detailed floating panels](docs/images/showcase-floating.png)
 
-真实应用界面，使用隔离演示数据。[原始截图与制作说明](docs/SHOWCASE.md)。
+Real app UI with isolated demo data. [Original captures and artwork notes](docs/SHOWCASE.md).
 
-## 功能
+## Features
 
-- 在菜单栏、浮窗和看板独立选择指标，整组选取、搜索、拖动排序，调整字体与布局。
-- 紧凑立体卡片，标题旁显示更新时间；右上角统一调整布局、指标与基础选择。
-- 带壳图片分享整个看板、选中卡片或单个数值，支持浅色／深色、复制、保存和系统分享。
-- 全天曲线、分时柱形、日期与时间范围、光标读数、原始记录；缺测留空。
-- 正常 Garmin 蓝牙通道，交互配对教程，原 FIT 持久队列、去重与云同步。
-- 白天／夜间／系统主题，中英应用界面，确认后自动升级。
+- Compact dimensional cards with timestamps beside the title. Customize layout and essentials in one panel; share the dashboard, selected cards or a single value as a framed image in light or dark, with copy, save and native sharing.
+- Independent menu bar, panel and dashboard selections, group toggles, search, drag ordering, adjustable text and layout.
+- Daily curves, interval bars, date/time ranges, cursor readings and original records. Gaps remain empty.
+- Garmin Bluetooth pairing guide, persistent original-FIT queue, deduplication and cloud sync.
+- Light/dark/system themes, Chinese/English app UI, and updates that require confirmation.
 
-只读 MCP、HTTP/HTTPS API、Python SDK 与签名 Webhook，在「设置 → 开发者集成」中配置。默认关闭。[开发者接口文档](docs/developer/API.md)。
+Opt-in read-only MCP, HTTP/HTTPS API, Python SDK and signed webhooks in Settings → Developer integrations. [Developer API](docs/developer/API.md).
 
-![带壳分享示例：三张选中卡片，隔离演示数据](docs/images/share-cards-zh.png)
+![Framed sharing preview with three synthetic metric cards](docs/images/share-cards-en.png)
 
-## 设备支持
+## Device support
 
-目前兼容 **Garmin（佳明）** 手表，实机验证型号见下表；后续可扩展其他品牌与设备。
+Currently compatible with **Garmin** watches; verified models are listed below. Other brands and devices may be added later.
 
-| 手表 | 实时指标 | 原 FIT 与中国云 | 太阳能记录 | 状态 |
+| Watch | Live metrics | Original FIT + China cloud | Solar records | Status |
 | --- | --- | --- | --- | --- |
-| Instinct 2 Solar | ✓ | ✓ | ✓ | 真机验证 |
-| Instinct 2 / 2S / 2X | 待验证 | 待验证 | 依具体型号 | 欢迎反馈 |
-| fēnix / epix / Forerunner | 待验证 | 待验证 | 依具体型号 | 欢迎反馈 |
-| Venu / vívoactive 与其他型号 | 待验证 | 待验证 | 依具体型号 | 欢迎反馈 |
+| Instinct 2 Solar | ✓ | ✓ | ✓ | Device verified |
+| Instinct 2 / 2S / 2X | Unverified | Unverified | Model dependent | Reports welcome |
+| fēnix / epix / Forerunner | Unverified | Unverified | Model dependent | Reports welcome |
+| Venu / vívoactive and other models | Unverified | Unverified | Model dependent | Reports welcome |
 
-支持取决于具体固件与开放通道；没有将整个系列视为已兼容。[支持矩阵与反馈方法](docs/DEVICES.md)。
+Support depends on firmware and available services; an entire family is not assumed compatible. [Detailed matrix and reporting](docs/DEVICES.md).
 
-## 可采集的数据
+## Data you can collect
 
-| 参数 | 数据来源 | 展示方式 |
+| Metric | Source | Presentation |
 | --- | --- | --- |
-| 心率、身体电量、压力 | Garmin 蓝牙通知＋云端全天记录 | 实时读数、全天曲线 |
-| 步数 | 蓝牙＋云端 | 累计值、分时新增柱形 |
-| 呼吸、血氧 | 手表发出测量通知／云端记录 | 读数、全天趋势 |
-| RR 心搏间期 | 蓝牙通知 | 毫秒读数；不是夜间 HRV 评分 |
-| 夜间 HRV | 云端睡眠记录 | 夜间均值、七天平均、状态、基线与夜间曲线；缺失项留空 |
-| 手表电池 | 佳明蓝牙协议 | 设备信息中的电池图标与百分比；变化通知 + 定时刷新 |
-| 热量、楼层、强度分钟 | 手表／云端提供的字段 | 今日统计，部分支持分时数据 |
-| 静息心率、睡眠时长与恢复统计 | 云端每日汇总 | 汇总值与相关趋势 |
-| 太阳能强度 | 云端有效分钟记录 | 0–24 点曲线 |
-| 日照、太阳能充电时长 | 有效光照分钟估算 | 标记为估算 |
-| 运动与健康 FIT | 手表原文件 | 本地保留、云端上传 |
+| Heart rate, Body Battery, stress | Garmin notifications + daily cloud records | Current readings, daily curves |
+| Steps | Bluetooth + cloud | Daily total, interval increments |
+| Respiration, SpO₂ | Measurements emitted by watch / cloud | Readings, daily trends |
+| RR intervals | Bluetooth | Milliseconds; not an overnight HRV score |
+| Overnight HRV | Cloud sleep records | Nightly / seven-day average, status, baseline and night chart; missing fields stay empty |
+| Watch battery | Garmin Bluetooth protocol | Battery icon and percentage beside device status; change notifications + periodic refresh |
+| Calories, floors, intensity minutes | Fields supplied by watch / cloud | Daily totals; some interval data |
+| Resting heart rate, sleep duration, recovery summaries | Daily cloud summary | Summary values and related trends |
+| Solar intensity | Valid cloud minute records | Midnight-to-midnight curve |
+| Sunlight / solar charging duration | Estimated from valid input minutes | Explicitly labeled estimates |
+| Activity and health FIT | Original watch files | Retained locally, uploaded to cloud |
 
-目录包含 **60 个健康指标与 1 个设备状态字段**；只显示已收到有效数据的项目，各型号提供的字段不同。[完整指标表与验证状态](docs/METRICS.md)。
+The catalog has **60 health metrics and one device-status field**. Only metrics with valid received data appear; availability varies by watch. [Full catalog and evidence](docs/METRICS.md).
 
-## 安装
+## Install
 
-| Mac | 安装包 |
+| Mac | Download |
 | --- | --- |
 | Apple Silicon | [arm64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-arm64.zip) |
 | Intel | [x86_64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-x86_64.zip) |
-| 两种架构 | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
+| Either architecture | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
 
-要求 macOS 13+。解压，将应用放入可写的 Applications 文件夹。打开“设备 → 连接”，按引导准备手表，点击连接按钮后允许蓝牙访问；保持心率广播关闭。到“设备账号”选择中国／国际区域，在佳明官方页面登录，再到“同步记录”选择手动或自动同步。启动自动连接默认关闭，可在首次配对后主动开启。
+Requires macOS 13+. Extract and move the app to a writable Applications folder. Open Devices → Connection, prepare the watch with heart-rate broadcast off, then click a connection button to allow Bluetooth. Choose China/Global in Device account and sign in on Garmin's official page; choose manual or automatic uploads in Sync records. Connecting at launch is off by default and can be enabled after pairing.
 
-当前为临时签名，尚未 Apple 公证。真实国际账户上传、其他固件、应用层加密与 native MLR / CoreTransfer 尚未验证或支持。Mac 休眠时不能即时同步，当前不提供系统桌面小组件。[验证范围](VERIFICATION.md)。
+Ad hoc signed; not Apple notarized. Real Global uploads and other firmware remain unverified. Application-level encryption, native MLR / CoreTransfer and desktop widgets are unsupported. The Mac cannot sync immediately while asleep. [Verification scope](VERIFICATION.md).
 
-## 贡献与共享
+## Contribute and share
 
-欢迎提交 PR、翻译、设备兼容结果与功能建议。项目采用 **[MIT](LICENSE)**，允许使用、修改与分发，请保留许可证。WristBeam 是独立项目，与 Garmin 官方无隶属关系。
+PRs, translations, device results and ideas are welcome. **[MIT](LICENSE)** permits use, modification and redistribution with the license retained. This independent project is not affiliated with Garmin.
 
-[开发与提交指南](CONTRIBUTING.md) · [安全报告](SECURITY.md) · [自动发布流程](docs/RELEASING.md)
+[Development & PR guide](CONTRIBUTING.md) · [Security reports](SECURITY.md) · [Automated releases](docs/RELEASING.md)
