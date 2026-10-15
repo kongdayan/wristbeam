@@ -35,6 +35,7 @@ enum GFDITransportMode { case multiLink, legacy }
 @MainActor
 final class GFDISession {
     var onSend: ((Data) -> Void)?
+    var onDiagnosticMessage: ((GFDIMessage, GFDIRequestLog.Direction) -> Void)?
     var onStatus: ((String) -> Void)?
     var onFile: ((URL, GFDIFileMetadata) -> Void)?
     var onDeviceInfo: ((GFDIDeviceInfo) -> Void)?
@@ -331,6 +332,7 @@ final class GFDISession {
             let frame = try message.framed()
             let handle = handles.first(where: { $0.value == 1 })?.key
             guard transportMode != .multiLink || handle != nil else { return }
+            onDiagnosticMessage?(message, .macQueued)
             let prefix = transportMode == .multiLink ? Data([handle!]) : Data()
             let size = max(1, maximumWriteLength - prefix.count)
             for start in stride(from: 0, to: frame.count, by: size) {
@@ -347,6 +349,7 @@ final class GFDISession {
     }
 
     private func receiveMessage(_ message: GFDIMessage) {
+        onDiagnosticMessage?(message, .watchToMac)
         do {
             switch message.number {
             case 5000:

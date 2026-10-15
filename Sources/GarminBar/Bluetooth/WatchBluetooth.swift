@@ -22,6 +22,7 @@ enum WatchUUID {
 
 @MainActor
 final class WatchBluetooth: NSObject, ObservableObject {
+    let requestCapture = WatchRequestCapture()
     @Published var status = "尚未连接"
     @Published var bluetoothStatus = "前往设备页面，按引导授权并连接"
     @Published var isScanning = false
@@ -301,6 +302,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
         sessionStarted = true
         let engine = GFDISession(storageDirectory: archiveRegion.receiveDirectory(root: AppPaths.directory("Received")))
         session = engine
+        engine.onDiagnosticMessage = { [weak self] message, direction in self?.requestCapture.record(message, direction: direction) }
         engine.maximumWriteLength = selected.maximumWriteValueLength(for: tx.properties.contains(.writeWithoutResponse) ? .withoutResponse : .withResponse)
         engine.onSend = { [weak self] data in self?.outbound.append(data); self?.drainWrites() }
         engine.onStatus = { [weak self] text in

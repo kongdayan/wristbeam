@@ -219,6 +219,7 @@ struct WatchPage: View {
             }
             Toggle(L10n.text("显示其他附近设备"), isOn: $bluetooth.showAllDevices).font(PulseTheme.font(size: 11)).toggleStyle(.checkbox)
             BackgroundConnectionGuide(bluetooth: bluetooth)
+            WatchRequestCaptureCard(capture: bluetooth.requestCapture, connected: bluetooth.isConnected, preview: model.preview)
             if bluetooth.isConnected {
                 PulseCard {
                     VStack(alignment: .leading, spacing: 12) {
@@ -545,5 +546,85 @@ struct LoginSheet: View {
             }.font(PulseTheme.font(size: 11)).padding(14).background(PulseTheme.background)
             HStack { Text(L10n.text(model.cloud.status)).font(PulseTheme.font(size: 11)); Spacer() }.padding(14).background(PulseTheme.background)
         }.frame(width: 760, height: 680).foregroundStyle(.primary).preferredColorScheme(model.preferredColorScheme)
+    }
+}
+
+struct WatchRequestCaptureCard: View {
+    @ObservedObject var capture: WatchRequestCapture
+    let connected: Bool
+    let preview: Bool
+    @State private var expanded = false
+
+    var body: some View {
+        PulseCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Button { expanded.toggle() } label: {
+                    HStack {
+                        Label(L10n.text("手表请求诊断"), systemImage: "waveform.path")
+                        Spacer()
+                        Text(L10n.text(capture.isCapturing ? "正在捕获" : "已停止"))
+                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                    }.font(PulseTheme.font(size: 14, weight: .semibold)).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                Text(L10n.text(connected ? "打开手表天气页面或切换表盘，查看本连接收到的消息。" : "连接手表后打开天气页面；也可先开始捕获，再连接手表。"))
+                    .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                HStack {
+                    Button(L10n.text(capture.isCapturing ? "停止捕获" : "捕获 10 分钟")) {
+                        if capture.isCapturing { capture.stop() } else { capture.start(); expanded = true }
+                    }.buttonStyle(.borderedProminent).disabled(preview)
+                    Button(L10n.text("导出请求记录")) {
+                        if capture.persist() { NSWorkspace.shared.activateFileViewerSelecting([capture.url]) }
+                    }.buttonStyle(.bordered).disabled(capture.log.startedAt == nil || preview)
+                    Spacer()
+                    Button(L10n.text("清空记录")) { capture.clear() }.buttonStyle(.bordered).disabled(preview || capture.log.startedAt == nil)
+                }
+                if capture.storageError {
+                    Text(L10n.text("请求记录保存失败，请检查本地存储权限。"))
+                        .font(PulseTheme.font(size: 12)).foregroundStyle(.orange)
+                }
+                if expanded {
+                    Text(L10n.text("仅保存消息类型和安全字段，隐藏位置与原始内容。未声明天气能力时，手表可能不会发起天气请求。"))
+                        .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                    Text(L10n.format("已记录 {0} 条 · 常规消息略过 {1} 条", String(capture.log.totalEvents), String(capture.log.omittedRoutineMessages)))
+                        .font(PulseTheme.font(size: 12, weight: .medium))
+                    if capture.log.events.isEmpty {
+                        Text(L10n.text("尚未捕获到请求；这不代表表盘不需要天气。"))
+                            .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(capture.log.events.suffix(30).reversed()) { event in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Image(systemName: event.direction == .watchToMac ? "arrow.down.left" : "arrow.up.right")
+                                        Text(L10n.text(event.name)).fontWeight(.medium)
+                                        Spacer()
+                                        Text(event.time, style: .time).monospacedDigit()
+                                    }
+                                    Text(detail(event)).foregroundStyle(PulseTheme.secondary).textSelection(.enabled)
+                                }.font(PulseTheme.font(size: 12))
+                                Divider()
+                            }
+                        }
+                        Text(L10n.text("显示最近 30 条；导出保留最近 300 条。排队发送不代表手表已收到。"))
+                            .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func detail(_ event: GFDIRequestLog.Event) -> String {
+        let direction = L10n.text(event.direction == .watchToMac ? "手表 → Mac" : "应用排队发送")
+        var parts = [direction, "#\(event.number)", "\(event.payloadBytes) B"]
+        if let target = event.replyTo, let status = event.status {
+            let result = status == 0 ? L10n.text("成功") : status == 2 ? L10n.text("不支持") : "\(status)"
+            parts.append(L10n.format("回复 #{0}：{1}", String(target), result))
+        }
+        if let format = event.weatherFormat, let hours = event.forecastHours {
+            parts.append(L10n.format("格式 {0} · 预报 {1} 小时 · 位置已隐藏", String(format), String(hours)))
+        } else if event.weatherPayloadValid == false {
+            parts.append(L10n.text("天气消息长度不符合已知格式"))
+        }
+        return parts.joined(separator: " · ")
     }
 }
