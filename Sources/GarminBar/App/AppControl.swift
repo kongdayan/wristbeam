@@ -9,7 +9,7 @@ enum PulseLocalControl {
 
     static func handleCommandLine() -> Bool {
         let arguments = CommandLine.arguments
-        let controls = ["--status", "--sync", "--sync-recent", "--scan", "--connect", "--reconnect", "--retry-protocol", "--forget-watch", "--refresh-metrics", "--capture-watch-requests", "--stop-watch-capture"]
+        let controls = ["--status", "--sync", "--sync-recent", "--scan", "--connect", "--reconnect", "--retry-protocol", "--forget-watch", "--refresh-metrics", "--capture-watch-requests", "--stop-watch-capture", "--refresh-weather"]
         guard controls.contains(where: arguments.contains) else { return false }
         guard let data = try? Data(contentsOf: statusURL),
               var state = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
@@ -42,6 +42,7 @@ enum PulseLocalControl {
         else if arguments.contains("--forget-watch") { command = "forget-watch" }
         else if arguments.contains("--capture-watch-requests") { command = "capture-watch-requests" }
         else if arguments.contains("--stop-watch-capture") { command = "stop-watch-capture" }
+        else if arguments.contains("--refresh-weather") { command = "refresh-weather" }
         else if arguments.contains("--refresh-metrics") { command = "refresh-metrics" }
         else { command = arguments.contains("--sync-recent") ? "recent" : "sync" }
         let request = UUID().uuidString

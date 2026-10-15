@@ -80,6 +80,7 @@ Support depends on firmware and available services; an entire family is not assu
 | Watch battery | Garmin Bluetooth protocol | Battery icon and percentage beside device status; change notifications + periodic refresh |
 | Calories, floors, intensity minutes | Fields supplied by watch / cloud | Daily totals; some interval data |
 | Resting heart rate, sleep duration, recovery summaries | Daily cloud summary | Summary values and related trends |
+| Watch weather | Open-Meteo or device cloud account | Current / hourly / daily weather sent to the watch; [setup and limits](docs/developer/WEATHER.md) |
 | Solar intensity | Valid cloud minute records | Midnight-to-midnight curve |
 | Sunlight / solar charging duration | Estimated from valid input minutes | Explicitly labeled estimates |
 | Activity and health FIT | Original watch files | Retained locally, uploaded to cloud |

@@ -60,6 +60,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
                 else if command == "forget-watch" { self.model.bluetooth.forgetSavedWatch() }
                 else if command == "capture-watch-requests" { self.model.bluetooth.requestCapture.start() }
                 else if command == "stop-watch-capture" { self.model.bluetooth.requestCapture.stop() }
+                else if command == "refresh-weather" { self.model.weather.refresh() }
                 else if command == "refresh-metrics" { self.model.refreshMetricsNow() }
                 else if command == "connect", let rawID = notification.userInfo?["watchID"] as? String, let id = UUID(uuidString: rawID),
                         self.model.bluetooth.nearby.contains(where: { $0.id == id && $0.offersGarmin && Date().timeIntervalSince($0.lastSeen) < 45 }) { self.model.bluetooth.connect(id) }

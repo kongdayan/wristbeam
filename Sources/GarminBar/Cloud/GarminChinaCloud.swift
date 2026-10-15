@@ -503,7 +503,63 @@ final class GarminChinaCloud: ObservableObject {
         return config
     }
 
-    private func authenticatedRequest(url: URL, method: String = "GET", body: Data? = nil, contentType: String? = nil) async throws -> (Data, HTTPURLResponse) {
+    /// Weather entitlement is separate from Connect account validity. A rejected weather
+    /// endpoint must not invalidate a healthy health-sync session or expose its error body.
+    func fetchWeather(latitude: Double, longitude: Double, city: String, forecastHours: Int = 24) async throws -> WatchWeatherSnapshot {
+        guard networkEnabled, !Task.isCancelled else { throw CancellationError() }
+        guard isAuthenticated else { throw GarminCloudError.authenticationRequired }
+        let generation = authenticationGeneration, requestRegion = region, now = Date()
+        func fetch(_ section: GarminWeatherAPI.Section) async throws -> Data {
+            guard networkEnabled, authenticationGeneration == generation, region == requestRegion, !Task.isCancelled else { throw CancellationError() }
+            let url = try GarminWeatherAPI.url(section: section, region: requestRegion, latitude: latitude, longitude: longitude, forecastHours: forecastHours)
+            let response: (Data, HTTPURLResponse)
+            do {
+                response = try await authenticatedRequest(url: url, authFailureInvalidatesSession: false,
+                    additionalHeaders: ["X-Garmin-Paired-App-Version": "WristBeam/\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1")"])
+            } catch {
+                if error is CancellationError || !networkEnabled || authenticationGeneration != generation || Task.isCancelled { throw CancellationError() }
+                if error is GarminCloudError { throw GarminWeatherError.accessDenied }
+                throw GarminWeatherError.unavailable
+            }
+            guard networkEnabled, authenticationGeneration == generation, region == requestRegion, !Task.isCancelled else { throw CancellationError() }
+            switch response.1.statusCode {
+            case 200: break
+            case 401, 403: throw GarminWeatherError.accessDenied
+            case 300..<400: throw GarminWeatherError.redirected
+            default: throw GarminWeatherError.unavailable
+            }
+            guard response.0.count <= GarminWeatherAPI.maximumResponseBytes else { throw GarminWeatherError.invalidResponse }
+            return response.0
+        }
+        let current = try GarminWeatherAPI.current(try await fetch(.current), now: now)
+        var snapshot = WatchWeatherSnapshot(location: .init(name: String(city.prefix(100)), latitude: latitude, longitude: longitude),
+                                            fetchedAt: now, current: current)
+        for section in [GarminWeatherAPI.Section.hourly, .daily, .alerts] {
+            do {
+                let data = try await fetch(section)
+                switch section {
+                case .hourly: snapshot.hourly = try GarminWeatherAPI.hourly(data, now: now)
+                case .daily: snapshot.daily = try GarminWeatherAPI.daily(data, now: now)
+                case .alerts: snapshot.alerts = try GarminWeatherAPI.alerts(data, now: now)
+                case .current: break
+                }
+            } catch {
+                guard networkEnabled, authenticationGeneration == generation, region == requestRegion, !Task.isCancelled,
+                      !(error is CancellationError) else { throw CancellationError() }
+                // nil alerts means unavailable, never the confirmed empty list that clears alerts.
+                snapshot.unavailableSections.append(section.rawValue)
+            }
+        }
+        guard networkEnabled, authenticationGeneration == generation, region == requestRegion, !Task.isCancelled else { throw CancellationError() }
+        // APK is2.a uses the first daily forecast for today's high/low in current conditions.
+        snapshot.current.highC = snapshot.daily.first?.highC
+        snapshot.current.lowC = snapshot.daily.first?.lowC
+        snapshot.current.precipitationProbability = snapshot.daily.first?.precipitationProbability
+        return snapshot
+    }
+
+    private func authenticatedRequest(url: URL, method: String = "GET", body: Data? = nil, contentType: String? = nil,
+                                      authFailureInvalidatesSession: Bool = true, additionalHeaders: [String: String] = [:]) async throws -> (Data, HTTPURLResponse) {
         let generation = authenticationGeneration
         guard GarminChinaURLPolicy.isTrusted(url, region: region) else { throw GarminCloudError.untrustedURL }
         let current = try await validToken()
@@ -511,6 +567,7 @@ final class GarminChinaCloud: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = method; request.httpBody = body
         setClientHeaders(&request)
+        for (key, value) in additionalHeaders { request.setValue(value, forHTTPHeaderField: key) }
         if let contentType { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
         request.setValue("Bearer \(current.accessToken)", forHTTPHeaderField: "Authorization")
         var response = try await perform(request)
@@ -522,7 +579,7 @@ final class GarminChinaCloud: ObservableObject {
             response = try await perform(request)
             guard authenticationGeneration == generation else { throw CancellationError() }
         }
-        if response.1.statusCode == 401 || response.1.statusCode == 403 { isAuthenticated = false }
+        if authFailureInvalidatesSession && (response.1.statusCode == 401 || response.1.statusCode == 403) { isAuthenticated = false }
         return response
     }
 
