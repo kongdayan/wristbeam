@@ -62,6 +62,7 @@
 		EAAD7D252DCB065FF5ACD169 /* DashboardSharingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C325ECD9BC02C1B278565F20 /* DashboardSharingView.swift */; };
 		F9201C2AA0CE65661510F496 /* PreferencesPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6285CE132F9FAEEE941A0ED7 /* PreferencesPage.swift */; };
 		FFBD14A96EBE64AE027D1955 /* MetricCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F28C1570B0E554EADD2E8D /* MetricCharts.swift */; };
+		A10CA1DA7A00000000000003 /* GFDIRequestCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10CA1DA7A00000000000004 /* GFDIRequestCapture.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -144,6 +145,7 @@
 		F5AD3F98B9CF89CDBB8F376A /* GarminPulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminPulseApp.swift; sourceTree = "<group>"; };
 		F68A64487C0CBEC01E89E79B /* update-helper.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "update-helper.sh"; sourceTree = "<group>"; };
 		FB678CE0A78BCD6BBD5B15FC /* GarminChinaCloud.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminChinaCloud.swift; sourceTree = "<group>"; };
+		A10CA1DA7A00000000000004 /* GFDIRequestCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIRequestCapture.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -226,6 +228,7 @@
 		5C90BD763CB8601E4468F52A /* Protocol */ = {
 			isa = PBXGroup;
 			children = (
+				A10CA1DA7A00000000000004 /* GFDIRequestCapture.swift */,
 				C0193F1CF371FA9A6AD9E958 /* GFDIBattery.swift */,
 				A4F4074157D37AAA55840884 /* GFDICodec.swift */,
 				DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */,
@@ -419,6 +422,7 @@
 				6315B38EF81821F9C427A0BA /* DeveloperSettingsPage.swift in Sources */,
 				3286AF51FAF12A718CDABE87 /* DisplaySettings.swift in Sources */,
 				9AFC94B1592DEC9418153098 /* FloatingPulseView.swift in Sources */,
+				A10CA1DA7A00000000000003 /* GFDIRequestCapture.swift in Sources */,
 				C36C389AD6EA9249E02E946B /* GFDIBattery.swift in Sources */,
 				D9A9052D942B0B98FD0DBD00 /* GFDICodec.swift in Sources */,
 				CFE88F410F13FD7F6925D1B0 /* GFDICoreIdentity.swift in Sources */,

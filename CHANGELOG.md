@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.5
+
+- Add an opt-in, ten-minute watch-request capture in Device → Connection, with a local JSON export and English/Chinese labels.
+- Show weather-request format and forecast hours, message IDs and queued response statuses; redact coordinates and omit all raw payloads, account data and health values.
+- Keep the latest 300 diagnostic events, omit routine file traffic, and preserve the existing capability negotiation and protocol responses. Capture does not enable weather service.
+- Add regressions for fragmented messages, unsupported replies, privacy, bounded storage, timeout and restart behavior.
+
 ## 0.3.4
 
 - Add local-only mode in Device account. Turning cloud sync off cancels Garmin requests and token renewal while preserving the saved session; watch Bluetooth stays available without a cloud login. New installations start locally.
