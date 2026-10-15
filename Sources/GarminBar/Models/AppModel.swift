@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 @MainActor
 final class AppModel: ObservableObject {
     let bluetooth = WatchBluetooth()
-    let cloud = GarminChinaCloud(automaticallyRestore: !PulseRuntime.isPreview)
+    let cloud = GarminChinaCloud(automaticallyRestore: !PulseRuntime.isPreview, networkEnabled: !PulseRuntime.isPreview && AppPreferences.shared.cloudSyncEnabled)
     let widgetPublisher = PulseWidgetPublisher()
     let updater = PulseUpdater()
     let developer = DeveloperAccess()
@@ -33,7 +33,7 @@ final class AppModel: ObservableObject {
     @Published var language = PulseLanguage(rawValue: AppPreferences.shared.string(forKey: "language") ?? "system") ?? .system {
         didSet { L10n.language = language; AppPreferences.shared.set(language.rawValue, forKey: "language"); onAppearanceChange?() }
     }
-    @Published var watchUnitID = ""
+    @Published var watchUnitID = "" { didSet { uploads.localDeviceID = watchUnitID } }
     @Published var fontScale = AppPreferences.shared.object(forKey: "fontScale") as? Double ?? 1.15 {
         didSet { PulseTheme.textScale = fontScale; AppPreferences.shared.set(fontScale, forKey: "fontScale"); onAppearanceChange?(); onFloatingLayoutChange?() }
     }
@@ -80,10 +80,28 @@ final class AppModel: ObservableObject {
     @Published var sunlightThreshold = AppPreferences.shared.object(forKey: "sunlightThreshold") as? Double ?? 20 {
         didSet { AppPreferences.shared.set(sunlightThreshold, forKey: "sunlightThreshold"); Task { await refreshHealthMetrics(force: true) } }
     }
-    @Published var healthStatus = "等待读取已同步健康指标"
+    @Published var healthStatus = AppPreferences.shared.cloudSyncEnabled ? "等待读取已同步健康指标" : "仅本地"
     @Published private(set) var isRefreshingHealth = false
+    @Published var cloudSyncEnabled = AppPreferences.shared.cloudSyncEnabled {
+        didSet {
+            AppPreferences.shared.set(cloudSyncEnabled, forKey: "cloudSyncEnabled")
+            if !cloudSyncEnabled { autoUpload = false; showLogin = false; healthStatus = "仅本地"; seriesStatus = "仅本地" }
+            cloud.setNetworkEnabled(cloudSyncEnabled && !preview)
+            uploads.automaticSyncEnabled = cloudSyncEnabled && autoUpload && !preview
+        }
+    }
+    @Published var autoUpload = AppPreferences.shared.object(forKey: "autoUpload") as? Bool ?? AppPreferences.shared.bool(forKey: "autoSync") {
+        didSet {
+            AppPreferences.shared.set(autoUpload, forKey: "autoUpload")
+            uploads.automaticSyncEnabled = cloudSyncEnabled && autoUpload && !preview
+            if cloudSyncEnabled && autoUpload && !preview { Task { await uploads.syncNow(force: false) } }
+        }
+    }
+    @Published var localDataSummary = LocalDataSummary()
+    @Published var localExportStatus = ""
+    @Published var isExportingLocalData = false
     @Published var autoSync = AppPreferences.shared.object(forKey: "autoSync") as? Bool ?? false {
-        didSet { AppPreferences.shared.set(autoSync, forKey: "autoSync"); uploads.automaticSyncEnabled = autoSync && !preview }
+        didSet { AppPreferences.shared.set(autoSync, forKey: "autoSync") }
     }
     @Published var syncInterval = AppPreferences.shared.object(forKey: "syncInterval") as? Int ?? 15 { didSet { AppPreferences.shared.set(syncInterval, forKey: "syncInterval") } }
     @Published var preview = PulseRuntime.isPreview
@@ -128,10 +146,9 @@ final class AppModel: ObservableObject {
         }
         bluetooth.onSyncFinished = { [weak self] success in
             guard let self else { return }
-            let manual = self.manualFileSync
             self.manualFileSync = false
-            if !self.preview && (manual || (success && self.autoSync)) {
-                Task { await self.uploads.syncNow(force: manual) }
+            if !self.preview && success && self.cloudSyncEnabled && self.autoUpload {
+                Task { await self.uploads.syncNow(force: false) }
             }
         }
         bluetooth.onFile = { [weak self] url, metadata in
@@ -141,12 +158,13 @@ final class AppModel: ObservableObject {
             let type = GarminDataType(fitSubtype: UInt8(clamping: metadata.subtype))
             do {
                 try self.uploads.enqueue(fileURL: url, deviceID: id, dataType: type)
-                self.log("已接收\(type.label)原始文件，已加入上传队列")
+                self.log("已接收\(type.label)原始文件，已暂存在本机")
+                self.refreshLocalDataSummary()
             }
             catch { self.log("文件入队失败：\(error.localizedDescription)") }
-            if self.autoSync && !self.preview { Task { await self.uploads.syncNow(force: false) } }
+            if self.cloudSyncEnabled && self.autoUpload && !self.preview { Task { await self.uploads.syncNow(force: false) } }
         }
-        uploads.automaticSyncEnabled = autoSync && !preview
+        uploads.automaticSyncEnabled = cloudSyncEnabled && autoUpload && !preview
         bluetooth.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
         cloud.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
         uploads.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
@@ -176,7 +194,7 @@ final class AppModel: ObservableObject {
         cloud.$region.sink { [weak self] region in self?.bluetooth.updateCloudRegion(region) }.store(in: &subscriptions)
         cloud.$accountGUID.sink { [weak self] guid in
             guard let self else { return }
-            self.bluetooth.updateAccountGUID(guid.isEmpty ? nil : guid)
+            self.bluetooth.updateAccountGUID(self.cloudSyncEnabled && !guid.isEmpty ? guid : nil)
             let owner = guid.isEmpty ? "" : "\(self.cloud.region.rawValue):\(guid)"
             if self.seriesOwner != owner {
                 self.developer.accountChanged()
@@ -184,10 +202,8 @@ final class AppModel: ObservableObject {
                 self.seriesOwner = owner; self.seriesDays = [:]; self.seriesNotes = [:]; self.lastSeriesRefresh = [:]; self.lastHealthRefresh = .distantPast
                 self.metrics = self.metrics.filter { $0.value.origin == .watch }; self.metricNotes = [:]
                 self.seriesStore = guid.isEmpty ? nil : MetricSeriesStore(accountGUID: owner)
-                if !guid.isEmpty {
-                    self.restoreSeries(day: Date())
-                    if let cached = self.hrvStore?.load() { self.applyHRV(cached) }
-                }
+                self.restoreSeries(day: Date())
+                if !guid.isEmpty, let cached = self.hrvStore?.load() { self.applyHRV(cached) }
             }
         }.store(in: &subscriptions)
         cloud.$deviceId.sink { [weak self] id in
@@ -203,7 +219,7 @@ final class AppModel: ObservableObject {
                 self.showLogin = false
                 self.log("\(self.cloud.region.title)账户已连接")
                 if !self.preview { self.bluetooth.resumeRequestedConnection() }
-                if self.autoSync && !self.preview { Task { await self.uploads.syncNow(force: false) } }
+                if self.cloudSyncEnabled && self.autoUpload && !self.preview { Task { await self.uploads.syncNow(force: false) } }
             }
         }.store(in: &subscriptions)
         developer.attach(self)
@@ -215,9 +231,10 @@ final class AppModel: ObservableObject {
             if self.autoSync && !self.preview && date.timeIntervalSince(self.lastAutoSync) >= Double(max(1, self.syncInterval)) * 60 {
                 self.lastAutoSync = date
                 if self.bluetooth.canSyncFiles { self.bluetooth.requestFileSync() }
-                if self.cloud.isAuthenticated { Task { await self.uploads.syncNow(force: false) } }
+                if self.cloudSyncEnabled && self.autoUpload && self.cloud.isAuthenticated { Task { await self.uploads.syncNow(force: false) } }
             }
         }.store(in: &subscriptions)
+        if !preview { restoreSeries(day: Date()); refreshLocalDataSummary() }
         log("WristBeam 已启动")
     }
 
@@ -394,11 +411,11 @@ final class AppModel: ObservableObject {
         if seriesDays.count > 10, let oldest = seriesDays.keys.sorted().first, oldest != key { seriesDays.removeValue(forKey: oldest) }
     }
     func restoreSeries(day: Date) {
-        guard let store = seriesStore else { return }
-        var cached = store.load(day: day)
+        let store = seriesStore
+        var cached = store?.load(day: day) ?? [:]
         if cached.isEmpty, cloud.region == .china, !cloud.accountGUID.isEmpty {
             cached = MetricSeriesStore(accountGUID: cloud.accountGUID).load(day: day)
-            if !cached.isEmpty { store.save(cached, day: day) }
+            if !cached.isEmpty { store?.save(cached, day: day) }
         }
         mergeSeries(cached, day: day)
         Task { @MainActor [weak self] in
@@ -409,7 +426,8 @@ final class AppModel: ObservableObject {
     }
     func refreshSeries(day: Date, force: Bool = false) async {
         let key = GarminHealthMetrics.calendarDate(day)
-        guard !preview, cloud.isAuthenticated, !loadingSeriesDays.contains(key),
+        if !preview, seriesDays[key] == nil { restoreSeries(day: day) }
+        guard !preview, cloudSyncEnabled, cloud.isAuthenticated, !loadingSeriesDays.contains(key),
               force || Date().timeIntervalSince(lastSeriesRefresh[key] ?? .distantPast) >= Double(max(1, metricRefreshInterval)) * 60 else { return }
         let device = watchUnitID.isEmpty ? cloud.deviceId : watchUnitID
         guard !device.isEmpty, cloud.devices.contains(where: { $0.id == device }) else { return }
@@ -458,6 +476,9 @@ final class AppModel: ObservableObject {
             "registeredMetrics": bluetooth.registeredMetrics.map(\.rawValue).sorted(),
             "nearbyWatches": bluetooth.nearby.filter(\.offersGarmin).map { ["name": $0.name, "id": $0.id.uuidString, "rssi": $0.rssi] as [String: Any] },
             "watchFileStatus": bluetooth.transferStatus,
+            "cloudSyncEnabled": cloudSyncEnabled,
+            "automaticCloudUpload": autoUpload,
+            "cloudRequestCount": cloud.requestCount,
             "cloudAuthenticated": cloud.isAuthenticated,
             "cloudRegion": cloud.region.rawValue,
             "uploadQueueStatus": uploads.status,
@@ -498,7 +519,6 @@ final class AppModel: ObservableObject {
                 fileSyncRequested = true; bluetooth.reconnectSaved()
             } else { openSettings(.watch) }
         }
-        Task { await uploads.syncNow() }
     }
     func syncRecentActivity() {
         guard !preview else { return }
@@ -509,12 +529,11 @@ final class AppModel: ObservableObject {
                 recentSyncRequested = true; bluetooth.reconnectSaved()
             } else { openSettings(.watch) }
         }
-        Task { await uploads.syncNow() }
     }
     func importFIT() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [UTType(filenameExtension: "fit") ?? .data]; panel.allowsMultipleSelection = true
-        panel.prompt = L10n.text("加入上传队列")
-        panel.message = L10n.text("只选择手表生成的原始 FIT。文件加入本地队列；自动同步开启后上传到当前设备账号，关闭时等候手动同步。")
+        panel.prompt = L10n.text("暂存原始文件")
+        panel.message = L10n.text("原始 FIT 会先保存在本机。开启云同步并登录后，可以选择补传。")
         guard panel.runModal() == .OK else { return }
         for url in panel.urls {
             do {
@@ -522,18 +541,47 @@ final class AppModel: ObservableObject {
                 log("已导入 \(url.lastPathComponent)")
             } catch { log("导入失败：\(error.localizedDescription)") }
         }
-        if autoSync && !preview { Task { await uploads.syncNow(force: false) } }
+        refreshLocalDataSummary()
+        if cloudSyncEnabled && autoUpload && !preview { Task { await uploads.syncNow(force: false) } }
     }
     func watchFITFolder() {
         let panel = NSOpenPanel(); panel.canChooseFiles = false; panel.canChooseDirectories = true
         panel.prompt = L10n.text("选择并监测此文件夹")
-        panel.message = L10n.text("只监测你选择的文件夹，将新增 FIT 加入本地队列。自动同步开启后上传到当前设备账号；可随时在同步记录中停止监测。")
+        panel.message = L10n.text("将所选文件夹中的新增 FIT 暂存到本机；云上传由独立开关控制。")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         uploads.startWatching(directory: url)
         log(uploads.watchedDirectory == url ? "已启用 FIT 文件夹自动同步" : uploads.status)
     }
+    func refreshLocalDataSummary() {
+        guard !preview else { return }
+        let root = AppPaths.root
+        Task {
+            let summary = await Task.detached(priority: .utility) { LocalDataArchive.summary(root: root) }.value
+            self.localDataSummary = summary
+        }
+    }
+    func uploadStoredFiles() {
+        guard cloudSyncEnabled, cloud.isAuthenticated, !preview else { openSettings(.account); return }
+        Task { await uploads.syncNow(force: true) }
+    }
+    func exportLocalData() {
+        guard !preview, !isExportingLocalData else { return }
+        let panel = NSSavePanel(); panel.allowedContentTypes = [.zip]
+        panel.nameFieldStringValue = "WristBeam-Local-Data.zip"
+        panel.prompt = L10n.text("导出暂存数据")
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        isExportingLocalData = true; localExportStatus = "正在导出暂存数据"
+        let root = AppPaths.root
+        Task {
+            defer { isExportingLocalData = false }
+            do {
+                try await Task.detached(priority: .utility) { try LocalDataArchive.export(root: root, to: destination) }.value
+                localExportStatus = "暂存数据已导出"
+            } catch { localExportStatus = "导出未完成，原始数据保留" }
+        }
+    }
     func enablePreview() {
-        preview = true; uploads.automaticSyncEnabled = false
+        preview = true; cloud.setNetworkEnabled(false); uploads.automaticSyncEnabled = false
         log("已进入演示预览；蓝牙与上传暂停")
         if previewSetup { floatingEnabled = false; return }
         for index in 0..<30 {

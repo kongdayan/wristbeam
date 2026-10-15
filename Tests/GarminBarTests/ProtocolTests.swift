@@ -451,6 +451,22 @@ final class ProtocolSessionTests: XCTestCase {
         }
     }
 
+    @MainActor func testAccountFreeWatchCanRequestOriginalFilesWithGUIDCapability() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = GFDISession(storageDirectory: directory)
+        defer { session.disconnected() }
+        session.transportMode = .legacy; session.maximumWriteLength = 200
+        var decoder = GFDIStreamDecoder(), sent: [GFDIMessage] = []
+        session.onSend = { for result in decoder.receive($0) { if let message = try? result.get() { sent.append(message) } } }
+        session.connected()
+        try feedHandshake(session, flags: [3, 4, 95])
+        XCTAssertTrue(session.canTransferFiles)
+        session.requestSync()
+        XCTAssertTrue(sent.contains { $0.number == 5007 })
+        XCTAssertFalse(sent.contains { $0.number == 5043 })
+    }
+
     func testGUIDMismatchNeverDownloadsOrOverwrites() async throws {
         try await MainActor.run {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("GarminBar-guid-test-\(UUID().uuidString)")

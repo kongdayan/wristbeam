@@ -16,9 +16,12 @@ struct GarminUploadJob: Identifiable, Codable {
     var nextAttempt: Date?
     var cloudStatus: GarminUploadStatus?
     var region: GarminRegion? = nil
+    var collectedLocally: Bool? = nil
+    var awaitingAccount: Bool { collectedLocally == true && accountGUID.isEmpty }
+    func visible(in region: GarminRegion) -> Bool { awaitingAccount || effectiveRegion == region }
     var effectiveRegion: GarminRegion { region ?? .china }
     func belongs(to region: GarminRegion, accountGUID: String) -> Bool {
-        effectiveRegion == region && (self.accountGUID.isEmpty || self.accountGUID == accountGUID)
+        visible(in: region) && (self.accountGUID.isEmpty || self.accountGUID == accountGUID)
     }
 }
 
@@ -33,6 +36,7 @@ final class GarminUploadQueue: ObservableObject {
     @Published private(set) var isSyncing = false
     @Published private(set) var watchedDirectory: URL?
 
+    var localDeviceID = ""
     private let cloud: GarminChinaCloud
     private let directory: URL
     private let ledgerURL: URL
@@ -96,14 +100,14 @@ final class GarminUploadQueue: ObservableObject {
         identity.append(bytes)
         let contentID = GarminPrivateFile.digest(identity)
         let name = contentID + ".fit"
-        if let previous = jobs.first(where: { $0.fileName == name && $0.belongs(to: cloud.region, accountGUID: cloud.accountGUID) }) { return previous }
+        if let previous = jobs.first(where: { $0.fileName == name && ($0.belongs(to: cloud.region, accountGUID: cloud.accountGUID) || (!cloud.networkEnabled && $0.effectiveRegion == cloud.region)) }) { return previous }
         let id = GarminPrivateFile.digest(Data("\(cloud.region.rawValue):\(cloud.accountGUID):\(contentID)".utf8))
         try GarminPrivateFile.write(bytes, to: rawDirectory.appendingPathComponent(name))
         let now = Date()
         let job = GarminUploadJob(id: id, fileName: name, originalName: fileURL.lastPathComponent,
                                   deviceID: deviceID, dataType: actual, accountGUID: cloud.accountGUID,
                                   createdAt: now, updatedAt: now, state: .pending, detail: "原 FIT 已保存，等待上传",
-                                  attempts: 0, nextAttempt: nil, cloudStatus: nil, region: cloud.region)
+                                  attempts: 0, nextAttempt: nil, cloudStatus: nil, region: cloud.region, collectedLocally: !cloud.networkEnabled)
         jobs.insert(job, at: 0)
         do { try persist() }
         catch { jobs.removeAll { $0.id == id }; throw error }
@@ -119,6 +123,7 @@ final class GarminUploadQueue: ObservableObject {
     }
 
     func syncNow(force: Bool = true) async {
+        guard cloud.networkEnabled else { status = "仅本地，文件已暂存"; return }
         guard force || automaticSyncEnabled else { status = "自动上传已暂停，原 FIT 保留在本地"; return }
         guard !isSyncing else { if force { manualResyncRequested = true }; return }
         guard cloud.isAuthenticated else {
@@ -134,9 +139,9 @@ final class GarminUploadQueue: ObservableObject {
             }
         }
         let region = cloud.region, owner = cloud.accountGUID
-        let candidates = jobs.filter { $0.effectiveRegion == region && !$0.state.isComplete && (force || $0.nextAttempt == nil || $0.nextAttempt! <= Date()) }.map(\.id)
+        let candidates = jobs.filter { $0.visible(in: region) && !$0.state.isComplete && (force || $0.nextAttempt == nil || $0.nextAttempt! <= Date()) }.map(\.id)
         for id in candidates {
-            guard cloud.isAuthenticated, force || automaticSyncEnabled, !Task.isCancelled,
+            guard cloud.networkEnabled, cloud.isAuthenticated, force || automaticSyncEnabled, !Task.isCancelled,
                   cloud.region == region, cloud.accountGUID == owner,
                   let index = jobs.firstIndex(where: { $0.id == id }) else { break }
             if !jobs[index].accountGUID.isEmpty && jobs[index].accountGUID != cloud.accountGUID {
@@ -153,6 +158,8 @@ final class GarminUploadQueue: ObservableObject {
                     continue
                 }
                 jobs[index].accountGUID = cloud.accountGUID
+                jobs[index].region = cloud.region
+                jobs[index].collectedLocally = false
             }
             if jobs[index].state == .processing && jobs[index].cloudStatus?.processingURL == nil {
                 // A 202 without Location cannot be declared successful or blindly re-posted.
@@ -222,7 +229,8 @@ final class GarminUploadQueue: ObservableObject {
 
     private func scanWatchedDirectory() {
         guard let watchedDirectory else { return }
-        guard !cloud.deviceId.isEmpty else { status = "请先选择云端关联手表，然后监控 FIT 文件夹"; return }
+        let deviceID = localDeviceID.isEmpty ? cloud.deviceId : localDeviceID
+        guard !deviceID.isEmpty else { status = "请先连接手表，再监测 FIT 文件夹"; return }
         guard let enumerator = FileManager.default.enumerator(at: watchedDirectory,
             includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey, .fileSizeKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return }
@@ -234,7 +242,7 @@ final class GarminUploadQueue: ObservableObject {
                   Date().timeIntervalSince(modified) >= 3 else { continue }
             let key = "\(url.path):\(modified.timeIntervalSince1970):\(values.fileSize ?? 0)"
             guard !knownWatchFailures.contains(key) else { continue }
-            do { try enqueue(fileURL: url, deviceID: cloud.deviceId) }
+            do { try enqueue(fileURL: url, deviceID: deviceID) }
             catch {
                 // No filenames or server output enter logs; users see a bounded local queue status.
                 status = (error as? GarminCloudError)?.localizedDescription ?? "读取 FIT 未完成，等待下次文件夹扫描"
@@ -262,6 +270,6 @@ final class GarminUploadQueue: ObservableObject {
         try GarminPrivateFile.write(JSONEncoder().encode(jobs), to: ledgerURL)
         updatePendingCount()
     }
-    var visibleJobs: [GarminUploadJob] { jobs.filter { $0.effectiveRegion == cloud.region } }
+    var visibleJobs: [GarminUploadJob] { jobs.filter { $0.visible(in: cloud.region) } }
     private func updatePendingCount() { pendingCount = visibleJobs.filter { !$0.state.isComplete }.count }
 }

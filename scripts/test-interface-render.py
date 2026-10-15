@@ -37,6 +37,15 @@ import SwiftUI
         let battery = (catalog["metrics"] as! [[String:Any]]).first { $0["id"] as? String == "watchBattery" }!
         precondition(battery["deviceStatus"] as? Bool == true && battery["timeline"] as? Bool == false)
         print("PASS device battery stays current without health history, selection or timeline")
+        model.autoSync = true; model.cloudSyncEnabled = true; model.autoUpload = true
+        model.cloudSyncEnabled = false
+        precondition(model.autoSync && !model.autoUpload && !model.cloud.networkEnabled)
+        precondition(model.healthStatus == "仅本地" && model.seriesStatus == "仅本地")
+        precondition(!model.uploads.automaticSyncEnabled && model.cloud.requestCount == 0)
+        model.cloudSyncEnabled = true
+        precondition(!model.autoUpload && !model.uploads.automaticSyncEnabled)
+        model.cloudSyncEnabled = false
+        print("PASS local mode preserves receiving and does not re-enable automatic uploads")
         for english in [false,true] {
             model.language = english ? .en : .zhHans
             let language = english ? "en" : "zh"
@@ -54,7 +63,7 @@ import SwiftUI
                     }
                 }
                 model.fontScale = 1.15
-                for page in [AppPage.overview,.watch,.settings,.appearance,.developer,.updates,.about] {
+                for page in [AppPage.overview,.watch,.account,.sync,.settings,.appearance,.developer,.updates,.about] {
                     model.page = page
                     try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
@@ -64,7 +73,7 @@ import SwiftUI
                 model.detailMetric = nil
             }
         }
-        print("PASS: 52 production-view renders; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font")
+        print("PASS: 60 production-view renders; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font")
     }
     @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL) throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))

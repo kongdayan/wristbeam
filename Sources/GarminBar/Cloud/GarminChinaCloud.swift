@@ -11,6 +11,8 @@ private final class GarminNoRedirectDelegate: NSObject, URLSessionTaskDelegate {
 
 @MainActor
 final class GarminChinaCloud: ObservableObject {
+    @Published private(set) var networkEnabled: Bool
+    private(set) var requestCount = 0
     @Published private(set) var region: GarminRegion
     @Published private(set) var status = "尚未登录佳明中国"
     @Published private(set) var accountName = ""
@@ -37,14 +39,15 @@ final class GarminChinaCloud: ObservableObject {
     private var authenticationGeneration = UUID()
     private var loginGeneration = UUID()
     private var configurationCache: [String: (Date, GarminUploadConfiguration)] = [:]
-    private let session: URLSession
+    private var session: URLSession
     private var storageURL: URL
     private let initialStorageURL: URL
     private let initialRegion: GarminRegion
     private let preferences: AppPreferences
     private let automaticRestorationEnabled: Bool
 
-    init(storageURL: URL? = nil, session: URLSession? = nil, automaticallyRestore: Bool = true, initialRegion: GarminRegion? = nil, preferences: AppPreferences = .shared) {
+    init(storageURL: URL? = nil, session: URLSession? = nil, automaticallyRestore: Bool = true, networkEnabled: Bool = true, initialRegion: GarminRegion? = nil, preferences: AppPreferences = .shared) {
+        self.networkEnabled = networkEnabled
         self.preferences = preferences; self.automaticRestorationEnabled = automaticallyRestore
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("GarminPulse", isDirectory: true).appendingPathComponent("auth", isDirectory: true)
@@ -69,13 +72,35 @@ final class GarminChinaCloud: ObservableObject {
             token = saved
             expiresAt = saved.expiresAt
             status = "正在验证本地保存的\(region.title)会话"
-            if automaticallyRestore {
+            if automaticallyRestore && networkEnabled {
                 Task { [weak self] in await self?.refreshAccount() }
             }
         }
+        if !networkEnabled { status = "仅本地，云访问已暂停" }
     }
 
     deinit { renewalTask?.cancel(); refreshTask?.cancel(); loginTask?.cancel() }
+
+    /// Pause every Garmin request without deleting the saved login session.
+    func setNetworkEnabled(_ enabled: Bool) {
+        guard enabled != networkEnabled else { return }
+        networkEnabled = enabled
+        if enabled {
+            status = "云同步已开启"
+            if token != nil { Task { [weak self] in await self?.refreshAccount() } }
+        } else {
+            authenticationGeneration = UUID(); loginGeneration = UUID(); refreshIdentity = UUID()
+            loginTask?.cancel(); loginTask = nil; refreshTask?.cancel(); refreshTask = nil
+            renewalTask?.cancel(); renewalTask = nil
+            let configuration = session.configuration
+            session.invalidateAndCancel()
+            session = URLSession(configuration: configuration, delegate: GarminNoRedirectDelegate(), delegateQueue: nil)
+            isAuthenticated = false
+            accountName = ""; accountGUID = ""; profileDisplayName = ""; devices = []
+            configurationCache.removeAll(); loginRevision = UUID()
+            status = "仅本地，云访问已暂停"
+        }
+    }
 
     func makeLoginURL() -> URL { GarminChinaURLPolicy.loginURL(mode: loginMode, clientID: ssoClientID, region: region) }
 
@@ -98,11 +123,12 @@ final class GarminChinaCloud: ObservableObject {
            let data = try? Data(contentsOf: storageURL), let saved = try? JSONDecoder().decode(GarminOAuthToken.self, from: data) {
             token = saved; expiresAt = saved.expiresAt
             status = "正在验证\(next.title)会话"
-            if automaticRestorationEnabled { Task { [weak self] in await self?.refreshAccount() } }
+            if automaticRestorationEnabled && networkEnabled { Task { [weak self] in await self?.refreshAccount() } }
         }
     }
 
     func prepareLogin(mode: GarminLoginMode? = nil) {
+        guard networkEnabled else { return }
         loginGeneration = UUID()
         loginTask?.cancel(); loginTask = nil
         if let mode { loginMode = mode }
@@ -125,6 +151,7 @@ final class GarminChinaCloud: ObservableObject {
     /// Returns true only for a callback that this app must consume instead of navigating.
     @discardableResult
     func handleNavigation(_ url: URL) -> Bool {
+        guard networkEnabled else { return true }
         let service = GarminChinaURLPolicy.serviceURL(mode: loginMode, region: region)
         guard let ticket = GarminChinaURLPolicy.serviceTicket(from: url, expectedService: service) else { return false }
         let digest = GarminPrivateFile.digest(Data(ticket.utf8))
@@ -403,6 +430,7 @@ final class GarminChinaCloud: ObservableObject {
     }
 
     private func validToken(forceRefresh: Bool = false) async throws -> GarminOAuthToken {
+        guard networkEnabled else { throw CancellationError() }
         if let refreshTask { return try await refreshTask.value }
         guard let current = token else { throw GarminCloudError.authenticationRequired }
         if !forceRefresh && current.expiresAt > Date().addingTimeInterval(90) { return current }
@@ -500,7 +528,11 @@ final class GarminChinaCloud: ObservableObject {
 
     private func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         guard let url = request.url, GarminChinaURLPolicy.isTrusted(url, region: region) else { throw GarminCloudError.untrustedURL }
+        guard networkEnabled, !Task.isCancelled else { throw CancellationError() }
+        let generation = authenticationGeneration
+        requestCount += 1
         let (data, response) = try await session.data(for: request)
+        guard networkEnabled, generation == authenticationGeneration, !Task.isCancelled else { throw CancellationError() }
         guard let http = response as? HTTPURLResponse else { throw GarminCloudError.invalidResponse("没有收到 HTTP 响应") }
         return (data, http)
     }

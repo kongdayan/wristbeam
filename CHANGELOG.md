@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.4
+
+- Add local-only mode in Device account. Turning cloud sync off cancels Garmin requests and token renewal while preserving the saved session; watch Bluetooth stays available without a cloud login. New installations start locally.
+- Separate automatic watch-file receiving from automatic cloud uploading. Re-enabling the cloud does not upload the backlog until explicitly requested or automatic uploads are enabled. Verify account/watch ownership before assigning local files.
+- Keep original FIT files and watch readings on the Mac without automatic expiry. Show storage usage, restore local charts without an account, and export deduplicated original FIT plus watch-only CSV in a ZIP. Credentials and cloud caches are excluded.
+- Test offline cold start, in-flight cancellation, explicit batch upload, device ownership, account-free file transfer and private-data export using synthetic fixtures in GitHub Actions.
+
 ## 0.3.3
 
 - Fix a crash when switching to English or reopening an installed app with English selected. Load translations from the installed application without depending on SwiftPM build resources.

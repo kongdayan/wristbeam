@@ -50,7 +50,7 @@ struct PairingGuide: View {
                 }
                 if bluetooth.canSyncFiles {
                     HStack {
-                        Text(L10n.text("通道就绪后，在设备账号登录同一账户，再选择手动或自动同步。"))
+                        Text(L10n.text("通道就绪后即可在本机接收数据；需要云同步时，再连接设备账号。"))
                             .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
                         Spacer()
                         Button(L10n.text(model.cloud.isAuthenticated ? "设置同步方式" : "连接设备账号")) {
