@@ -80,12 +80,12 @@ final class AppModel: ObservableObject {
     @Published var sunlightThreshold = AppPreferences.shared.object(forKey: "sunlightThreshold") as? Double ?? 20 {
         didSet { AppPreferences.shared.set(sunlightThreshold, forKey: "sunlightThreshold"); Task { await refreshHealthMetrics(force: true) } }
     }
-    @Published var healthStatus = "等待读取已同步健康指标"
+    @Published var healthStatus = AppPreferences.shared.cloudSyncEnabled ? "等待读取已同步健康指标" : "仅本地"
     @Published private(set) var isRefreshingHealth = false
     @Published var cloudSyncEnabled = AppPreferences.shared.cloudSyncEnabled {
         didSet {
             AppPreferences.shared.set(cloudSyncEnabled, forKey: "cloudSyncEnabled")
-            if !cloudSyncEnabled { autoUpload = false; showLogin = false }
+            if !cloudSyncEnabled { autoUpload = false; showLogin = false; healthStatus = "仅本地"; seriesStatus = "仅本地" }
             cloud.setNetworkEnabled(cloudSyncEnabled && !preview)
             uploads.automaticSyncEnabled = cloudSyncEnabled && autoUpload && !preview
         }

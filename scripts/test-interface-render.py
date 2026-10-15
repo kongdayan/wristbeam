@@ -40,6 +40,7 @@ import SwiftUI
         model.autoSync = true; model.cloudSyncEnabled = true; model.autoUpload = true
         model.cloudSyncEnabled = false
         precondition(model.autoSync && !model.autoUpload && !model.cloud.networkEnabled)
+        precondition(model.healthStatus == "仅本地" && model.seriesStatus == "仅本地")
         precondition(!model.uploads.automaticSyncEnabled && model.cloud.requestCount == 0)
         model.cloudSyncEnabled = true
         precondition(!model.autoUpload && !model.uploads.automaticSyncEnabled)
