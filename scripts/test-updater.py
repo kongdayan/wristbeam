@@ -63,7 +63,8 @@ import AppKit
   let directory=root.appendingPathComponent("valid");try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
   let prepared=try PulseUpdatePreparation.prepare(archive:archive,directory:directory,target:target,version:version,architecture:architecture)
   guard FileManager.default.fileExists(atPath:prepared.appendingPathComponent("Contents/MacOS/GarminPulse").path) else {fatalError("No validated stage")}
-  print("PASS signed package extraction, version, architecture and staged copy")
+  guard !FileManager.default.fileExists(atPath:directory.appendingPathComponent("Expanded").path) else {fatalError("Duplicate extracted application retained")}
+  print("PASS signed package extraction, version, architecture, staged copy and extraction cleanup")
   let legacyDirectory=root.appendingPathComponent("legacy-accepted")
   try FileManager.default.createDirectory(at:legacyDirectory,withIntermediateDirectories:true)
   _ = try PulseUpdatePreparation.prepare(archive:root.appendingPathComponent("legacy.zip"),directory:legacyDirectory,target:target,version:version,architecture:architecture)
@@ -75,6 +76,7 @@ import AppKit
    do {_ = try PulseUpdatePreparation.prepare(archive:input,directory:dir,target:target,version:name=="version" ? "99.0.0" : version,architecture:name=="architecture" ? wrong : architecture)} catch {rejected=true}
    guard rejected else {fatalError("Unsafe package accepted: "+name)}
    if ["traversal","absolute","symlink"].contains(name) {guard !FileManager.default.fileExists(atPath:dir.appendingPathComponent("Expanded").path) else {fatalError("Extracted before path/link validation")}}
+   guard !FileManager.default.fileExists(atPath:dir.appendingPathComponent("Expanded").path) else {fatalError("Rejected package left extracted files")}
    print("PASS rejected "+name)
   }
   guard !FileManager.default.fileExists(atPath:root.appendingPathComponent("escaped").path) else {fatalError("Archive escaped extraction root")}

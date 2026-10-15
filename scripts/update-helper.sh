@@ -13,7 +13,14 @@ while kill -0 "$update_pid" 2>/dev/null; do
   if [ "$update_attempt" -gt 150 ]; then printf '%s\n' 'Previous process did not exit; original application retained.' > "$update_result"; exit 1; fi
   sleep 0.2
 done
-update_backup="$update_dir/Previous.app"
+update_backup="$update_dir/Rollback.noindex/Previous.app"
+# Preserve recovery without leaving another launchable app in Spotlight.
+if ! /usr/bin/ditto -c -k --keepParent "$update_target" "$update_dir/Previous.zip"; then
+  printf '%s\n' 'Cannot archive current application; original retained.' > "$update_result"
+  exit 1
+fi
+/bin/mkdir -p "$update_dir/Rollback.noindex"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$update_target" >/dev/null 2>&1 || true
 if ! /bin/mv "$update_target" "$update_backup"; then printf '%s\n' 'Cannot move current application; original retained.' > "$update_result"; exit 1; fi
 if ! /bin/mv "$update_stage" "$update_target"; then
   /bin/mv "$update_backup" "$update_target"
@@ -22,9 +29,10 @@ if ! /bin/mv "$update_stage" "$update_target"; then
   exit 1
 fi
 if /usr/bin/open "$update_target"; then
-  printf '%s\n' 'Installed and relaunched; previous application retained in Updates.' > "$update_result"
+  /bin/rm -rf "$update_dir/Rollback.noindex"
+  printf '%s\n' 'Installed and relaunched; previous application archived as Previous.zip.' > "$update_result"
 else
-  /bin/mv "$update_target" "$update_dir/Failed.app"
+  /bin/mv "$update_target" "$update_dir/Rollback.noindex/Failed.app"
   /bin/mv "$update_backup" "$update_target"
   printf '%s\n' 'Relaunch failed; previous application restored.' > "$update_result"
   /usr/bin/open "$update_target"

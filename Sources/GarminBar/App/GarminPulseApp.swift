@@ -5,6 +5,11 @@ import Combine
 @main
 enum GarminPulseMain {
     @MainActor static func main() {
+        if CommandLine.arguments.contains("--verify-localization") {
+            guard L10n.verifyPackagedResources() else { fputs("Packaged localization failed\n", stderr); exit(1) }
+            print("PASS packaged English, Chinese, system language and repeated switching")
+            return
+        }
         if PulseLocalControl.handleCommandLine() { return }
         AppPreferences.shared.prepareSetupDefaults()
         let app = NSApplication.shared

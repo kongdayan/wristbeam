@@ -24,7 +24,7 @@ final class PulseUpdater: ObservableObject {
             AppPreferences.shared.set(repository, forKey: "updateRepository")
         }
     }
-    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.2" }
+    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.3" }
     var parsedRepository: PulseRepository? { PulseRepository(repository) }
     // Local package tests exercise the production validation/install path. This
     // entry point is absent from Release builds and never changes the server.
@@ -186,6 +186,7 @@ enum PulseUpdatePreparation {
               let range = Range(match.range(at: 1), in: totals), let expandedSize = Int(totals[range]), expandedSize < 500_000_000 else { throw UpdateError.invalidArchive }
         let expanded = directory.appendingPathComponent("Expanded", isDirectory: true)
         try FileManager.default.createDirectory(at: expanded, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: expanded) }
         _ = try command("/usr/bin/ditto", ["-x", "-k", archive.path, expanded.path])
         let roots = Set(paths.compactMap { $0.split(separator: "/").first.map(String.init) }.filter { ["WristBeam.app", "Garmin Pulse.app"].contains($0) })
         guard roots.count == 1, let appName = roots.first else { throw UpdateError.invalidArchive }
