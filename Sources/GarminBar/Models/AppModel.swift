@@ -10,6 +10,7 @@ final class AppModel: ObservableObject {
     let widgetPublisher = PulseWidgetPublisher()
     let updater = PulseUpdater()
     let developer = DeveloperAccess()
+    let weather = WatchWeatherController()
     lazy var uploads = GarminUploadQueue(cloud: cloud, directory: AppPaths.directory("UploadQueue"))
     @Published var metrics: [MetricKind: MetricSample] = [:]
     @Published var history: [MetricKind: [MetricSample]] = [:]
@@ -223,6 +224,7 @@ final class AppModel: ObservableObject {
             }
         }.store(in: &subscriptions)
         developer.attach(self)
+        weather.attach(cloud: cloud, bluetooth: bluetooth)
         Timer.publish(every: 1, on: .main, in: .common).autoconnect().sink { [weak self] date in
             guard let self else { return }; self.now = date
             self.developer.tick()
@@ -474,6 +476,11 @@ final class AppModel: ObservableObject {
             "watchRequestCaptureActive": bluetooth.requestCapture.isCapturing,
             "watchRequestCaptureEvents": bluetooth.requestCapture.log.totalEvents,
             "watchRequestCaptureStorageError": bluetooth.requestCapture.storageError,
+            "watchWeatherEnabled": weather.enabled,
+            "watchWeatherSource": weather.source.rawValue,
+            "watchWeatherConfigured": weather.location != nil,
+            "watchWeatherStatus": weather.status,
+            "watchWeatherLastDelivered": weather.lastDelivered?.timeIntervalSince1970 ?? 0,
             "liveSampleCount": bluetooth.liveSampleCount,
             "lastLiveSampleAt": bluetooth.lastLiveSampleAt?.timeIntervalSince1970 ?? 0,
             "registeredMetrics": bluetooth.registeredMetrics.map(\.rawValue).sorted(),

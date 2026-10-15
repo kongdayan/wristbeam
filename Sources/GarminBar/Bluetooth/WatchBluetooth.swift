@@ -58,6 +58,19 @@ final class WatchBluetooth: NSObject, ObservableObject {
     var onDeviceID: ((String) -> Void)?
     var onSyncFinished: ((Bool) -> Void)?
     var onFilesAvailable: (() -> Void)?
+    var weatherProvider: ((GFDIWeatherRequest) async throws -> WatchWeatherSnapshot)?
+    var onWeatherDelivery: ((Bool) -> Void)?
+    private var weatherEnabled = false
+
+    func configureWeather(enabled: Bool) {
+        weatherEnabled = enabled
+        session?.configureWeather(enabled: enabled)
+    }
+
+    @discardableResult
+    func sendWeather(_ snapshot: WatchWeatherSnapshot) -> Bool {
+        session?.sendWeather(snapshot) == true
+    }
 
     private var central: CBCentralManager?
     private var peripherals: [UUID: CBPeripheral] = [:]
@@ -302,6 +315,12 @@ final class WatchBluetooth: NSObject, ObservableObject {
         sessionStarted = true
         let engine = GFDISession(storageDirectory: archiveRegion.receiveDirectory(root: AppPaths.directory("Received")))
         session = engine
+        engine.configureWeather(enabled: weatherEnabled)
+        engine.weatherProvider = { [weak self] query in
+            guard let provider = self?.weatherProvider else { throw CancellationError() }
+            return try await provider(query)
+        }
+        engine.onWeatherDelivery = { [weak self] success in self?.onWeatherDelivery?(success) }
         engine.onDiagnosticMessage = { [weak self] message, direction in self?.requestCapture.record(message, direction: direction) }
         engine.maximumWriteLength = selected.maximumWriteValueLength(for: tx.properties.contains(.writeWithoutResponse) ? .withoutResponse : .withResponse)
         engine.onSend = { [weak self] data in self?.outbound.append(data); self?.drainWrites() }

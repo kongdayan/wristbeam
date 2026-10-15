@@ -12,7 +12,7 @@ production += [sources / "Developer/DeveloperProtocol.swift"]
 production += [sources / "Models" / name for name in ("Metrics.swift", "AppStorage.swift", "LocalDataArchive.swift", "ConnectionPolicy.swift", "MetricTimeSeries.swift", "DisplaySettings.swift", "DashboardSharing.swift", "PulseWidgetSnapshot.swift", "WatchDiscovery.swift", "Localization.swift", "SoftwareRelease.swift")]
 production += [sources / "Cloud" / name for name in (
     "GarminCloudModels.swift", "GarminFITFileClassifier.swift", "GarminHealthMetrics.swift", "GarminHRV.swift", "GarminDailySeries.swift",
-    "GarminChinaCloud.swift", "GarminUploadQueue.swift")]
+    "GarminChinaCloud.swift", "GarminUploadQueue.swift", "GarminWeather.swift", "OpenMeteoWeather.swift")]
 
 with tempfile.TemporaryDirectory(prefix="garmin-pulse-tests-") as temporary:
     stage = Path(temporary)

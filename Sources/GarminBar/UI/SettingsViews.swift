@@ -219,6 +219,7 @@ struct WatchPage: View {
             }
             Toggle(L10n.text("显示其他附近设备"), isOn: $bluetooth.showAllDevices).font(PulseTheme.font(size: 11)).toggleStyle(.checkbox)
             BackgroundConnectionGuide(bluetooth: bluetooth)
+            WatchWeatherCard(weather: model.weather, preview: model.preview)
             WatchRequestCaptureCard(capture: bluetooth.requestCapture, connected: bluetooth.isConnected, preview: model.preview)
             if bluetooth.isConnected {
                 PulseCard {
@@ -583,12 +584,39 @@ struct WatchRequestCaptureCard: View {
                         .font(PulseTheme.font(size: 12)).foregroundStyle(.orange)
                 }
                 if expanded {
-                    Text(L10n.text("仅保存消息类型和安全字段，隐藏位置与原始内容。未声明天气能力时，手表可能不会发起天气请求。"))
+                    Text(L10n.text("仅保存消息类型和安全字段，隐藏位置与原始内容。"))
                         .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
-                    Text(L10n.format("已记录 {0} 条 · 常规消息略过 {1} 条", String(capture.log.totalEvents), String(capture.log.omittedRoutineMessages)))
+                    Text(L10n.format("消息明细 {0} 条 · 常规通信 {1} 条", String(capture.log.totalEvents), String(capture.log.omittedRoutineMessages)))
                         .font(PulseTheme.font(size: 12, weight: .medium))
+                    if !capture.log.routineCategories.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L10n.text("常规通信分类")).fontWeight(.semibold)
+                            Text(L10n.text("收到的消息包含请求、数据和回复；协议确认不代表手表发起了新请求。"))
+                                .foregroundStyle(PulseTheme.secondary)
+                            ForEach(capture.log.routineCategories.sorted { $0.id < $1.id }) { category in
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: category.direction == .watchToMac ? "arrow.down.left" : "arrow.up.right")
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(L10n.text(category.name))
+                                        Text(categoryDetail(category)).foregroundStyle(PulseTheme.secondary)
+                                    }
+                                    Spacer()
+                                    Text(L10n.format("{0} 条", String(category.count))).monospacedDigit()
+                                    Text(category.lastSeen, style: .time).monospacedDigit().foregroundStyle(PulseTheme.secondary)
+                                }
+                            }
+                        }.font(PulseTheme.font(size: 12))
+                    }
+                    if capture.log.historicalRoutineMessages > 0 {
+                        Text(L10n.format("旧记录中有 {0} 条常规消息未分类；新捕获将显示分类。", String(capture.log.historicalRoutineMessages)))
+                            .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                    }
+                    if capture.log.unclassifiedRoutineMessages > 0 {
+                        Text(L10n.format("另有 {0} 条常规消息超出分类容量。", String(capture.log.unclassifiedRoutineMessages)))
+                            .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                    }
                     if capture.log.events.isEmpty {
-                        Text(L10n.text("尚未捕获到请求；这不代表表盘不需要天气。"))
+                        Text(L10n.text("尚无消息明细；常规通信请查看上方分类。"))
                             .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
                     } else {
                         VStack(alignment: .leading, spacing: 10) {
@@ -611,6 +639,15 @@ struct WatchRequestCaptureCard: View {
                 }
             }
         }
+    }
+
+    private func categoryDetail(_ category: GFDIRequestLog.RoutineCategory) -> String {
+        let direction = L10n.text(category.direction == .watchToMac ? "手表 → Mac" : "应用排队发送")
+        var parts = [direction, "#\(category.number)"]
+        if let target = category.replyTo {
+            parts.append(L10n.format("确认 #{0}", String(target)))
+        }
+        return parts.joined(separator: " · ")
     }
 
     private func detail(_ event: GFDIRequestLog.Event) -> String {

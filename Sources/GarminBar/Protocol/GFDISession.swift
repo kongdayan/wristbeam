@@ -41,6 +41,13 @@ final class GFDISession {
     var onDeviceInfo: ((GFDIDeviceInfo) -> Void)?
     var onRealtimeData: ((UInt16, Data) -> Void)?
     var onBatteryReading: ((GFDIBattery.Reading) -> Void)?
+    var weatherProvider: ((GFDIWeatherRequest) async throws -> WatchWeatherSnapshot)?
+    var onWeatherDelivery: ((Bool) -> Void)?
+    private(set) var weatherEnabled = false
+    private var weatherConfigurationDirty = false
+    private var weatherTask: Task<Void, Never>?
+    private var weatherGeneration = UUID()
+    private var weatherFrames: [GFDIMessage] = []
     /// ALREADY_IN_USE supplies a new Garmin RX short UUID. Enable its notifications and call
     /// `transportReady` when the redirected characteristic pair is ready.
     var onTransportRedirect: ((UUID, UUID) -> Void)?
@@ -148,6 +155,7 @@ final class GFDISession {
     func disconnected() { disconnected(report: true) }
 
     private func disconnected(report: Bool) {
+        cancelWeather()
         connectedToTransport = false
         isReady = false
         isSyncing = false
@@ -176,6 +184,7 @@ final class GFDISession {
 
     func transportReady() {
         guard connectedToTransport else { return }
+        cancelWeather()
         // A characteristic redirect invalidates the previous packet stream and pending request
         // correlation. Restart read tasks at zero; their original watch files remain untouched.
         isReady = false
@@ -311,7 +320,7 @@ final class GFDISession {
                 }
             } else if command == 3 || command == 4 {
                 let handle = try reader.u8()
-                if handles[handle] == 1 { isReady = false; abortSync("手表关闭了文件同步通道") }
+                if handles[handle] == 1 { cancelWeather(); isReady = false; abortSync("手表关闭了文件同步通道") }
                 handles.removeValue(forKey: handle)
             }
         } catch { status("手表蓝牙控制响应无效：\(error.localizedDescription)") }
@@ -378,6 +387,7 @@ final class GFDISession {
                 status("手表请求检查原始文件")
                 onFilesAvailable?()
             case 5052: try receiveTimeRequest(message)
+            case 5014: receiveWeatherRequest(message)
             case 5004: receiveFileBlock(message)
             case 5054:
                 // Read requests disable compression. Reject compressed data without inflating or
@@ -466,12 +476,8 @@ final class GFDISession {
         // APK SupportedCapability / cj0/f: bit 0 is CONNECT_MOBILE_FIT_LINK,
         // 3 is SYNC, 4 DEVICE_INITIATES_SYNC and 71 CURRENT_TIME_REQUEST_SUPPORT.
         // The fitness link is needed along with generic synchronization support.
-        var hostFlags: Set<Int> = [0, 3, 4, 71]
-        if flags.contains(95) { hostFlags.insert(95) }
-        let hostCount = (hostFlags.max() ?? 0) / 8 + 1
-        var hostBitmap = Array(repeating: UInt8(0), count: hostCount)
-        for flag in hostFlags { hostBitmap[flag / 8] |= 1 << (flag % 8) }
-        request(5050, payload: Data([UInt8(hostCount)] + hostBitmap)) { [weak self] result in
+        weatherConfigurationDirty = false
+        request(5050, payload: hostConfiguration()) { [weak self] result in
             guard let self else { return }
             switch result {
             case .success:
@@ -481,6 +487,79 @@ final class GFDISession {
                 else { self.status("手表能力协商完成，正在准备文件同步") }
                 self.checkIdentityThenSync()
             case .failure(let error): self.status("手表能力协商未完成：\(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func hostConfiguration() -> Data {
+        var flags: Set<Int> = [0, 3, 4, 71]
+        if deviceInfo?.configurationFlags.contains(95) == true { flags.insert(95) }
+        if weatherEnabled { flags.formUnion([26, 27]) }
+        let count = (flags.max() ?? 0) / 8 + 1
+        var bitmap = Array(repeating: UInt8(0), count: count)
+        for flag in flags { bitmap[flag / 8] |= 1 << (flag % 8) }
+        return Data([UInt8(count)] + bitmap)
+    }
+
+    func configureWeather(enabled: Bool) {
+        guard weatherEnabled != enabled else { return }
+        weatherEnabled = enabled
+        weatherConfigurationDirty = true
+        if !enabled { cancelWeather() }
+    }
+
+    /// Cancelled requests are removed without invoking stale completions on a new connection.
+    private func cancelWeather() {
+        weatherGeneration = UUID()
+        weatherTask?.cancel(); weatherTask = nil
+        weatherFrames.removeAll()
+        // Keep in-flight ACK correlation until it settles; its generation invalidates the callback.
+        for number: UInt16 in [5011, 5012] {
+            if var request = pending[number] { request.retries = 0; pending[number] = request }
+        }
+    }
+
+    private func receiveWeatherRequest(_ message: GFDIMessage) {
+        guard weatherEnabled, isReady, let provider = weatherProvider else { send(message.response(status: 2)); return }
+        guard let query = try? GFDIWeatherRequest(payload: message.payload) else { send(message.response(status: 5)); return }
+        send(message.response(payload: query.acknowledgementPayload))
+        // Retransmitted requests share the ongoing refresh instead of starting parallel transfers.
+        guard weatherTask == nil, weatherFrames.isEmpty, pending[5011] == nil, pending[5012] == nil else { return }
+        let generation = weatherGeneration
+        weatherTask = Task { [weak self] in
+            do {
+                let snapshot = try await provider(query)
+                guard let self, !Task.isCancelled, self.weatherGeneration == generation, self.weatherEnabled else { return }
+                self.weatherTask = nil
+                _ = self.sendWeather(snapshot, forecastHours: query.forecastHours)
+            } catch {
+                guard let self, self.weatherGeneration == generation else { return }
+                self.weatherTask = nil; self.onWeatherDelivery?(false)
+            }
+        }
+    }
+
+    @discardableResult
+    func sendWeather(_ snapshot: WatchWeatherSnapshot, forecastHours: Int = 24) -> Bool {
+        guard connectedToTransport, isReady, weatherEnabled, weatherTask == nil, weatherFrames.isEmpty,
+              pending[5011] == nil, pending[5012] == nil else { return false }
+        weatherFrames = GFDIWeather.frames(snapshot: snapshot, forecastHours: forecastHours)
+        guard !weatherFrames.isEmpty else { return false }
+        sendNextWeatherFrame(generation: weatherGeneration)
+        return true
+    }
+
+    private func sendNextWeatherFrame(generation: UUID) {
+        guard weatherEnabled, isReady, generation == weatherGeneration else { return }
+        guard !weatherFrames.isEmpty else { onWeatherDelivery?(true); return }
+        let frame = weatherFrames.removeFirst()
+        request(frame.number, payload: frame.payload) { [weak self] result in
+            guard let self, self.weatherGeneration == generation, self.weatherEnabled else { return }
+            // FITHandler requires a successful FIT status byte in addition to the GFDI ACK.
+            if case let .success(payload) = result, payload.first == 0 {
+                self.sendNextWeatherFrame(generation: generation)
+            } else {
+                self.weatherFrames.removeAll(); self.onWeatherDelivery?(false)
             }
         }
     }
@@ -745,6 +824,12 @@ final class GFDISession {
     // Exposed internally for deterministic timeout tests; no actual sleeps are needed by tests.
     func tick(now: Date) {
         guard connectedToTransport else { return }
+        if weatherConfigurationDirty, isReady, pending[5050] == nil {
+            weatherConfigurationDirty = false
+            request(5050, payload: hostConfiguration()) { [weak self] result in
+                if case .failure = result { self?.onWeatherDelivery?(false) }
+            }
+        }
         for service in pendingRegistrations.keys.sorted() where pendingRegistrations[service]! < now {
             pendingRegistrations.removeValue(forKey: service)
             if (registrationAttempts[service] ?? 0) < 4 {

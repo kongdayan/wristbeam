@@ -4,7 +4,7 @@ task_root="${0:A:h:h}"
 cd "$task_root"
 task_config="${PULSE_BUILD_CONFIGURATION:-release}"
 task_version="${PULSE_BUILD_VERSION:-$(cat VERSION)}"
-task_build="${PULSE_BUILD_NUMBER:-13}"
+task_build="${PULSE_BUILD_NUMBER:-14}"
 task_arch="${PULSE_BUILD_ARCHITECTURE:-$(uname -m)}"
 task_dist="${PULSE_OUTPUT_DIR:-$task_root/dist}"
 task_dist="${task_dist:A}"
@@ -37,6 +37,8 @@ cat > "$task_app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>cn.wenyankong.garminpulse.metric</string><key>CFBundleURLSchemes</key><array><string>garminpulse</string></array><key>CFBundleTypeRole</key><string>Viewer</string></dict></array>
 <key>NSBluetoothAlwaysUsageDescription</key><string>连接你的 Garmin 手表，读取实时心率、身体压力、步数和原始运动健康文件。</string>
 <key>NSBluetoothPeripheralUsageDescription</key><string>连接你的 Garmin 手表并接收实时指标。</string>
+<key>NSLocationUsageDescription</key><string>获取你选择的当前位置，为手表提供当地天气。</string>
+<key>NSLocationWhenInUseUsageDescription</key><string>获取你选择的当前位置，为手表提供当地天气。</string>
 <key>NSHumanReadableCopyright</key><string>Personal macOS companion. Not affiliated with Garmin.</string>
 </dict></plist>
 PLIST

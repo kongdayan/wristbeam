@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.6
+
+- Add opt-in watch weather with city search, on-demand Mac location, a 15-minute cache and manual resend. Choose Open-Meteo or the connected Garmin cloud account; sources never switch silently.
+- Encode current conditions, hourly/daily forecasts and available Garmin alerts as FIT messages over the existing Bluetooth channel, with per-frame acknowledgement, bounded retries and cancellation. Open-Meteo does not provide alerts.
+- Keep Garmin weather paused in local-only mode. Independently enabled Open-Meteo uses no Garmin account or credentials.
+- Group routine diagnostic messages by direction and type, including counts and last-seen times; retain compatibility with older captures.
+- Add weather parser, protocol, transport cancellation and diagnostic classification regressions.
+
 ## 0.3.5
 
 - Add an opt-in, ten-minute watch-request capture in Device → Connection, with a local JSON export and English/Chinese labels.

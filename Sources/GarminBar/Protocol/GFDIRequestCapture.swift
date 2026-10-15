@@ -18,36 +18,106 @@ struct GFDIRequestLog: Codable {
         let weatherPayloadValid: Bool?
         var name: String { GFDIRequestLog.name(replyTo ?? number) }
     }
-    let schemaVersion = 1
+    struct RoutineCategory: Codable, Identifiable {
+        let direction: Direction
+        let number: UInt16
+        let replyTo: UInt16?
+        var count: Int
+        var lastSeen: Date
+        var id: String { "\(direction.rawValue):\(number):\(replyTo.map(String.init) ?? "-")" }
+        var name: String { GFDIRequestLog.name(replyTo ?? number) }
+    }
+    private(set) var schemaVersion = 2
     var startedAt: Date?
     var stoppedAt: Date?
     var events: [Event] = []
     var totalEvents = 0
     var omittedRoutineMessages = 0
+    private(set) var routineCategories: [RoutineCategory] = []
+    private(set) var unclassifiedRoutineMessages = 0
     static let limit = 300
+    static let categoryLimit = 128
     static let duration: TimeInterval = 600
+
+    /// Version 1 retained only a total. Do not invent categories for historical traffic.
+    var historicalRoutineMessages: Int {
+        omittedRoutineMessages - routineCategories.reduce(0) { $0 + $1.count } - unclassifiedRoutineMessages
+    }
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, startedAt, stoppedAt, events, totalEvents, omittedRoutineMessages
+        case routineCategories, unclassifiedRoutineMessages
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let version = try values.decode(Int.self, forKey: .schemaVersion)
+        startedAt = try values.decodeIfPresent(Date.self, forKey: .startedAt)
+        stoppedAt = try values.decodeIfPresent(Date.self, forKey: .stoppedAt)
+        events = try values.decode([Event].self, forKey: .events)
+        totalEvents = try values.decode(Int.self, forKey: .totalEvents)
+        omittedRoutineMessages = try values.decode(Int.self, forKey: .omittedRoutineMessages)
+        routineCategories = try values.decodeIfPresent([RoutineCategory].self, forKey: .routineCategories) ?? []
+        unclassifiedRoutineMessages = try values.decodeIfPresent(Int.self, forKey: .unclassifiedRoutineMessages) ?? 0
+        guard (1...2).contains(version), events.count <= Self.limit, totalEvents >= events.count,
+              omittedRoutineMessages >= 0, unclassifiedRoutineMessages >= 0,
+              unclassifiedRoutineMessages <= omittedRoutineMessages,
+              routineCategories.count <= Self.categoryLimit,
+              Set(routineCategories.map(\.id)).count == routineCategories.count else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Invalid diagnostic bounds"))
+        }
+        var remaining = omittedRoutineMessages - unclassifiedRoutineMessages
+        for category in routineCategories {
+            guard category.count > 0, category.count <= remaining,
+                  Self.routine(category.replyTo ?? category.number),
+                  category.replyTo == nil || category.number == 5000 else {
+                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Invalid routine category"))
+            }
+            remaining -= category.count
+        }
+    }
 
     static func name(_ number: UInt16) -> String {
         switch number {
+        case 5000: return "协议确认"
+        case 5001: return "消息查询"
+        case 5002: return "文件下载请求"
+        case 5003: return "文件上传请求"
+        case 5004: return "文件数据块"
+        case 5005: return "创建文件"
+        case 5006: return "删除文件"
+        case 5007: return "文件目录查询"
+        case 5008: return "文件标记设置"
+        case 5009: return "新文件就绪通知"
         case 5011: return "FIT 定义"
         case 5012: return "FIT 数据"
         case 5014: return "天气请求"
         case 5015: return "天气预警消息"
+        case 5022: return "取消文件传输"
+        case 5023: return "设备电池状态"
+        case 5024: return "设备信息"
         case 5026: return "设备设置"
+        case 5027: return "排队下载通知"
         case 5028, 5029: return "GPS 辅助星历"
+        case 5030: return "系统事件"
         case 5033...5036: return "智能通知"
         case 5037: return "同步请求"
         case 5039, 5040: return "查找手机"
         case 5041, 5042, 5049: return "音乐控制与状态"
         case 5043: return "Protobuf 请求（内容未解析）"
+        case 5044: return "Protobuf 响应（内容未解析）"
+        case 5045: return "取消 Protobuf 传输"
         case 5050: return "能力协商"
         case 5052: return "时间请求"
+        case 5054: return "压缩文件数据块"
         case 5101...5111: return "应用认证"
         default: return "其他协议消息"
         }
     }
 
-    /// Ignore high-volume file/health/ack responses. Their payloads never enter the log.
+    /// Aggregate high-volume protocol traffic without retaining any payload contents.
     private static func routine(_ number: UInt16) -> Bool {
         [5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009,
          5022, 5023, 5024, 5027, 5044, 5045, 5054].contains(number)
@@ -60,7 +130,19 @@ struct GFDIRequestLog: Codable {
             var reader = GFDIReader(message.payload)
             replyTo = try? reader.u16(); status = try? reader.u8()
         }
-        guard !Self.routine(replyTo ?? message.number) else { omittedRoutineMessages += 1; return }
+        guard !Self.routine(replyTo ?? message.number) else {
+            omittedRoutineMessages += 1
+            if let index = routineCategories.firstIndex(where: {
+                $0.direction == direction && $0.number == message.number && $0.replyTo == replyTo
+            }) {
+                routineCategories[index].count += 1
+                routineCategories[index].lastSeen = max(routineCategories[index].lastSeen, time)
+            } else if routineCategories.count < Self.categoryLimit {
+                routineCategories.append(RoutineCategory(direction: direction, number: message.number,
+                                                         replyTo: replyTo, count: 1, lastSeen: time))
+            } else { unclassifiedRoutineMessages += 1 }
+            return
+        }
         let weather = message.number == 5014
         let valid = weather && message.payload.count == 10
         let bytes = valid ? Array(message.payload) : []
