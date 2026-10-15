@@ -106,7 +106,7 @@ enum OpenMeteoWeather {
     }
 
     private static func hourly(_ root: [String: Any], now: Date) throws -> [WatchWeatherSnapshot.Conditions] {
-        guard let object = root["hourly"] as? [String: Any], let times = object["time"] as? [Any], times.count <= 144,
+        guard let object = root["hourly"] as? [String: Any], let times = object["time"] as? [Any], !times.isEmpty, times.count <= 144,
               let units = root["hourly_units"] as? [String: String], units["time"] == "unixtime",
               units["temperature_2m"] == "°C", units["apparent_temperature"] == "°C",
               units["dew_point_2m"] == "°C", units["wind_speed_10m"] == "m/s" else { throw GarminWeatherError.invalidResponse }
@@ -116,13 +116,18 @@ enum OpenMeteoWeather {
         for (time, row) in values {
             guard time > last, time >= now.addingTimeInterval(-86400), time <= now.addingTimeInterval(6 * 86400) else { throw GarminWeatherError.invalidResponse }
             last = time
-            if time >= now && output.count < 48 { output.append(conditions(row, time: time)) }
+            if time >= now && output.count < 48 {
+                let value = conditions(row, time: time)
+                guard value.temperatureC != nil, value.condition != nil else { throw GarminWeatherError.invalidResponse }
+                output.append(value)
+            }
         }
+        guard !output.isEmpty else { throw GarminWeatherError.invalidResponse }
         return output
     }
 
     private static func daily(_ root: [String: Any], now: Date) throws -> [WatchWeatherSnapshot.Conditions] {
-        guard let object = root["daily"] as? [String: Any], let times = object["time"] as? [Any], times.count <= 5,
+        guard let object = root["daily"] as? [String: Any], let times = object["time"] as? [Any], !times.isEmpty, times.count <= 5,
               let offset = number(root["utc_offset_seconds"], range: -64800...64800), offset.rounded(.towardZero) == offset,
               let zone = TimeZone(secondsFromGMT: Int(offset)),
               let units = root["daily_units"] as? [String: String], units["time"] == "unixtime",
@@ -140,7 +145,7 @@ enum OpenMeteoWeather {
             value.lowC = number(row["temperature_2m_min"], range: -100...100)
             value.condition = weatherCode(row["weather_code"])
             value.precipitationProbability = number(row["precipitation_probability_max"], range: 0...100)
-            guard value.highC != nil || value.lowC != nil else { throw GarminWeatherError.invalidResponse }
+            guard value.highC != nil, value.lowC != nil, value.condition != nil else { throw GarminWeatherError.invalidResponse }
             return value
         }
     }

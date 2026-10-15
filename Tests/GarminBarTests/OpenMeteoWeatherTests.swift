@@ -87,6 +87,44 @@ final class OpenMeteoWeatherTests: XCTestCase {
         XCTAssertNil(value.alerts); XCTAssertNil(value.current.highC)
     }
 
+    func testEmptyTimeOnlyAndNullForecastsAreUnavailable() throws {
+        let now = Date(timeIntervalSince1970: 1_704_040_200)
+        let future = now.addingTimeInterval(3600).timeIntervalSince1970
+        let invalidHours: [[String: Any]] = [
+            ["time": []],
+            ["time": [future]],
+            ["time": [future], "temperature_2m": [NSNull()], "weather_code": [NSNull()]],
+            ["time": [future], "temperature_2m": [21], "weather_code": [NSNull()]],
+            ["time": [future], "temperature_2m": [NSNull()], "weather_code": [0]],
+            ["time": [now.addingTimeInterval(-3600).timeIntervalSince1970], "temperature_2m": [21], "weather_code": [0]]
+        ]
+        for hourly in invalidHours {
+            var raw = Self.fixture(now: now); raw["hourly"] = hourly
+            let value = try OpenMeteoWeather.parse(data(raw), latitude: 31, longitude: 121, city: "Fixture", now: now)
+            XCTAssertTrue(value.hourly.isEmpty)
+            XCTAssertTrue(value.unavailableSections.contains("hourly"))
+            XCTAssertEqual(value.current.temperatureC, 20)
+            XCTAssertEqual(value.daily.count, 2)
+            XCTAssertNil(value.alerts)
+        }
+        let invalidDays: [[String: Any]] = [
+            ["time": []],
+            ["time": [future]],
+            ["time": [future], "temperature_2m_max": [NSNull()], "temperature_2m_min": [NSNull()], "weather_code": [NSNull()]],
+            ["time": [future], "temperature_2m_max": [25], "temperature_2m_min": [15], "weather_code": [NSNull()]]
+        ]
+        for daily in invalidDays {
+            var raw = Self.fixture(now: now); raw["daily"] = daily
+            let value = try OpenMeteoWeather.parse(data(raw), latitude: 31, longitude: 121, city: "Fixture", now: now)
+            XCTAssertTrue(value.daily.isEmpty)
+            XCTAssertTrue(value.unavailableSections.contains("daily"))
+            XCTAssertEqual(value.current.temperatureC, 20)
+            XCTAssertNil(value.current.highC)
+            XCTAssertEqual(value.hourly.count, 2)
+            XCTAssertNil(value.alerts)
+        }
+    }
+
     @MainActor private func fixtureClient() -> (OpenMeteoWeatherClient, URLSession) {
         let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [OpenMeteoHTTP.self]
         let session = URLSession(configuration: config)

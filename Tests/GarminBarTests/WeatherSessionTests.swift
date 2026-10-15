@@ -76,6 +76,54 @@ final class WeatherSessionTests: XCTestCase {
         XCTAssertTrue(fixture.weatherMessages.isEmpty)
     }
 
+    @MainActor func testLongerForecastRequestedDuringFetchOrTransferIsDeliveredAfterCurrentOnlyResponse() async throws {
+        for requestDuringFetch in [true, false] {
+            let fixture = try WeatherSessionFixture(enabled: true)
+            defer { fixture.session.weatherProvider = nil; fixture.session.disconnected() }
+            let firstDefinition = expectation(description: "Current-only transfer starts")
+            let expandedDefinition = expectation(description: "Queued forecast transfer starts")
+            var currentDefinitions = 0
+            var requestedHours: [Int] = []
+            var outcomes: [Bool] = []
+            fixture.session.onWeatherDelivery = { outcomes.append($0) }
+            fixture.session.onDiagnosticMessage = { message, direction in
+                if direction == .macQueued, message.number == 5011, message.payload.first == 0x46 {
+                    currentDefinitions += 1
+                    if currentDefinitions == 1 { firstDefinition.fulfill() }
+                    else if currentDefinitions == 2 { expandedDefinition.fulfill() }
+                }
+            }
+            fixture.session.weatherProvider = { query in
+                requestedHours.append(query.forecastHours)
+                return fixture.snapshot
+            }
+            let currentRequest = GFDIMessage(number: 5014, payload: Data(repeating: 0, count: 10), sequence: 1)
+            let forecastRequest = GFDIMessage(number: 5014, payload: Data(Array(repeating: 0, count: 9) + [24]), sequence: 2)
+            fixture.session.receive(try currentRequest.framed())
+            if requestDuringFetch { fixture.session.receive(try forecastRequest.framed()) }
+            await fulfillment(of: [firstDefinition], timeout: 2)
+            if !requestDuringFetch { fixture.session.receive(try forecastRequest.framed()) }
+            XCTAssertTrue(fixture.messages.contains(currentRequest.response(payload: Data([128, 1, 44, 1]))))
+            XCTAssertTrue(fixture.messages.contains(forecastRequest.response(payload: Data([128, 2, 44, 1]))))
+            XCTAssertEqual(requestedHours, [0])
+
+            let currentFrames = GFDIWeather.frames(snapshot: fixture.snapshot, forecastHours: 0)
+            for (index, frame) in currentFrames.enumerated() {
+                XCTAssertEqual(fixture.weatherMessages, Array(currentFrames.prefix(index + 1)))
+                fixture.session.receive(try frame.response(payload: Data([0])).framed())
+            }
+            await fulfillment(of: [expandedDefinition], timeout: 2)
+            XCTAssertEqual(requestedHours, [0, 24])
+            let forecastFrames = GFDIWeather.frames(snapshot: fixture.snapshot, forecastHours: 24)
+            for (index, frame) in forecastFrames.enumerated() {
+                XCTAssertEqual(fixture.weatherMessages, currentFrames + Array(forecastFrames.prefix(index + 1)))
+                fixture.session.receive(try frame.response(payload: Data([0])).framed())
+            }
+            XCTAssertEqual(outcomes, [true, true])
+            XCTAssertTrue(fixture.weatherMessages.contains { $0.number == 5012 && $0.payload.first == 9 })
+        }
+    }
+
     @MainActor func testEveryDefinitionAndDataRecordWaitsForItsFITStatusAcknowledgement() throws {
         let fixture = try WeatherSessionFixture(enabled: true)
         defer { fixture.session.disconnected() }
