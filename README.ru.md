@@ -3,7 +3,7 @@
 
 # WristBeam
 
-Данные ваших часов — спокойно, на вашем Mac.
+У Mac есть индикатор заряда. Вам тоже пригодится.
 
 [![CI](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kongdayan/wristbeam)](https://github.com/kongdayan/wristbeam/releases/latest)
@@ -14,9 +14,19 @@
 
 </div>
 
-![WristBeam](docs/images/showcase-hero.png)
+**Garmin → Mac → Garmin Connect. Без приложения на телефоне между ними.**
 
-**Строка меню · Плавающая панель · Панель здоровья.** Получайте данные через обычные службы Garmin Bluetooth, загружайте исходные FIT и синхронизируйте их с Garmin Connect China или Global. Проверено на Instinct 2 Solar с китайским аккаунтом.
+Я уже сижу за Mac, часы уже на руке, но для синхронизации нужно снова доставать телефон и открывать приложение. Захотелось убрать этот лишний шаг — так появился WristBeam. Часы подключаются к Mac напрямую по Bluetooth, а данные тренировок и здоровья синхронизируются с Garmin Connect.
+
+- **Дайте телефону выходной.** Передавайте файлы тренировок и здоровья с поддерживаемых часов Garmin через Mac в Garmin Connect China или Global.
+- **Ваш заряд — в строке меню.** Пульс, Body Battery, стресс, шаги и другие показатели доступны в строке меню, плавающей панели и на графиках за день.
+- **Пусть ИИ узнает, как вы себя чувствуете.** Подключите синхронизированные показатели к ИИ-ассистенту через MCP и спросите: «Как я спал прошлой ночью?» Для собственных инструментов есть HTTP/HTTPS API, Python SDK и вебхуки.
+
+Ваш ИИ уже считает токены. Теперь он может поинтересоваться и вашим запасом сил.
+
+[Подключить ИИ](docs/developer/API.md) · [Поддерживаемые устройства](docs/DEVICES.md) · [Доступные показатели](docs/METRICS.md)
+
+![WristBeam](docs/images/showcase-hero.png)
 
 [Скачать](https://github.com/kongdayan/wristbeam/releases/latest) · [Ошибки и отчёты об устройствах](https://github.com/kongdayan/wristbeam/issues) · [Участие](CONTRIBUTING.md) · [Изменения](CHANGELOG.md)
 
