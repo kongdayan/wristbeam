@@ -48,7 +48,7 @@ struct SettingsRootView: View {
                 }.buttonStyle(.bordered).frame(maxWidth: .infinity)
                 VStack(alignment: .leading, spacing: 9) {
                     HStack { StatusDot(active: model.bluetooth.isConnected); Text(L10n.text(model.bluetooth.isConnected ? "手表已连接" : "等待手表")) }
-                    HStack { StatusDot(active: model.cloud.isAuthenticated); Text(L10n.text(model.cloud.isAuthenticated ? "\(model.cloud.region.title)已连接" : "账户待登录")) }
+                    HStack { StatusDot(active: model.cloud.isAuthenticated); Text(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "\(model.cloud.region.title)已连接" : "账户待登录")) }
                 }.font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                 HStack {
                     Spacer()

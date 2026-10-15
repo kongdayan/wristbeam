@@ -37,6 +37,14 @@ import SwiftUI
         let battery = (catalog["metrics"] as! [[String:Any]]).first { $0["id"] as? String == "watchBattery" }!
         precondition(battery["deviceStatus"] as? Bool == true && battery["timeline"] as? Bool == false)
         print("PASS device battery stays current without health history, selection or timeline")
+        model.autoSync = true; model.cloudSyncEnabled = true; model.autoUpload = true
+        model.cloudSyncEnabled = false
+        precondition(model.autoSync && !model.autoUpload && !model.cloud.networkEnabled)
+        precondition(!model.uploads.automaticSyncEnabled && model.cloud.requestCount == 0)
+        model.cloudSyncEnabled = true
+        precondition(!model.autoUpload && !model.uploads.automaticSyncEnabled)
+        model.cloudSyncEnabled = false
+        print("PASS local mode preserves receiving and does not re-enable automatic uploads")
         for english in [false,true] {
             model.language = english ? .en : .zhHans
             let language = english ? "en" : "zh"
