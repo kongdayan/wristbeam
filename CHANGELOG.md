@@ -2,10 +2,14 @@
 
 ## Unreleased
 
+- Move Activities to its own sidebar page with inline navigation, automatic detail loading and one scrolling statistics/charts/zones/laps view.
+- Fix TCX/GPX/original exports rejected by Garmin's file endpoints (HTTP 406 from JSON-only Accept headers); present the save panel on the activity's hosting window.
+- Cover concurrent activity opens, cached/offline access and cancelled queued loads in regression tests.
+
 - Browse cloud workout summaries with pagination; download detail charts and official TCX / GPX / original ZIP exports on demand. Empty GPS tracks are reported instead of exported.
 - Opt-in scheduled summary refresh, account-scoped private caches and offline JSON/file export.
 - Read-only activity list, detail and chart MCP/REST queries, with Python SDK methods and explicit cache/coverage metadata.
-- Expand activity detail into grouped statistics, selectable interactive charts, heart rate zones and expandable laps. Preserve source chart units, optional-section failure status and older caches; expose zones and paginated lap statistics to MCP/REST.
+- Expand activity detail into grouped statistics, interactive charts, heart rate zones and expandable laps. Preserve source chart units, optional-section failure status and older caches; expose zones and paginated lap statistics to MCP/REST.
 
 
 ## 0.3.6

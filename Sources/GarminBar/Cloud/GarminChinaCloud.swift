@@ -590,15 +590,15 @@ final class GarminChinaCloud: ObservableObject {
 
     func fetchActivityFile(id: String, format: GarminActivityFormat) async throws -> Data {
         guard GarminActivities.validID(id) else { throw GarminActivityError.invalidResponse }
-        let data = try await activityRequest(URL(string: region.apiBase + format.endpoint + id)!, limit: GarminActivities.maximumFileBytes)
+        let data = try await activityRequest(URL(string: region.apiBase + format.endpoint + id)!, limit: GarminActivities.maximumFileBytes, accept: "*/*")
         try GarminActivities.validateFile(data, format: format)
         return data
     }
 
-    private func activityRequest(_ url: URL, limit: Int) async throws -> Data {
+    private func activityRequest(_ url: URL, limit: Int, accept: String = "application/json") async throws -> Data {
         guard networkEnabled, !Task.isCancelled else { throw CancellationError() }
         guard isAuthenticated, !accountGUID.isEmpty else { throw GarminCloudError.authenticationRequired }
-        let response = try await authenticatedRequest(url: url, authFailureInvalidatesSession: false, maximumBytes: limit)
+        let response = try await authenticatedRequest(url: url, authFailureInvalidatesSession: false, additionalHeaders: ["Accept": accept], maximumBytes: limit)
         guard response.1.statusCode == 200 else { throw GarminActivityError.unavailable }
         return response.0
     }

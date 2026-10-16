@@ -31,6 +31,7 @@ final class AppModel: ObservableObject {
     @Published var events: [ActivityLog] = []
     @Published var now = Date()
     @Published var page = AppPage.overview
+    @Published var selectedActivityID: String?
     @Published var showLogin = false
     @Published var language = PulseLanguage(rawValue: AppPreferences.shared.string(forKey: "language") ?? "system") ?? .system {
         didSet { L10n.language = language; AppPreferences.shared.set(language.rawValue, forKey: "language"); onAppearanceChange?() }
@@ -643,14 +644,15 @@ final class AppModel: ObservableObject {
 }
 
 enum AppPage: String, CaseIterable, Identifiable {
-    static var navigationPages: [Self] { [.overview, .watch, .sync, .settings] }
+    static var navigationPages: [Self] { [.overview, .activities, .watch, .sync, .settings] }
     static var settingsPages: [Self] { [.settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about] }
     var navigationPage: Self { self == .account ? .watch : Self.settingsPages.contains(self) ? .settings : self }
-    case overview, watch, account, sync, settings, appearance, metricSelection, refresh, developer, updates, about
+    case overview, activities, watch, account, sync, settings, appearance, metricSelection, refresh, developer, updates, about
     var id: String { rawValue }
     var title: String {
         switch self {
         case .overview: return L10n.text("健康看板")
+        case .activities: return L10n.text("运动记录")
         case .watch: return L10n.text("设备")
         case .account: return L10n.text("设备账号")
         case .sync: return L10n.text("同步记录")
@@ -666,6 +668,7 @@ enum AppPage: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .overview: return "square.grid.2x2"
+        case .activities: return "figure.run"
         case .watch: return "applewatch"
         case .account: return "person.crop.circle"
         case .sync: return "arrow.triangle.2.circlepath"

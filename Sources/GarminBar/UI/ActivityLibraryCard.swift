@@ -1,10 +1,28 @@
 import SwiftUI
 import AppKit
-import Charts
+import UniformTypeIdentifiers
+
+struct ActivitiesPage: View {
+    @ObservedObject var model: AppModel
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if let id = model.selectedActivityID {
+                Button { model.selectedActivityID = nil } label: {
+                    Label(L10n.text("返回运动记录"), systemImage: "chevron.left")
+                        .font(PulseTheme.font(size: 14, weight: .medium)).padding(.vertical, 4)
+                }.buttonStyle(.bordered)
+                ActivityDetailPage(library: model.activities, id: id).id(id)
+            } else {
+                Text(L10n.text("运动记录")).font(PulseTheme.font(size: 27, weight: .semibold))
+                ActivityLibraryCard(library: model.activities) { model.selectedActivityID = $0 }
+            }
+        }
+    }
+}
 
 struct ActivityLibraryCard: View {
     @ObservedObject var library: ActivityLibrary
-    @State private var selected: GarminActivity?
+    let onSelect: (String) -> Void
     @State private var search = ""
     @State private var page = 0
     private var matching: [GarminActivity] {
@@ -21,7 +39,7 @@ struct ActivityLibraryCard: View {
                         Label(L10n.text("刷新运动摘要"), systemImage: "arrow.clockwise")
                     }.disabled(!library.online || library.busy)
                 }
-                Text(L10n.text("先浏览摘要，需要时再下载详情或运动文件。"))
+                Text(L10n.text("打开运动自动加载详情，已下载内容可离线查看。"))
                     .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
                 HStack {
                     Picker(L10n.text("自动刷新摘要"), selection: $library.refreshMinutes) {
@@ -47,7 +65,7 @@ struct ActivityLibraryCard: View {
                     TextField(L10n.text("搜索已缓存的运动名称或类型"), text: $search).textFieldStyle(.roundedBorder)
                         .onChange(of: search) { _ in page = 0 }
                     ForEach(Array(matching.dropFirst(page * 20).prefix(20))) { activity in
-                        Button { selected = activity } label: {
+                        Button { onSelect(activity.id) } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "figure.run").font(.title3).foregroundStyle(PulseTheme.mint).frame(width: 28)
                                 VStack(alignment: .leading, spacing: 4) {
@@ -75,69 +93,106 @@ struct ActivityLibraryCard: View {
                 }
             }.buttonStyle(.bordered)
         }
-        .sheet(item: $selected) { item in ActivityDetailSheet(library: library, id: item.id) }
         .onChange(of: library.index.activities.count) { _ in if page * 20 >= matching.count { page = 0 } }
     }
 }
 
-struct ActivityDetailSheet: View {
+struct ActivityDetailPage: View {
     @ObservedObject var library: ActivityLibrary
     let id: String
-    var initialTab: ActivityDetailTab = .statistics
-    @Environment(\.dismiss) private var dismiss
     @State private var exportStatus = ""
+    @State private var exporting = false
+    @State private var loading = false
+    @State private var window: NSWindow?
     private var summary: GarminActivity? { library.index.activities.first { $0.id == id } }
     private var detail: GarminActivityDetail? { library.detail(id) }
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text(L10n.text("运动详情")).font(PulseTheme.font(size: 22, weight: .semibold))
-                Spacer()
-                Button(L10n.text("完成")) { dismiss() }.keyboardShortcut(.cancelAction)
-            }
+        VStack(alignment: .leading, spacing: 20) {
             if let summary {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text(summary.name.isEmpty ? summary.type : summary.name).font(PulseTheme.font(size: 20, weight: .medium)).textSelection(.enabled)
-                        Text((summary.startTimeLocal ?? "—") + " · " + summary.type).foregroundStyle(PulseTheme.secondary)
-                        ActivityDetailContent(summary: detail?.summary ?? summary, detail: detail, initialTab: initialTab)
-                    }.frame(maxWidth: .infinity, alignment: .leading)
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top) { title(summary); Spacer(); actions }
+                    VStack(alignment: .leading, spacing: 12) { title(summary); actions }
                 }
-                HStack {
-                    Button(L10n.text(detail == nil ? "下载详情" : "重新下载详情")) { Task { await library.downloadDetail(id) } }
-                        .disabled(!library.online || library.busy)
-                    Menu(L10n.text("导出运动")) {
-                        Button("JSON") { exportJSON() }
-                        ForEach(GarminActivityFormat.allCases) { format in
-                            Button(format.label) { export(format) }
-                                .disabled(!library.online && !library.formats(id).contains(format.rawValue))
-                        }
-                    }.disabled(library.busy)
-                    if library.busy { ProgressView().controlSize(.small) }
-                }.buttonStyle(.bordered)
+                if loading || library.busy {
+                    HStack { ProgressView().controlSize(.small); Text(L10n.text(exporting ? "正在准备导出文件…" : "正在加载运动数据…")) }
+                        .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                }
                 if !library.status.isEmpty { Text(L10n.text(library.status)).foregroundStyle(.orange) }
                 if !exportStatus.isEmpty { Text(L10n.text(exportStatus)).foregroundStyle(PulseTheme.secondary) }
-
+                if detail == nil && !loading && !library.busy && !library.online {
+                    Text(L10n.text("已保存运动摘要；连接云账号后自动加载详情。"))
+                        .foregroundStyle(PulseTheme.secondary)
+                }
+                ActivityDetailContent(summary: detail?.summary ?? summary, detail: detail)
             } else { Text(L10n.text("尚未下载这条运动的数据")) }
-        }.padding(24).frame(width: 820, height: 680)
-            .background(PulseTheme.background).foregroundStyle(.primary)
+        }
+        .background(ActivityWindowReader { window = $0 }.frame(width: 0, height: 0))
+        .task(id: library.online) {
+            loading = true
+            await library.openDetail(id)
+            loading = false
+        }
     }
-    private func save(_ data: Data, extension ext: String) {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = "WristBeam-activity-" + id + "." + ext
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { try data.write(to: url, options: [.atomic]); exportStatus = "已导出运动数据" }
-        catch { exportStatus = "无法保存运动数据，请检查可用空间" }
+    private func title(_ summary: GarminActivity) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(summary.name.isEmpty ? summary.type : summary.name)
+                .font(PulseTheme.font(size: 24, weight: .semibold)).textSelection(.enabled)
+            Text((summary.startTimeLocal ?? "—") + " · " + summary.type)
+                .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+        }
     }
-    private func exportJSON() {
-        do { save(try library.exportJSON(id), extension: "json") }
-        catch { exportStatus = "尚未下载这条运动的数据" }
+    private var actions: some View {
+        HStack {
+            Button { Task { await library.downloadDetail(id) } } label: {
+                Label(L10n.text("刷新详情"), systemImage: "arrow.clockwise")
+            }.disabled(!library.online || library.busy || loading || exporting)
+            Menu {
+                Button("JSON") { export(nil) }
+                ForEach(GarminActivityFormat.allCases) { format in
+                    Button(format.label) { export(format) }
+                        .disabled(!library.online && !library.formats(id).contains(format.rawValue))
+                }
+            } label: { Label(L10n.text("导出运动"), systemImage: "square.and.arrow.up") }
+                .disabled(library.busy || loading || exporting)
+        }.buttonStyle(.bordered)
     }
-    private func export(_ format: GarminActivityFormat) {
-        Task {
-            guard let url = await library.exportFile(id, format: format) else { return }
-            do { save(try Data(contentsOf: url), extension: format.fileExtension) }
-            catch { exportStatus = "无法保存运动数据，请检查可用空间" }
+    private func export(_ format: GarminActivityFormat?) {
+        exporting = true; exportStatus = ""
+        Task { @MainActor in
+            defer { exporting = false }
+            do {
+                let data: Data
+                if let format {
+                    guard let url = await library.exportFile(id, format: format) else { return }
+                    data = try Data(contentsOf: url)
+                } else { data = try library.exportJSON(id) }
+                guard let window, window.isVisible else { return }
+                let panel = NSSavePanel()
+                let ext = format?.fileExtension ?? "json"
+                panel.nameFieldStringValue = "WristBeam-activity-" + id + "." + ext
+                panel.allowedContentTypes = [UTType(filenameExtension: ext) ?? .data]
+                panel.canCreateDirectories = true
+                let response = await withCheckedContinuation { continuation in
+                    panel.beginSheetModal(for: window) { continuation.resume(returning: $0) }
+                }
+                guard response == .OK, let url = panel.url else { return }
+                try data.write(to: url, options: [.atomic])
+                exportStatus = "已导出运动数据"
+            } catch { exportStatus = "无法保存运动数据，请检查可用空间" }
+        }
+    }
+}
+
+/// Resolve the hosting window, including when more than one app window is open.
+private struct ActivityWindowReader: NSViewRepresentable {
+    let receive: (NSWindow?) -> Void
+    func makeNSView(context: Context) -> WindowView { let view = WindowView(); view.receive = receive; return view }
+    func updateNSView(_ nsView: WindowView, context: Context) { nsView.receive = receive }
+    final class WindowView: NSView {
+        var receive: ((NSWindow?) -> Void)?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            DispatchQueue.main.async { [weak self] in self?.receive?(self?.window) }
         }
     }
 }

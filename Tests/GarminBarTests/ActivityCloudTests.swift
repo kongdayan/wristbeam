@@ -36,13 +36,56 @@ private final class ActivityHTTP: URLProtocol {
         else { body = "[]" }
         var headers = ["Content-Type": "application/json"]
         if oversized && path.contains("activitylist-service") { headers["Content-Length"] = String(GarminActivities.maximumJSONBytes + 1) }
-        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: failZones && path.hasSuffix("/hrTimeInZones") ? 503 : 200, httpVersion: nil, headerFields: headers)!, cacheStoragePolicy: .notAllowed)
+        // Garmin's file endpoints reject JSON-only content negotiation (HTTP 406).
+        let rejectsAccept = path.contains("download-service") && request.value(forHTTPHeaderField: "Accept") != "*/*"
+        let statusCode = rejectsAccept ? 406 : failZones && path.hasSuffix("/hrTimeInZones") ? 503 : 200
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: nil, headerFields: headers)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(body.utf8)); client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
 }
 
 @MainActor final class ActivityCloudTests: XCTestCase {
+    func testOpenAutomaticallyDownloadsOnceAndReusesCompleteCacheOffline() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString), domain = "wristbeam.activity-test.\(UUID().uuidString)"
+        ActivityHTTP.reset()
+        let (cloud, library, session) = try fixture(root, domain: domain)
+        defer { cloud.setNetworkEnabled(false); session.invalidateAndCancel(); try? FileManager.default.removeItem(at: root); UserDefaults.standard.removePersistentDomain(forName: domain) }
+        await cloud.refreshAccount(); await library.loadPage(older: false)
+        let first = Task { await library.openDetail("1001") }
+        let second = Task { await library.openDetail("1001") }
+        await first.value; await second.value
+        XCTAssertNotNil(library.detail("1001")?.laps)
+        XCTAssertEqual(ActivityHTTP.requests.filter { $0 == "/activity-service/activity/1001" }.count, 1)
+        let requests = ActivityHTTP.requests.count
+        await library.openDetail("1001")
+        XCTAssertEqual(ActivityHTTP.requests.count, requests)
+        cloud.setNetworkEnabled(false); library.reconcile()
+        await library.openDetail("1002")
+        XCTAssertEqual(ActivityHTTP.requests.count, requests)
+        XCTAssertNil(library.detail("1002"))
+        let json = try JSONSerialization.jsonObject(with: library.exportJSON("1001")) as! [String: Any]
+        XCTAssertNotNil(json["series"])
+    }
+    func testLeavingDetailCancelsQueuedDownload() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString), domain = "wristbeam.activity-test.\(UUID().uuidString)"
+        ActivityHTTP.reset()
+        let (cloud, library, session) = try fixture(root, domain: domain)
+        defer { cloud.setNetworkEnabled(false); session.invalidateAndCancel(); try? FileManager.default.removeItem(at: root); UserDefaults.standard.removePersistentDomain(forName: domain) }
+        await cloud.refreshAccount(); await library.loadPage(older: false)
+        ActivityHTTP.reset(stall: true)
+        let refresh = Task { await library.loadPage(older: false) }
+        for _ in 0..<100 {
+            if library.busy { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(library.busy)
+        let opening = Task { await library.openDetail("1001") }
+        await Task.yield(); opening.cancel(); await opening.value
+        XCTAssertFalse(ActivityHTTP.requests.contains { $0.contains("activity-service") })
+        cloud.setNetworkEnabled(false); await refresh.value
+        XCTAssertNil(library.detail("1001"))
+    }
     func testFailedOptionalSectionKeepsOtherDetailSections() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString), domain = "wristbeam.activity-test.\(UUID().uuidString)"
         ActivityHTTP.reset(failZones: true)

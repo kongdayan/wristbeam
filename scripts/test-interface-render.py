@@ -86,7 +86,7 @@ import SwiftUI
                     }
                 }
                 model.fontScale = 1.15
-                for page in [AppPage.overview,.watch,.account,.sync,.settings,.appearance,.developer,.updates,.about] {
+                for page in [AppPage.overview,.activities,.watch,.account,.sync,.settings,.appearance,.developer,.updates,.about] {
                     model.page = page
                     try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
@@ -94,10 +94,13 @@ import SwiftUI
                 model.page = .overview; model.detailMetric = .hrvNight
                 try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)
                 model.detailMetric = nil
-                try render(ActivityDetailSheet(library:model.activities,id:"1001"),name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
-                for section in [ActivityDetailTab.charts, .zones, .laps] {
-                    let key = section == .charts ? "charts" : section == .zones ? "zones" : "laps"
-                    try render(ActivityDetailSheet(library:model.activities,id:"1001",initialTab:section),name:"activity-\(key)-\(language)-\(theme)",dark:dark,output:output)
+                model.page = .activities; model.selectedActivityID = "1001"
+                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
+                model.selectedActivityID = nil
+                if let detail = model.activities.detail("1001") {
+                    try render(ActivityChartsSection(detail:detail).padding(24).frame(width:820),name:"activity-charts-\(language)-\(theme)",dark:dark,output:output)
+                    try render(ActivityZonesSection(detail:detail).padding(24).frame(width:820),name:"activity-zones-\(language)-\(theme)",dark:dark,output:output)
+                    try render(ActivityLapsSection(detail:detail).padding(24).frame(width:820),name:"activity-laps-\(language)-\(theme)",dark:dark,output:output)
                 }
             }
         }

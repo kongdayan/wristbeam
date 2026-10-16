@@ -122,6 +122,21 @@ import Combine
             cacheRevision += 1
         } catch { failure(error, token: token) }
     }
+    /// Opening a record is the demand signal. Reuse complete cached details and
+    /// wait for an existing library request instead of silently dropping selection.
+    func openDetail(_ id: String) async {
+        reconcile()
+        let token = generation
+        while busy {
+            do { try await Task.sleep(nanoseconds: 50_000_000) } catch { return }
+            guard current(token), !Task.isCancelled else { return }
+        }
+        guard current(token), !Task.isCancelled else { return }
+        status = ""
+        if let cached = detail(id), cached.heartRateZones != nil, cached.laps != nil,
+           cached.unavailableSections?.isEmpty != false { return }
+        await downloadDetail(id)
+    }
     /// Cache a requested server export. Local-only mode may read an existing copy;
     /// it can never start a download. The UI chooses the user's destination separately.
     func exportFile(_ id: String, format: GarminActivityFormat) async -> URL? {

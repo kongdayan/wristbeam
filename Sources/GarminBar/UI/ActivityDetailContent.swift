@@ -1,48 +1,75 @@
 import SwiftUI
 import Charts
 
-enum ActivityDetailTab: String, CaseIterable {
-    case statistics = "运动统计", charts = "运动图表", zones = "心率区间", laps = "运动分段"
-}
-
 struct ActivityDetailContent: View {
     let summary: GarminActivity
     let detail: GarminActivityDetail?
-    @State private var tab: ActivityDetailTab = .statistics
-    init(summary: GarminActivity, detail: GarminActivityDetail?, initialTab: ActivityDetailTab = .statistics) {
-        self.summary = summary; self.detail = detail; _tab = State(initialValue: initialTab)
+    var body: some View {
+        LazyVStack(alignment: .leading, spacing: 24) {
+            PulseCard { ActivityStatisticsGrid(statistics: summary.statistics) }
+            if let detail {
+                ActivityChartsSection(detail: detail)
+                ActivityZonesSection(detail: detail)
+                ActivityLapsSection(detail: detail)
+            }
+        }
+    }
+}
+
+struct ActivityChartsSection: View {
+    let detail: GarminActivityDetail
+    private var available: [ActivityMetricDefinition] {
+        ActivityMetricCatalog.charts.filter { field in
+            detail.series.contains { $0.key == field.key && $0.values.contains(where: { $0 != nil }) }
+        }
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Picker(L10n.text("详情内容"), selection: $tab) {
-                ForEach(ActivityDetailTab.allCases, id: \.self) { Text(L10n.text($0.rawValue)).tag($0) }
-            }.pickerStyle(.segmented)
-            switch tab {
-            case .statistics: ActivityStatisticsGrid(statistics: summary.statistics)
-            case .charts:
-                if let detail { ActivitySeriesChart(detail: detail) }
-                else { downloadPrompt }
-            case .zones:
-                if let zones = detail?.heartRateZones {
+        LazyVStack(alignment: .leading, spacing: 18) {
+            Text(L10n.text("运动图表")).font(PulseTheme.font(size: 20, weight: .semibold))
+            if available.isEmpty { Text(L10n.text("这条运动没有可用的图表数据")).foregroundStyle(PulseTheme.secondary) }
+            ForEach(available) { metric in
+                PulseCard {
+                    ActivityInteractiveChart(points: ActivityChartPoint.points(detail, metric: metric.key), metric: metric)
+                }
+            }
+        }
+    }
+}
+
+struct ActivityZonesSection: View {
+    let detail: GarminActivityDetail
+    var body: some View {
+        PulseCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(L10n.text("心率区间")).font(PulseTheme.font(size: 20, weight: .semibold))
+                if let zones = detail.heartRateZones {
                     if zones.isEmpty { Text(L10n.text("这条运动没有心率区间数据")) }
-                    else {
-                        let total = zones.reduce(0) { $0 + $1.seconds }
-                        ForEach(zones) { zone in
-                            VStack(alignment: .leading, spacing: 7) {
-                                HStack {
-                                    Text("Z\(zone.number)").fontWeight(.semibold)
-                                    if let lower = zone.lowerBPM { Text(String(format: "≥ %.0f bpm", lower)).foregroundStyle(PulseTheme.secondary) }
-                                    Spacer()
-                                    Text(ActivityMetricCatalog.duration(zone.seconds)).monospacedDigit()
-                                    Text(String(format: "%.1f%%", total > 0 ? zone.seconds / total * 100 : 0)).frame(width: 60, alignment: .trailing)
-                                }
-                                ProgressView(value: zone.seconds, total: max(total, 1)).tint(PulseTheme.mint)
-                            }.padding(.vertical, 6)
-                        }
+                    let total = zones.reduce(0) { $0 + $1.seconds }
+                    ForEach(zones) { zone in
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack {
+                                Text("Z\(zone.number)").fontWeight(.semibold)
+                                if let lower = zone.lowerBPM { Text(String(format: "≥ %.0f bpm", lower)).foregroundStyle(PulseTheme.secondary) }
+                                Spacer()
+                                Text(ActivityMetricCatalog.duration(zone.seconds)).monospacedDigit()
+                                Text(String(format: "%.1f%%", total > 0 ? zone.seconds / total * 100 : 0)).frame(width: 60, alignment: .trailing)
+                            }
+                            ProgressView(value: zone.seconds, total: max(total, 1)).tint(PulseTheme.mint)
+                        }.padding(.vertical, 6)
                     }
-                } else { sectionPrompt("hrTimeInZones") }
-            case .laps:
-                if let laps = detail?.laps {
+                } else { ActivitySectionUnavailable() }
+            }
+        }
+    }
+}
+
+struct ActivityLapsSection: View {
+    let detail: GarminActivityDetail
+    var body: some View {
+        PulseCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(L10n.text("运动分段")).font(PulseTheme.font(size: 20, weight: .semibold))
+                if let laps = detail.laps {
                     if laps.isEmpty { Text(L10n.text("这条运动没有分段数据")) }
                     ForEach(laps) { lap in
                         DisclosureGroup {
@@ -56,22 +83,16 @@ struct ActivityDetailContent: View {
                             }.font(PulseTheme.font(size: 14, weight: .medium))
                         }.padding(12).background(PulseTheme.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
                     }
-                } else { sectionPrompt("splits") }
+                } else { ActivitySectionUnavailable() }
             }
-            if detail == nil && tab == .statistics { downloadPrompt }
         }
     }
-    private var downloadPrompt: some View {
-        Text(L10n.text("当前仅保存摘要。下载详情后可查看图表、心率区间和分段。"))
-            .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary)
-    }
-    @ViewBuilder private func sectionPrompt(_ key: String) -> some View {
-        if detail == nil { downloadPrompt }
-        else if detail?.unavailableSections?.contains(key) == true {
-            Text(L10n.text("这部分数据暂时未能读取，可重新下载详情重试。"))
-        } else {
-            Text(L10n.text("重新下载详情以获取心率区间和分段。"))
-        }
+}
+
+private struct ActivitySectionUnavailable: View {
+    var body: some View {
+        Text(L10n.text("这部分数据暂时未能读取，可刷新详情重试。"))
+            .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
     }
 }
 
@@ -96,28 +117,6 @@ private struct ActivityStatisticsGrid: View {
                     Divider()
                 }
             }
-        }
-    }
-}
-
-private struct ActivitySeriesChart: View {
-    let detail: GarminActivityDetail
-    @State private var selected = "directHeartRate"
-    private var available: [ActivityMetricDefinition] {
-        ActivityMetricCatalog.charts.filter { field in detail.series.contains { $0.key == field.key && $0.values.contains(where: { $0 != nil }) } }
-    }
-    private var metric: ActivityMetricDefinition? { available.first { $0.key == selected } ?? available.first }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if let metric {
-                Picker(L10n.text("图表指标"), selection: Binding(get: { metric.key }, set: { selected = $0 })) {
-                    ForEach(available) { Text(L10n.text($0.label)).tag($0.key) }
-                }.frame(maxWidth: 300)
-                ActivityInteractiveChart(points: ActivityChartPoint.points(detail, metric: metric.key), metric: metric)
-                    .id(metric.key)
-                Text(L10n.text("图表为云端缩减采样；完整记录可导出 TCX 或原始文件。"))
-                    .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
-            } else { Text(L10n.text("这条运动没有可用的图表数据")) }
         }
     }
 }
