@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import UniformTypeIdentifiers
 
 struct ActivitiesPage: View {
     @ObservedObject var model: AppModel
@@ -167,11 +166,7 @@ struct ActivityDetailPage: View {
                     data = try Data(contentsOf: url)
                 } else { data = try library.exportJSON(id) }
                 guard let window, window.isVisible else { return }
-                let panel = NSSavePanel()
-                let ext = format?.fileExtension ?? "json"
-                panel.nameFieldStringValue = "WristBeam-activity-" + id + "." + ext
-                panel.allowedContentTypes = [UTType(filenameExtension: ext) ?? .data]
-                panel.canCreateDirectories = true
+                let panel = ActivityExportPanel.make(id: id, format: format)
                 let response = await withCheckedContinuation { continuation in
                     panel.beginSheetModal(for: window) { continuation.resume(returning: $0) }
                 }
@@ -180,6 +175,18 @@ struct ActivityDetailPage: View {
                 exportStatus = "已导出运动数据"
             } catch { exportStatus = "无法保存运动数据，请检查可用空间" }
         }
+    }
+}
+
+@MainActor enum ActivityExportPanel {
+    static func make(id: String, format: GarminActivityFormat?) -> NSSavePanel {
+        let panel = NSSavePanel()
+        // Dynamic TCX/GPX UTTypes can make NSSavePanel append the extension twice.
+        // The downloaded bytes were already validated; keep the suggested name literal.
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = "WristBeam-activity-" + id + "." + (format?.fileExtension ?? "json")
+        panel.canCreateDirectories = true
+        return panel
     }
 }
 

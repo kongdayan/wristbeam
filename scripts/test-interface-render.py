@@ -69,6 +69,12 @@ import SwiftUI
         let chart = try model.developerQuery("activity_series",arguments:["id":"1001","metric":"directHeartRate"]) as! [String:Any]
         precondition((chart["values"] as! [Any]).count == 8 && model.cloud.requestCount == 0)
         print("PASS AppModel activity MCP queries read only the selected offline cache")
+        for format in [nil, GarminActivityFormat.tcx, .gpx, .original] {
+            let panel = ActivityExportPanel.make(id:"1001",format:format)
+            let expected = "WristBeam-activity-1001." + (format?.fileExtension ?? "json")
+            precondition(panel.nameFieldStringValue == expected && !panel.isExtensionHidden)
+        }
+        print("PASS native export save panels preserve one JSON/TCX/GPX/ZIP extension")
         for english in [false,true] {
             model.language = english ? .en : .zhHans
             let language = english ? "en" : "zh"
