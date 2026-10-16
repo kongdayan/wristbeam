@@ -2,34 +2,13 @@ import Foundation
 import Network
 import Security
 
-final class DeveloperSecrets {
-    private let service = "cn.wenyankong.wristbeam.developer" + (PulseRuntime.isPreview ? ".preview" : "")
-    func load(_ name: String) -> String? {
-        let query: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:name,kSecReturnData as String:true,kSecMatchLimit as String:kSecMatchLimitOne]
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary,&result) == errSecSuccess, let data = result as? Data else { return nil }; return String(data:data,encoding:.utf8)
-    }
-    func save(_ value: String, name: String) throws {
-        let query: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:name]
-        let attributes: [String:Any] = [kSecValueData as String:Data(value.utf8), kSecAttrAccessible as String:kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        if status == errSecItemNotFound {
-            guard SecItemAdd(query.merging(attributes){_,new in new} as CFDictionary,nil) == errSecSuccess else { throw DeveloperError.invalid("Keychain write failed") }
-        } else if status != errSecSuccess { throw DeveloperError.invalid("Keychain write failed") }
-    }
-    static func generate() throws -> String {
-        var bytes = [UInt8](repeating:0,count:32)
-        guard SecRandomCopyBytes(kSecRandomDefault,bytes.count,&bytes) == errSecSuccess else { throw DeveloperError.invalid("Secure random generator unavailable") }
-        return bytes.map { String(format:"%02x",$0) }.joined()
-    }
-}
-
 final class DeveloperServer {
     private let queue = DispatchQueue(label:"cn.wristbeam.developer.http",qos:.utility)
     private var listener: NWListener?
     private var clients: [UUID:NWConnection] = [:]
     private var generation = UUID()
     var onState: ((Bool) -> Void)?
+    var onFailure: ((String) -> Void)?
     var handle: ((DeveloperRequest, @escaping (DeveloperResponse) -> Void) -> Void)?
     func start(host: String, port: UInt16, identity: SecIdentity?) throws {
         let parameters: NWParameters
@@ -47,7 +26,12 @@ final class DeveloperServer {
             stopOnQueue(); let active = UUID(); generation = active; listener = next
             next.stateUpdateHandler = { [weak self] state in
                 guard let self, self.generation == active else { return }
-                switch state { case .ready: self.onState?(true); case .failed: self.stopOnQueue(); self.onState?(false); default: break }
+                switch state {
+                case .ready: self.onState?(true)
+                case .failed(let error), .waiting(let error):
+                    self.stopOnQueue(); self.onState?(false); self.onFailure?(error.localizedDescription)
+                default: break
+                }
             }
             next.newConnectionHandler = { [weak self] client in self?.accept(client) }
             next.start(queue:queue)

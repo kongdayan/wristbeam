@@ -10,6 +10,13 @@ enum GarminPulseMain {
             print("PASS packaged English, Chinese, system language and repeated switching")
             return
         }
+        if CommandLine.arguments.contains("--verify-developer") {
+            Task { @MainActor in
+                do { try await DeveloperSelfTest.run(); print("PASS packaged local credentials, clipboard, listener and MCP authentication"); exit(0) }
+                catch { fputs("Packaged developer check failed: \(error.localizedDescription)\n", stderr); exit(1) }
+            }
+            RunLoop.main.run(); return
+        }
         if PulseLocalControl.handleCommandLine() { return }
         AppPreferences.shared.prepareSetupDefaults()
         let app = NSApplication.shared

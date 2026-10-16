@@ -5,7 +5,9 @@ WristBeam exposes **read-only cached health and workout data**, through a local 
 ## Connect
 
 1. Set the listen port (default `17890`) and scope (default `127.0.0.1`).
-2. Generate a key, enable MCP / HTTP API, and apply. Copy the key into your trusted client's secret store. Rotation immediately rejects the old key. Keys live in macOS Keychain, not preferences or logs.
+2. Enable MCP / HTTP API, then click **Apply interface settings** at the top. Wait for **Interface is listening**. Copy the key into your trusted client's secret store; applying or copying creates a key if none exists. Use **Show key**, **Copy key**, or **Manage key** to paste/import an existing key, export a plain-text key, or regenerate it. Saving an imported or regenerated key immediately rejects the previous key. Credentials live in private local files, not Keychain, preferences or logs.
+
+   The switch edits a pending configuration; it does not start a listener until applied. File errors are reported rather than treated as missing credentials. Copy success appears beside the key buttons only after a clipboard roundtrip. Port and startup errors appear at the top; the previous active configuration remains active if new settings fail validation.
 3. Set the client's Streamable HTTP endpoint to `http://127.0.0.1:17890/mcp`, with `Authorization: Bearer <key>`.
 4. Only clients supporting manually supplied authorization headers work directly. This server does **not** implement OAuth discovery/login. Use the included stdio bridge for clients requiring stdio.
 
@@ -17,13 +19,21 @@ Example client configuration (field names vary by AI client):
 
 Keep the key out of shared configuration, screenshots, issues and source control. Anybody holding it can read all health fields exposed by this app. Per-client scopes, OAuth and multiple independent keys are not implemented in v1. Use **Stop all interfaces** to immediately stop the listener and cancel pending webhook work.
 
+### User-managed keys
+
+MCP/API and Webhook keys are independent. Generated keys contain 32 cryptographically random bytes (64 hex characters). Imported keys accept 32–512 ASCII letters, digits or `-._~+/=`; surrounding whitespace is trimmed. Use **Manage key → Import key… → Paste**, or type a key and save. Invalid input does not overwrite the current key.
+
+Keys persist under the app's existing Application Support directory, `GarminPulse/Developer/Credentials/{api,webhook}.key`, with directory mode `0700` and file mode `0600`. The legacy directory name preserves existing data. The HTTPS certificate password uses the same local store. Files contain plaintext credentials and are readable by your macOS user. Key export writes a UTF-8 `.txt` file (mode `0600`); its contents can be pasted back into the import dialog. Keys stay masked until **Show key** is selected and are hidden again when leaving the page. Neither health exports nor API responses contain credentials.
+
+Normal startup never reads or writes Keychain. Existing users can explicitly choose **Manage key → Import from legacy Keychain** for each key; this one-time read may display macOS authorization and leaves the old item untouched. Without import, a new local key is created and clients must be configured with it. Re-import an existing HTTPS certificate with its password to move that configuration to local storage.
+
 ## Transport and authentication
 
 Stateless [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports), protocol `2025-06-18` or `2025-03-26`. JSON-RPC uses one JSON message per POST, JSON responses, and HTTP 202 without a body for accepted notifications. No session ID is issued. GET/DELETE `/mcp` return 405; SSE, subscriptions, resumability and legacy SSE transport are not implemented. Unsupported protocol-version headers return 400. `Accept` must list both `application/json` and `text/event-stream`.
 
 All routes require the Bearer key. Unknown Host and unapproved Origin headers return 403, before processing data. Browser Origin is allowed only when it exactly equals the configured base URL; no cross-origin browser API is provided. Use native clients or a same-origin backend. Rate limit: 240 requests/minute, max 32 connections, 10-second connection timeout. Requests are limited to 64 KiB including headers (16 KiB header cap); chunked requests, duplicate headers and pipelining are rejected. The server closes each HTTP connection after its response.
 
-HTTP is limited to loopback. To expose the listener on `0.0.0.0`, enable HTTPS, enter the hostname/IPv4 used by clients, and import a PKCS#12 (`.p12`/`.pfx`) containing the certificate and private key. The certificate must cover that address and clients must trust its issuer. TLS 1.2+ is required. Certificate bytes are copied into the private app directory (0600); the import password is in Keychain. There is no automatic certificate issuance/renewal, public tunnel, firewall modification or TLS-verification bypass. Bind only where you intend to grant access. IPv6 listener configuration is not implemented in v1.
+HTTP is limited to loopback. To expose the listener on `0.0.0.0`, enable HTTPS, enter the hostname/IPv4 used by clients, and import a PKCS#12 (`.p12`/`.pfx`) containing the certificate and private key. The certificate must cover that address and clients must trust its issuer. TLS 1.2+ is required. Certificate bytes are copied into the private app directory (0600); the import password is in a private local credential file. There is no automatic certificate issuance/renewal, public tunnel, firewall modification or TLS-verification bypass. Bind only where you intend to grant access. IPv6 listener configuration is not implemented in v1.
 
 ## MCP tools and resources
 
@@ -106,7 +116,7 @@ Default verifier replay window: 300 seconds. The same event ID/body is used acro
 
 ## Validation and extension points
 
-`DeveloperProtocol.swift` contains protocol/auth/HTTP parsing; `DeveloperServer.swift` the bounded Network.framework listener; `DeveloperQueries.swift` the health projection; `DeveloperAccess.swift` settings, Keychain and webhook lifecycle. `sdk/python` is dependency-free at runtime. Tests use synthetic data/temporary keys and certificates, never a real account or external webhook receiver. See [verification](../../VERIFICATION.md) for what was actually exercised. Future OAuth, per-client scopes, push subscriptions and durable delivery must preserve the existing privacy boundary and versioned schema.
+`DeveloperProtocol.swift` contains protocol/auth/HTTP parsing; `DeveloperServer.swift` the bounded Network.framework listener; `DeveloperQueries.swift` the health projection; `DeveloperAccess.swift` settings and webhook lifecycle; `DeveloperSecrets.swift` private local credentials and explicit legacy import. `sdk/python` is dependency-free at runtime. Tests use synthetic data/temporary keys and certificates, never a real account or external webhook receiver. See [verification](../../VERIFICATION.md) for what was actually exercised. Future OAuth, per-client scopes, push subscriptions and durable delivery must preserve the existing privacy boundary and versioned schema.
 
 ## Local-only operation
 

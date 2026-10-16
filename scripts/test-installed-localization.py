@@ -29,6 +29,10 @@ with tempfile.TemporaryDirectory(prefix='wristbeam-installed-') as temporary:
             if result.returncode != 0 or 'PASS packaged' not in result.stdout:
                 raise RuntimeError(f'Installed {language} startup failed: {result.stderr}')
             print(f'PASS isolated signed application startup and language switching: {language}')
+        result = subprocess.run([str(binary), '--verify-developer'], cwd=stage, capture_output=True, text=True, timeout=45)
+        if result.returncode != 0 or 'PASS packaged' not in result.stdout:
+            raise RuntimeError(f'Installed developer access failed: {result.stderr}')
+        print('PASS signed package local key persistence/export/import, clipboard roundtrip, listener and MCP auth')
         # A missing catalog must fail the check rather than borrowing resources.
         catalog = app / 'Contents/Resources/Localization/en.json'
         catalog.unlink()

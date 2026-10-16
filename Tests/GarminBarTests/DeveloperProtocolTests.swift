@@ -1,7 +1,81 @@
 import XCTest
+import Security
 @testable import GarminBar
 
 @MainActor final class DeveloperProtocolTests: XCTestCase {
+    func testKeychainFailuresAreNotMissingKeys() throws {
+        XCTAssertNil(try DeveloperSecrets.decoded(status: errSecItemNotFound, data: nil))
+        for status in [errSecAuthFailed, errSecInteractionNotAllowed, errSecUserCanceled, errSecMissingEntitlement] {
+            XCTAssertThrowsError(try DeveloperSecrets.decoded(status: status, data: nil)) { error in
+                XCTAssertEqual((error as? DeveloperKeychainError)?.status, status)
+            }
+        }
+        XCTAssertThrowsError(try DeveloperSecrets.decoded(status: errSecSuccess, data: nil))
+        XCTAssertEqual(try DeveloperSecrets.decoded(status: errSecSuccess, data: Data("fixture".utf8)), "fixture")
+    }
+    func testLocalCredentialsPersistAndRotateIndependently() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:directory) }
+        let store = DeveloperSecrets(directory:directory)
+        XCTAssertNil(try store.load("api"))
+        let key = try store.key("api")
+        XCTAssertEqual(key.count,64)
+        XCTAssertEqual(try DeveloperSecrets(directory:directory).key("api"),key)
+        let webhook = try store.key("webhook")
+        XCTAssertNotEqual(webhook,key)
+        let replacement = try DeveloperSecrets.generate()
+        try store.save(replacement,name:"api")
+        XCTAssertEqual(try store.load("api"),replacement)
+        XCTAssertEqual(try store.load("webhook"),webhook)
+        let fileMode = try FileManager.default.attributesOfItem(atPath:directory.appendingPathComponent("api.key").path)[.posixPermissions] as? NSNumber
+        let directoryMode = try FileManager.default.attributesOfItem(atPath:directory.path)[.posixPermissions] as? NSNumber
+        XCTAssertEqual(fileMode?.intValue,0o600)
+        XCTAssertEqual(directoryMode?.intValue,0o700)
+    }
+    func testKeyExportImportRoundtripPreservesDestinationFolderPermissions() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o755])
+        defer { try? FileManager.default.removeItem(at:directory) }
+        let key = try DeveloperSecrets.generate()
+        let file = directory.appendingPathComponent("export.txt")
+        try DeveloperSecrets.export(key,to:file)
+        let imported = try DeveloperSecrets.validated(String(contentsOf:file,encoding:.utf8))
+        XCTAssertEqual(imported,key)
+        let folderMode = try FileManager.default.attributesOfItem(atPath:directory.path)[.posixPermissions] as? NSNumber
+        let fileMode = try FileManager.default.attributesOfItem(atPath:file.path)[.posixPermissions] as? NSNumber
+        XCTAssertEqual(folderMode?.intValue,0o755)
+        XCTAssertEqual(fileMode?.intValue,0o600)
+        let store = DeveloperSecrets(directory:directory.appendingPathComponent("credentials"))
+        try store.save(imported,name:"api")
+        XCTAssertEqual(try store.load("api"),key)
+    }
+    func testInvalidImportsAndCorruptFilesNeverReplaceExistingKeys() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:directory) }
+        let store = DeveloperSecrets(directory:directory)
+        let key = try store.key("api")
+        for invalid in ["", "short", String(repeating:"a",count:513), key + "\r\nInjected: header", "Bearer " + key] {
+            XCTAssertThrowsError(try store.save(invalid,name:"api"))
+            XCTAssertEqual(try store.load("api"),key)
+        }
+        XCTAssertThrowsError(try store.save(key,name:"../escape"))
+        try Data([0xff]).write(to:directory.appendingPathComponent("api.key"))
+        XCTAssertThrowsError(try store.key("api"))
+        XCTAssertEqual(try Data(contentsOf:directory.appendingPathComponent("api.key")),Data([0xff]))
+    }
+    func testImportedKeyImmediatelyChangesAuthentication() throws {
+        let payload: [String:Any] = ["jsonrpc":"2.0","id":1,"method":"tools/list"]
+        let old = try DeveloperSecrets.generate(), new = try DeveloperSecrets.generate()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at:directory) }
+        let store = DeveloperSecrets(directory:directory)
+        try store.save(old,name:"api"); try store.save(new,name:"api")
+        let active = try store.key("api")
+        for (key,status) in [(old,401),(new,200)] {
+            let response = DeveloperProtocol.route(try request(payload,token:"Bearer " + key),token:active,allowedHosts:["127.0.0.1:17890"],origin:"http://127.0.0.1:17890") { _,_ in ["synthetic":true] }
+            XCTAssertEqual(response.status,status)
+        }
+    }
     private func request(_ object: Any, token: String = "Bearer fixture", origin: String? = nil, host: String = "127.0.0.1:17890") throws -> DeveloperRequest {
         var headers = ["host":host,"authorization":token,"content-type":"application/json","accept":"application/json, text/event-stream"]
         headers["origin"] = origin
