@@ -4,8 +4,30 @@ import UniformTypeIdentifiers
 
 @MainActor extension AppModel {
     var historyReader: HealthHistoryReader {
-        HealthHistoryReader(telemetry: AppPaths.directory("Telemetry"), charts: seriesStore,
-            legacyCharts: cloud.region == .china && !cloud.accountGUID.isEmpty ? MetricSeriesStore(accountGUID: cloud.accountGUID) : nil)
+        let digest = AppPreferences.shared.string(forKey: "health.legacy.china") ?? ""
+        let legacy = cloud.region == .china && !seriesOwner.isEmpty && HealthAccountScope.valid(digest) ?
+            MetricSeriesStore(directory: AppPaths.directory("Charts").appendingPathComponent(digest)) : nil
+        return HealthHistoryReader(telemetry: AppPaths.directory("Telemetry"), charts: seriesStore, legacyCharts: legacy)
+    }
+    func reconcileHealthScope() {
+        let owner = HealthAccountScope.resolve(region: cloud.region, accountGUID: cloud.accountGUID,
+            networkEnabled: cloud.networkEnabled, signedOut: AppPreferences.shared.bool(forKey: "\(cloud.region.preferencePrefix).signedOut"), preferences: .shared)
+        guard seriesOwner != owner else { return }
+        developer.accountChanged()
+        hrvReport = nil; hrvRequestID = UUID(); hrvLoading = false; hrvStatusMessage = ""; hrvMessageDay = nil
+        hrvStore = owner.isEmpty ? nil : GarminHRVStore(file: AppPaths.directory("HRV").appendingPathComponent(owner + ".json"))
+        seriesOwner = owner; seriesDays = [:]; loadedHistoryDays = []; historyReadIssues = [:]
+        pendingChartSaves = [:]; chartSaveRevisions = [:]; metricSyncedAt = [:]; seriesNotes = [:]; lastSeriesRefresh = [:]; lastHealthRefresh = .distantPast
+        metrics = metrics.filter { $0.value.origin == .watch }; metricNotes = [:]
+        seriesStore = owner.isEmpty ? nil : MetricSeriesStore(directory: AppPaths.directory("Charts").appendingPathComponent(owner))
+        restoreSeries(day: Date())
+        if let store = hrvStore {
+            Task {
+                let cached = await Task.detached(priority: .utility) { store.load() }.value
+                guard seriesOwner == owner, let cached else { return }
+                applyHRV(cached)
+            }
+        }
     }
     func series(for kind: MetricKind, day: Date? = nil) -> MetricDaySeries? {
         if kind.isOvernightHRV { return hrvReport?.trend(kind) }
@@ -39,13 +61,15 @@ import UniformTypeIdentifiers
         guard let store = seriesStore else { return }
         let key = GarminHealthMetrics.calendarDate(day)
         pendingChartSaves[key] = collection
+        let revision = (chartSaveRevisions[key] ?? 0) + 1
+        chartSaveRevisions[key] = revision
         let saved = await Task.detached(priority: .utility) { () -> Bool in
             for _ in 0..<3 {
-                do { try store.saveChecked(collection, day: day); return true } catch { }
+                do { try store.saveChecked(collection, day: day, revision: revision); return true } catch { }
             }
             return false
         }.value
-        guard seriesStore === store else { return }
+        guard seriesStore === store, chartSaveRevisions[key] == revision else { return }
         if saved { pendingChartSaves.removeValue(forKey: key); if pendingChartSaves.isEmpty { storageIssues.remove("chartWriteFailed") } }
         else { storageIssues.insert("chartWriteFailed") }
     }

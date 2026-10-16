@@ -5,11 +5,16 @@ enum BluetoothAccess: Int, CaseIterable {
 }
 
 enum ConnectionStartupPolicy {
+    enum WakeAction { case none, reconnect, restartTransport }
     static func canConnect(automatically: Bool, savedWatch: Bool, access: BluetoothAccess, preview: Bool) -> Bool {
         automatically && savedWatch && access == .allowed && !preview
     }
     static func canResume(activated: Bool, requested: Bool, automatic: Bool, connected: Bool, connecting: Bool) -> Bool {
         activated && requested && automatic && !connected && !connecting
+    }
+    static func afterWake(activated: Bool, requested: Bool, automatic: Bool, connected: Bool, connecting: Bool) -> WakeAction {
+        guard activated && requested && automatic else { return .none }
+        return connected || connecting ? .restartTransport : .reconnect
     }
 }
 

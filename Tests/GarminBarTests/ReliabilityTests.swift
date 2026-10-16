@@ -3,6 +3,28 @@ import XCTest
 @testable import GarminBar
 
 final class ReliabilityTests: XCTestCase {
+    func testOfflineAccountScopeRetainsCacheButLogoutAndOtherRegionDoNot() {
+        let domain = "wristbeam.health-scope.\(UUID().uuidString)"
+        let isolated = AppPreferences(domain: domain)
+        defer { UserDefaults.standard.removePersistentDomain(forName: domain) }
+        let owner = HealthAccountScope.resolve(region: .china, accountGUID: "fixture-owner", networkEnabled: true, signedOut: false, preferences: isolated)
+        XCTAssertTrue(HealthAccountScope.valid(owner))
+        XCTAssertEqual(HealthAccountScope.resolve(region: .china, accountGUID: "", networkEnabled: false, signedOut: false, preferences: isolated), owner)
+        XCTAssertEqual(HealthAccountScope.resolve(region: .global, accountGUID: "", networkEnabled: false, signedOut: false, preferences: isolated), "")
+        XCTAssertEqual(HealthAccountScope.resolve(region: .china, accountGUID: "", networkEnabled: false, signedOut: true, preferences: isolated), "")
+        let other = HealthAccountScope.resolve(region: .china, accountGUID: "other-owner", networkEnabled: true, signedOut: false, preferences: isolated)
+        XCTAssertNotEqual(other, owner)
+    }
+
+    func testSupersededChartSaveCannotReplaceNewerRevision() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let day = Date(), store = MetricSeriesStore(accountGUID: "fixture", root: root)
+        let series = MetricDaySeries(kind: .heartRate, day: day, points: [.init(timestamp: day, value: 75)], source: "fixture", refreshedAt: day)
+        try store.saveChecked([.heartRate: series], day: day, revision: 2)
+        try store.saveChecked([:], day: day, revision: 1)
+        XCTAssertEqual(try store.loadChecked(day: day)[.heartRate]?.latest?.value, 75)
+    }
     func testHistoricalIndexInvalidatesAndMeasuresWarmQueries() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -65,6 +87,8 @@ final class ReliabilityTests: XCTestCase {
         XCTAssertFalse(ConnectionStartupPolicy.canResume(activated: true, requested: false, automatic: true, connected: false, connecting: false))
         XCTAssertTrue(ConnectionStartupPolicy.canResume(activated: true, requested: true, automatic: true, connected: false, connecting: false))
         XCTAssertFalse(ConnectionStartupPolicy.canResume(activated: true, requested: true, automatic: false, connected: false, connecting: false))
+        XCTAssertEqual(ConnectionStartupPolicy.afterWake(activated: true, requested: true, automatic: true, connected: true, connecting: false), .restartTransport)
+        XCTAssertEqual(ConnectionStartupPolicy.afterWake(activated: true, requested: false, automatic: true, connected: true, connecting: false), .none)
         let now = Date()
         func stage(_ ready: Bool, _ last: Date?) -> WatchConnectionStage {
             WatchConnectionStage.resolve(access: .allowed, powered: true, scanning: false, discovered: true,

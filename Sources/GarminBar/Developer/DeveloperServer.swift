@@ -83,6 +83,17 @@ final class WebhookNoRedirect: NSObject, URLSessionTaskDelegate {
 
 /// Best-effort coalesced delivery. The caller owns cancellation and account scope.
 enum DeveloperWebhook {
+    // Age changes with the clock; timestamps, values and freshness transitions
+    // still trigger delivery. The actual event keeps the complete metadata.
+    static func changeFingerprint(_ payload: [String: Any]) throws -> Data {
+        var stable = payload
+        if let rows = stable["metrics"] as? [[String: Any]] {
+            stable["metrics"] = rows.map { row -> [String: Any] in
+                var row = row; row.removeValue(forKey: "ageSeconds"); return row
+            }
+        }
+        return try JSONSerialization.data(withJSONObject: stable, options: [.sortedKeys])
+    }
     static func deliver(url: URL, body: Data, secret: String, session: URLSession) async -> Bool {
         for attempt in 0..<3 {
             guard !Task.isCancelled else { return false }

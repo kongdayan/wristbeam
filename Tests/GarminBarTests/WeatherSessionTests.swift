@@ -3,6 +3,20 @@ import XCTest
 @testable import GarminBar
 
 final class WeatherSessionTests: XCTestCase {
+    @MainActor func testTransportLossAndWakeRebuildNegotiatedSession() throws {
+        let fixture = try WeatherSessionFixture(enabled: true)
+        defer { fixture.session.disconnected() }
+        XCTAssertTrue(fixture.session.isReady)
+        fixture.session.disconnected()
+        XCTAssertFalse(fixture.session.isReady)
+        fixture.session.connected()
+        XCTAssertFalse(fixture.session.isReady)
+        try fixture.handshake()
+        XCTAssertTrue(fixture.session.isReady)
+        let configuration = try XCTUnwrap(fixture.messages.last { $0.number == 5050 })
+        XCTAssertTrue(fixture.hasCapability(26, in: configuration))
+    }
+
     @MainActor func testDisabledWeatherIsNotAdvertisedAndDoesNotInvokeProvider() throws {
         let fixture = try WeatherSessionFixture()
         defer { fixture.session.weatherProvider = nil; fixture.session.disconnected() }

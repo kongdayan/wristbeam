@@ -21,7 +21,7 @@ import AppKit
             defer { isManagingKey = false }
             do {
                 let values = try await Task.detached(priority: .utility) { try store.update(operation) }.value
-                clients = values; generation = UUID(); clientStatus = "客户端权限已保存"
+                clients = values; accountChanged(); clientStatus = "客户端权限已保存"
             } catch { clientStatus = error.localizedDescription }
         }
     }

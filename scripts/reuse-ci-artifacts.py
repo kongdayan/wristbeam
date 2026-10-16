@@ -50,7 +50,7 @@ def unpack_verified(raw, artifact_digest, directory, arch, sha, run_id, version)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['resolve', 'download', 'evidence'])
+    parser.add_argument('action', choices=['resolve', 'download', 'evidence', 'audit'])
     parser.add_argument('--directory', type=Path, default=Path('dist'))
     parser.add_argument('--arch', choices=['arm64', 'x86_64'])
     parser.add_argument('--run-id')
@@ -89,7 +89,18 @@ def main():
     if not args.run_id or not args.run_id.isdecimal():
         parser.error('--run-id required')
     run = json.loads(api(f'{prefix}/runs/{args.run_id}'))
-    if not validate_run(run, sha, repository):
+    if args.action == 'audit':
+        # A CI job validates its own freshly uploaded bytes without granting them
+        # release eligibility. The publishing path always uses `download` below.
+        expected_head = sha
+        if os.environ.get('GITHUB_EVENT_NAME') == 'pull_request':
+            event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
+            expected_head = event['pull_request']['head']['sha']
+        checkout = subprocess.run(['git', 'rev-parse', 'HEAD'], check=True, capture_output=True, text=True).stdout.strip()
+        if (args.run_id != os.environ['GITHUB_RUN_ID'] or run.get('head_sha') != expected_head or checkout != sha
+                or run.get('repository', {}).get('full_name') != repository):
+            raise ValueError('Artifact audit must belong to this exact CI run and checkout')
+    elif not validate_run(run, sha, repository):
         raise ValueError('Only successful same-commit main CI may be reused')
     artifacts = json.loads(api(f'{prefix}/runs/{args.run_id}/artifacts?per_page=100'))['artifacts']
     for arch in ('arm64', 'x86_64'):

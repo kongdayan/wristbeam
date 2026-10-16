@@ -130,4 +130,13 @@ import Security
         XCTAssertNotEqual(first,DeveloperProtocol.webhookSignature(secret:"fixture",timestamp:"123",body:Data("{}".utf8)))
         XCTAssertFalse(DeveloperProtocol.equalSecret("fixture","other"))
     }
+    func testWebhookDeduplicatesAgeButPreservesFreshnessTransitions() throws {
+        func payload(age: Double, stale: Bool = false, value: Double = 60) -> [String: Any] {
+            ["metrics": [["id": "heartRate", "value": value, "ageSeconds": age, "stale": stale]], "sync": ["watchConnected": true]]
+        }
+        let initial = try DeveloperWebhook.changeFingerprint(payload(age: 1))
+        XCTAssertEqual(initial, try DeveloperWebhook.changeFingerprint(payload(age: 20)))
+        XCTAssertNotEqual(initial, try DeveloperWebhook.changeFingerprint(payload(age: 200, stale: true)))
+        XCTAssertNotEqual(initial, try DeveloperWebhook.changeFingerprint(payload(age: 1, value: 70)))
+    }
 }

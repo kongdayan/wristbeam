@@ -187,11 +187,10 @@ struct DevicePage: View {
 struct WatchPage: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var bluetooth: WatchBluetooth
+    @State private var showPairing = false
     init(model: AppModel) { self.model = model; bluetooth = model.bluetooth }
     var body: some View {
         VStack(alignment: .leading, spacing: 19) {
-            BluetoothPermissionGuide(bluetooth: bluetooth)
-            PairingGuide(model: model)
             PulseCard {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.connectionStage(now: model.now).title)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer(); WatchBatteryBadge(model: model) }
@@ -209,13 +208,21 @@ struct WatchPage: View {
                     }
                 }
             }
-            if bluetooth.nearby.isEmpty {
+            if bluetooth.access != .allowed || !bluetooth.sessionActivated || bluetooth.managerState == 4 {
+                BluetoothPermissionGuide(bluetooth: bluetooth)
+            }
+            if bluetooth.protocolReady {
+                DisclosureGroup(L10n.text("一步步连接手表"), isExpanded: $showPairing) {
+                    PairingGuide(model: model).padding(.top, 10)
+                }.font(PulseTheme.font(size: 13)).padding(.horizontal, 5)
+            } else { PairingGuide(model: model) }
+            if bluetooth.nearby.isEmpty && !bluetooth.isConnected {
                 VStack(alignment: .leading, spacing: 9) {
                     Text(L10n.text("准备你的手表")).font(PulseTheme.font(size: 13, weight: .semibold))
                     Text(L10n.text("从手表的“手机 → 配对手机”进入正常佳明连接。实时指标与文件都使用佳明服务；扫描结果会出现在这里。"))
                         .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).lineSpacing(6)
                 }.padding(5)
-            } else {
+            } else if !bluetooth.nearby.isEmpty {
                 VStack(spacing: 9) {
                     ForEach(bluetooth.nearby) { watch in
                         PulseCard {

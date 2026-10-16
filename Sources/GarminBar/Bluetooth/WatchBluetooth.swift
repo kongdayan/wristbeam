@@ -239,6 +239,19 @@ final class WatchBluetooth: NSObject, ObservableObject {
         reconnectSaved()
     }
 
+    func resumeAfterWake() {
+        switch ConnectionStartupPolicy.afterWake(activated: sessionActivated, requested: connectRequested,
+                                                 automatic: autoReconnect, connected: isConnected, connecting: isConnecting) {
+        case .none: return
+        case .reconnect: reconnectSaved()
+        case .restartTransport:
+            // A pre-sleep connected flag cannot prove that GFDI subscriptions survived.
+            // Keep user intent; the existing disconnect callback schedules recovery.
+            if let selected { central?.cancelPeripheralConnection(selected) }
+            else { reconnectSaved() }
+        }
+    }
+
     func disconnect() {
         connectRequested = false; isConnecting = false; connectTimeout?.cancel()
         reconnectTask?.cancel(); reconnectTask = nil

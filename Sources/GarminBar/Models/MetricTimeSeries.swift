@@ -141,6 +141,9 @@ struct GarminSeriesRefresh {
 // credentials stay in the existing authentication store.
 final class MetricSeriesStore {
     private let directory: URL
+    private let lock = NSLock()
+    private var writtenRevisions: [String: UInt64] = [:]
+    init(directory: URL) { self.directory = directory }
     init(accountGUID: String, root: URL = AppPaths.directory("Charts")) {
         let digest = SHA256.hash(data: Data(accountGUID.utf8)).map { String(format: "%02x", $0) }.joined()
         directory = root.appendingPathComponent(digest, isDirectory: true)
@@ -165,9 +168,13 @@ final class MetricSeriesStore {
         return Dictionary(series.filter { Calendar.current.isDate($0.day, inSameDayAs: day) }.map { ($0.kind, $0) }, uniquingKeysWith: { _, new in new })
     }
     func load(day: Date) -> [MetricKind: MetricDaySeries] { (try? loadChecked(day: day)) ?? [:] }
-    func saveChecked(_ series: [MetricKind: MetricDaySeries], day: Date) throws {
+    func saveChecked(_ series: [MetricKind: MetricDaySeries], day: Date, revision: UInt64 = 0) throws {
+        lock.lock(); defer { lock.unlock() }
+        let key = GarminHealthMetrics.calendarDate(day)
+        guard revision >= (writtenRevisions[key] ?? 0) else { return }
         let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
         try GarminPrivateFile.write(encoder.encode(Envelope(series: Array(series.values))), to: file(day))
+        writtenRevisions[key] = revision
     }
     func save(_ series: [MetricKind: MetricDaySeries], day: Date) { try? saveChecked(series, day: day) }
     private func file(_ day: Date) -> URL { directory.appendingPathComponent(GarminHealthMetrics.calendarDate(day) + ".json") }

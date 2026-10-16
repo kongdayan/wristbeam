@@ -147,6 +147,9 @@ struct DeveloperConfiguration: Codable, Equatable {
     func accountChanged() {
         generation = UUID(); webhookTask?.cancel(); webhookTask = nil; lastPayloadHash = ""; lastWebhook = Date()
     }
+    func resumeAfterWake() {
+        if active.enabled && !running && !isApplying && !hasUnappliedChanges { apply() }
+    }
     func stopAll() {
         operationGeneration = UUID(); configurationError = ""; accountChanged(); configuration.enabled = false; configuration.webhookEnabled = false
         active.enabled = false; active.webhookEnabled = false; server.stop(); running = false
@@ -183,9 +186,8 @@ struct DeveloperConfiguration: Codable, Equatable {
                 if name == "api" { token = key } else { webhookToken = key }
                 switch action {
                 case .rotate, .importValue, .legacy:
-                    generation = UUID()
+                    accountChanged()
                     revealedKeys.removeValue(forKey: name)
-                    if name == "webhook" { generation = UUID(); webhookTask?.cancel(); webhookTask = nil; lastPayloadHash = "" }
                     setKeyStatus("密钥已保存并生效",name:name)
                 case .reveal: revealedKeys[name] = key
                 case .copy:
@@ -228,7 +230,7 @@ struct DeveloperConfiguration: Codable, Equatable {
             let rows = (all["metrics"] as? [[String:Any]] ?? []).filter { active.webhookMetrics.contains($0["id"] as? String ?? "") }
             guard !rows.isEmpty else { return }
             let payload: [String:Any] = ["metrics":rows,"sync":try model.developerQuery("status",arguments:[:])]
-            let compare = try JSONSerialization.data(withJSONObject:payload,options:[.sortedKeys])
+            let compare = try DeveloperWebhook.changeFingerprint(payload)
             let hash = SHA256.hash(data:compare).map{String(format:"%02x",$0)}.joined()
             guard hash != lastPayloadHash, let url = DeveloperProtocol.webhookURL(active.webhookURL), !webhookToken.isEmpty else { return }
             let secret = webhookToken

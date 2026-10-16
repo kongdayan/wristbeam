@@ -2,6 +2,7 @@ import Foundation
 
 @MainActor extension AppModel {
     func developerSnapshot() -> DeveloperQuerySnapshot {
+        reconcileHealthScope()
         activities.reconcile()
         let formatter = ISO8601DateFormatter()
         var status: [String: Any] = ["schemaVersion": 1, "watchConnected": bluetooth.isConnected,

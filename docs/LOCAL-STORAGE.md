@@ -6,7 +6,7 @@ the user explicitly clears them. This change performs no destructive migration.
 ## Read model
 
 `HealthHistoryReader` is the shared, network-free reader for dashboard restoration
-and developer queries; CSV export uses the same streaming sample parser. A missing
+and developer queries. Export includes `History/YYYY-MM-DD.json` from that same reader, plus original-resolution CSV using its streaming sample parser. The v2 export manifest includes per-day read issues and timezone. A missing
 file is empty history. Invalid records and unreadable files are reported separately,
 while valid earlier records remain usable. No file-size cutoff silently removes a
 large day. Future samples and day mismatches are excluded from returned series.

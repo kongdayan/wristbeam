@@ -221,7 +221,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
         floatingPanel?.orderFrontRegardless()
     }
 
-    @objc private func wokeUp() { if !model.preview { model.bluetooth.resumeRequestedConnection() } }
+    @objc private func wokeUp() { model.resumeAfterWake() }
 
     private func confirmUpdate() {
         guard let release = model.updater.release, model.updater.available, !model.updater.isInstalling else { return }

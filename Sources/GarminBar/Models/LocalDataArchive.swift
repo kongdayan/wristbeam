@@ -49,7 +49,12 @@ enum LocalDataArchive {
         defer { try? writer.close() }
         try writer.seekToEnd()
         let formatter = ISO8601DateFormatter()
-        var identities = Set<String>(), readings = 0
+        var identities = Set<String>(), readings = 0, days = 0
+        var historyIssues: [String: [String]] = [:]
+        let history = payload.appendingPathComponent("History")
+        try manager.createDirectory(at: history, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let reader = HealthHistoryReader(telemetry: root.appendingPathComponent("Telemetry"))
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
         for url in files(root: root) {
             if url.pathExtension.lowercased() == "fit" {
                 let bytes = try Data(contentsOf: url, options: .mappedIfSafe)
@@ -60,10 +65,18 @@ enum LocalDataArchive {
                     let row = "\(formatter.string(from: sample.timestamp)),\(sample.kind.rawValue),\(sample.value)\n"
                     try writer.write(contentsOf: Data(row.utf8)); readings += 1
                 }
+                let key = url.deletingPathExtension().lastPathComponent
+                if let day = GarminHRV.date(key) {
+                    let result = reader.read(day: day)
+                    try GarminPrivateFile.write(encoder.encode(result.series.values.sorted { $0.kind.rawValue < $1.kind.rawValue }), to: history.appendingPathComponent(key + ".json"))
+                    days += 1
+                    if !result.issues.isEmpty { historyIssues[key] = result.issues }
+                }
             }
         }
         try writer.synchronize()
-        let manifest: [String: Any] = ["formatVersion": 1, "fitFiles": identities.count, "watchReadings": readings,
+        let manifest: [String: Any] = ["formatVersion": 2, "fitFiles": identities.count, "watchReadings": readings,
+                                       "historyDays": days, "historyIssues": historyIssues, "timeZone": TimeZone.current.identifier,
                                        "readingsSource": "watch", "createdAt": ISO8601DateFormatter().string(from: Date())]
         try GarminPrivateFile.write(JSONSerialization.data(withJSONObject: manifest, options: [.sortedKeys, .prettyPrinted]), to: payload.appendingPathComponent("manifest.json"))
         let staged = destination.deletingLastPathComponent().appendingPathComponent(".wristbeam-export-\(UUID().uuidString).zip")

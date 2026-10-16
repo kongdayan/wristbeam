@@ -27,7 +27,7 @@ struct HealthHistoryReader {
         let indexURL = telemetry.appendingPathComponent("Index").appendingPathComponent(GarminHealthMetrics.calendarDate(day) + ".json")
         let cached = (try? Data(contentsOf: indexURL)).flatMap { try? JSONDecoder().decode(DayIndex.self, from: $0) }
         let localSeries: [MetricDaySeries]
-        if let cached, cached.schemaVersion == 1, cached.signature == signature {
+        if let cached, cached.schemaVersion == 1, cached.signature == signature, cached.timeZone == TimeZone.current.identifier, cached.day == Calendar.current.startOfDay(for: day) {
             localSeries = cached.series; result.issues += cached.issues; result.usedIndex = true
         } else {
             var minutes: [MetricKind: [Int: MetricSeriesPoint]] = [:]
@@ -51,7 +51,7 @@ struct HealthHistoryReader {
             // every second and would otherwise create continuous index writes.
             if !Calendar.current.isDate(day, inSameDayAs: now), let signature,
                signature == (try? Self.signature(file)), !issues.contains("telemetryReadFailed") {
-                do { try GarminPrivateFile.write(JSONEncoder().encode(DayIndex(signature: signature, series: localSeries, issues: issues)), to: indexURL) }
+                do { try GarminPrivateFile.write(JSONEncoder().encode(DayIndex(signature: signature, timeZone: TimeZone.current.identifier, day: Calendar.current.startOfDay(for: day), series: localSeries, issues: issues)), to: indexURL) }
                 catch { result.issues.append("historyIndexWriteFailed") }
             }
         }
@@ -71,6 +71,8 @@ struct HealthHistoryReader {
     private struct DayIndex: Codable {
         var schemaVersion = 1
         var signature: FileSignature
+        var timeZone: String
+        var day: Date
         var series: [MetricDaySeries]
         var issues: [String]
     }
