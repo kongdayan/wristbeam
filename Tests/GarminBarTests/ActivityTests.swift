@@ -16,6 +16,7 @@ final class ActivityTests: XCTestCase {
         XCTAssertNil(result[0].statistics["averageHR"]); XCTAssertNil(result[0].statistics["maxHR"])
         let encoded = String(decoding: try JSONEncoder().encode(result), as: UTF8.self)
         for forbidden in ["private-owner", "private-device", "Latitude", "Longitude", "ownerId", "deviceId"] { XCTAssertFalse(encoded.contains(forbidden)) }
+        XCTAssertThrowsError(try GarminActivities.summary(["activityId": true]))
         XCTAssertThrowsError(try GarminActivities.list(data([activity(), activity()])))
         XCTAssertThrowsError(try GarminActivities.list(data(["activityList": [activity()]])))
         XCTAssertThrowsError(try GarminActivities.list(Data(repeating: 32, count: GarminActivities.maximumJSONBytes + 1)))

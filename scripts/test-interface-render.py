@@ -46,6 +46,27 @@ import SwiftUI
         precondition(!model.autoUpload && !model.uploads.automaticSyncEnabled)
         model.cloudSyncEnabled = false
         print("PASS local mode preserves receiving and does not re-enable automatic uploads")
+        // Seed only the isolated preview directory; no cloud login or network calls.
+        let activityScope = "china:render-fixture"
+        let activityStore = GarminActivityStore(root: AppPaths.directory("CloudActivities"), scope: activityScope)
+        let activity = GarminActivity(id: "1001", name: "Synthetic morning run", type: "running",
+            startTimeGMT: "2026-01-02 02:00:00", startTimeLocal: "2026-01-02 10:00:00",
+            statistics: ["duration":1800,"distance":5000,"averageHR":135,"maxHR":152,"calories":320,"aerobicTrainingEffect":2.8], fetchedAt:Date())
+        var activityIndex = GarminActivityIndex(); activityIndex.activities = [activity]; activityIndex.refreshedAt = Date(); activityIndex.reachedEnd = true
+        try activityStore.saveIndex(activityIndex)
+        try activityStore.save(GarminActivityDetail(summary:activity, series:[
+            GarminActivitySeries(key:"directHeartRate",unit:"bpm",factor:1,values:[100,110,120,nil,130,140,135,145]),
+            GarminActivitySeries(key:"directTimestamp",unit:"gmt",factor:0,values:(0..<8).map { 1_767_319_200_000.0 + Double($0) * 60_000 })],
+            fetchedAt:Date(),chartPointLimit:1000,chartAvailable:true))
+        AppPreferences.shared.set(GarminPrivateFile.digest(Data(activityScope.utf8)),forKey:"activities.scope.china")
+        model.activities.attach(model.cloud)
+        let workouts = try model.developerQuery("activities",arguments:[:]) as! [String:Any]
+        precondition((workouts["activities"] as! [[String:Any]]).count == 1)
+        let workout = try model.developerQuery("activity",arguments:["id":"1001"]) as! [String:Any]
+        precondition(workout["detailCached"] as? Bool == true)
+        let chart = try model.developerQuery("activity_series",arguments:["id":"1001","metric":"directHeartRate"]) as! [String:Any]
+        precondition((chart["values"] as! [Any]).count == 8 && model.cloud.requestCount == 0)
+        print("PASS AppModel activity MCP queries read only the selected offline cache")
         for english in [false,true] {
             model.language = english ? .en : .zhHans
             let language = english ? "en" : "zh"
@@ -71,9 +92,10 @@ import SwiftUI
                 model.page = .overview; model.detailMetric = .hrvNight
                 try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)
                 model.detailMetric = nil
+                try render(ActivityDetailSheet(library:model.activities,id:"1001"),name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
             }
         }
-        print("PASS: 60 production-view renders; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font")
+        print("PASS: production-view renders including cached activity detail; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font")
     }
     @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL) throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))

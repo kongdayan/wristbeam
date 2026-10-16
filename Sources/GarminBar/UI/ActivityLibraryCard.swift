@@ -80,7 +80,7 @@ struct ActivityLibraryCard: View {
     }
 }
 
-private struct ActivityDetailSheet: View {
+struct ActivityDetailSheet: View {
     @ObservedObject var library: ActivityLibrary
     let id: String
     @Environment(\.dismiss) private var dismiss

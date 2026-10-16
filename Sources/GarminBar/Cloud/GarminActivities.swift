@@ -69,6 +69,11 @@ enum GarminActivities {
     static func validID(_ id: String) -> Bool {
         !id.isEmpty && id.count <= 19 && id.utf8.allSatisfy { (48...57).contains($0) } && id.first != "0" && (Int64(id) ?? 0) > 0
     }
+    static func identifier(_ value: Any?) -> String? {
+        if let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() { return nil }
+        guard let id = stringValue(value), validID(id) else { return nil }
+        return id
+    }
     static func number(_ value: Any?) -> Double? {
         guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(), number.doubleValue.isFinite else { return nil }
         return number.doubleValue
@@ -78,7 +83,7 @@ enum GarminActivities {
         return try JSONSerialization.jsonObject(with: data)
     }
     static func summary(_ json: [String: Any], now: Date = Date()) throws -> GarminActivity {
-        guard let id = stringValue(json["activityId"]), validID(id) else { throw GarminActivityError.invalidResponse }
+        guard let id = identifier(json["activityId"]) else { throw GarminActivityError.invalidResponse }
         let values = json["summaryDTO"] as? [String: Any] ?? json
         let type = (json["activityType"] ?? json["activityTypeDTO"]) as? [String: Any]
         var statistics: [String: Double] = [:]
@@ -99,7 +104,7 @@ enum GarminActivities {
     }
     static func detail(summary data: Data, chart: Data, expectedID: String, now: Date = Date()) throws -> GarminActivityDetail {
         guard let json = try object(data) as? [String: Any], let chartJSON = try object(chart) as? [String: Any],
-              stringValue(chartJSON["activityId"]) == expectedID else { throw GarminActivityError.invalidResponse }
+              identifier(chartJSON["activityId"]) == expectedID else { throw GarminActivityError.invalidResponse }
         let activity = try summary(json, now: now)
         guard activity.id == expectedID else { throw GarminActivityError.invalidResponse }
         let rows = chartJSON["activityDetailMetrics"] as? [[String: Any]] ?? []
