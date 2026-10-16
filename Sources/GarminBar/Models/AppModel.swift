@@ -115,7 +115,11 @@ final class AppModel: ObservableObject {
     var onAppearanceChange: (() -> Void)?
     var onShowMenu: (() -> Void)?
     var onQuit: (() -> Void)?
-    private let journal = TelemetryJournal()
+    let journal = TelemetryJournal()
+    @Published var storageIssues: Set<String> = []
+    @Published var lastLocalSavedAt: Date?
+    var metricSyncedAt: [MetricKind: Date] = [:]
+    var pendingChartSaves: [String: [MetricKind: MetricDaySeries]] = [:]
     private var subscriptions: Set<AnyCancellable> = []
     private var lastAutoSync = Date.distantPast
     private var manualFileSync = false
@@ -125,13 +129,20 @@ final class AppModel: ObservableObject {
     private var lastWidgetBuild = Date.distantPast
     private var lastHealthRefresh = Date.distantPast
     private var lastSeriesRefresh: [String: Date] = [:]
-    private var seriesStore: MetricSeriesStore?
+    var seriesStore: MetricSeriesStore?
     private var seriesOwner = ""
     var lastControlRequest = ""
 
     init() {
         L10n.language = language
         PulseTheme.textScale = fontScale
+        journal.onEvent = { [weak self] event in Task { @MainActor in
+            guard let self else { return }
+            switch event {
+            case .saved(let date): self.lastLocalSavedAt = date; self.storageIssues.remove("telemetryWriteFailed")
+            case .failed: self.storageIssues.insert("telemetryWriteFailed")
+            }
+        } }
         bluetooth.onSample = { [weak self] in self?.receive($0) }
         bluetooth.onUnavailable = { [weak self] kind, text in
             guard let self, self.metrics[kind]?.origin == .watch || self.metrics[kind] == nil else { return }
@@ -202,7 +213,7 @@ final class AppModel: ObservableObject {
             if self.seriesOwner != owner {
                 self.developer.accountChanged()
                 self.hrvReport = nil; self.hrvRequestID = UUID(); self.hrvLoading = false; self.hrvStatusMessage = ""; self.hrvMessageDay = nil; self.hrvStore = owner.isEmpty ? nil : GarminHRVStore(owner: owner)
-                self.seriesOwner = owner; self.seriesDays = [:]; self.seriesNotes = [:]; self.lastSeriesRefresh = [:]; self.lastHealthRefresh = .distantPast
+                self.seriesOwner = owner; self.seriesDays = [:]; self.pendingChartSaves = [:]; self.metricSyncedAt = [:]; self.seriesNotes = [:]; self.lastSeriesRefresh = [:]; self.lastHealthRefresh = .distantPast
                 self.metrics = self.metrics.filter { $0.value.origin == .watch }; self.metricNotes = [:]
                 self.seriesStore = guid.isEmpty ? nil : MetricSeriesStore(accountGUID: owner)
                 self.restoreSeries(day: Date())
@@ -293,16 +304,17 @@ final class AppModel: ObservableObject {
         return readings.isEmpty ? "WristBeam" : "WristBeam · " + readings
     }
     func display(_ kind: MetricKind) -> String {
-        guard let sample = metrics[kind], metricNotes[kind] == nil, !isStale(kind) else { return "—" }
+        guard let sample = metrics[kind], metricNotes[kind] == nil, kind.isOvernightHRV || !isStale(kind) else { return "—" }
         if kind == .hrvStatus { return GarminHRVStatus(rawValue: Int(sample.value))?.title ?? "—" }
         return sample.formatted
     }
+    func freshness(_ sample: MetricSample) -> MetricFreshness {
+        MetricFreshness.evaluate(sample, now: now, connected: bluetooth.isConnected,
+                                 syncedAt: sample.kind.isOvernightHRV ? hrvReport?.refreshedAt : metricSyncedAt[sample.kind])
+    }
     func isStale(_ kind: MetricKind) -> Bool {
         guard let sample = metrics[kind] else { return true }
-        if preview || kind.isOvernightHRV { return false }
-        if sample.origin == .watch { return !bluetooth.isConnected || now.timeIntervalSince(sample.timestamp) > kind.definition.freshness }
-        if !Calendar.current.isDate(sample.timestamp, inSameDayAs: now) { return true }
-        return kind == .solarIntensity && now.timeIntervalSince(sample.timestamp) > kind.definition.freshness
+        return !preview && freshness(sample).stale
     }
     func detail(_ kind: MetricKind) -> String {
         if preview { return "演示数据" }
@@ -320,6 +332,7 @@ final class AppModel: ObservableObject {
     }
     func receive(_ sample: MetricSample) {
         if sample.origin != .watch, let current = metrics[sample.kind], current.origin == .watch, !isStale(sample.kind) { return }
+        metricSyncedAt[sample.kind] = Date()
         metrics[sample.kind] = sample; metricNotes.removeValue(forKey: sample.kind)
         guard !sample.kind.isDeviceStatus else { return }
         var points = history[sample.kind] ?? []; points.append(sample)
@@ -400,10 +413,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func developerCachedSeries(kind: MetricKind, day: Date) -> MetricDaySeries? {
-        guard !kind.isDeviceStatus else { return nil }
-        return series(for: kind, day: day) ?? seriesStore?.load(day: day)[kind.timelineKind ?? kind]
-    }
+    var historyReader: HealthHistoryReader { HealthHistoryReader(telemetry: AppPaths.directory("Telemetry"), charts: seriesStore) }
     func series(for kind: MetricKind, day: Date? = nil) -> MetricDaySeries? {
         if kind.isOvernightHRV { return hrvReport?.trend(kind) }
         guard let canonical = kind.timelineKind else { return nil }
@@ -418,17 +428,34 @@ final class AppModel: ObservableObject {
         if seriesDays.count > 10, let oldest = seriesDays.keys.sorted().first, oldest != key { seriesDays.removeValue(forKey: oldest) }
     }
     func restoreSeries(day: Date) {
-        let store = seriesStore
-        var cached = store?.load(day: day) ?? [:]
-        if cached.isEmpty, cloud.region == .china, !cloud.accountGUID.isEmpty {
-            cached = MetricSeriesStore(accountGUID: cloud.accountGUID).load(day: day)
-            if !cached.isEmpty { store?.save(cached, day: day) }
-        }
-        mergeSeries(cached, day: day)
+        let store = seriesStore, reader = historyReader
         Task { @MainActor [weak self] in
-            let local = await Task.detached(priority: .utility) { MetricSeriesStore.localReadings(day: day) }.value
+            let result = await Task.detached(priority: .utility) { reader.read(day: day) }.value
             guard let self, self.seriesStore === store else { return }
-            self.mergeSeries(local, day: day)
+            self.mergeSeries(result.series, day: day)
+            self.storageIssues.formUnion(result.issues)
+        }
+    }
+    func saveSeries(_ collection: [MetricKind: MetricDaySeries], day: Date) async {
+        guard let store = seriesStore else { return }
+        let key = GarminHealthMetrics.calendarDate(day)
+        pendingChartSaves[key] = collection
+        let saved = await Task.detached(priority: .utility) { () -> Bool in
+            for _ in 0..<3 {
+                do { try store.saveChecked(collection, day: day); return true } catch { }
+            }
+            return false
+        }.value
+        guard seriesStore === store else { return }
+        if saved { pendingChartSaves.removeValue(forKey: key); if pendingChartSaves.isEmpty { storageIssues.remove("chartWriteFailed") } }
+        else { storageIssues.insert("chartWriteFailed") }
+    }
+    func retryLocalStorage() {
+        journal.retry()
+        Task {
+            for (key, values) in pendingChartSaves { if let day = GarminHRV.date(key) { await saveSeries(values, day: day) } }
+            restoreSeries(day: detailDay)
+            refreshLocalDataSummary()
         }
     }
     func refreshSeries(day: Date, force: Bool = false) async {
@@ -447,7 +474,7 @@ final class AppModel: ObservableObject {
         mergeSeries(snapshot.series, day: day)
         seriesNotes[key] = snapshot.notes
         seriesStatus = snapshot.detail
-        if let collection = seriesDays[key] { seriesStore?.save(collection, day: day) }
+        if let collection = seriesDays[key] { await saveSeries(collection, day: day) }
         if Calendar.current.isDateInToday(day) {
             for series in snapshot.series.values where series.kind.definition.dailyKey == nil {
                 if let latest = series.latest, let value = latest.value, !["floors", "pushes"].contains(series.kind.rawValue) {

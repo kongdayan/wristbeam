@@ -80,7 +80,7 @@ enum DeveloperProtocol {
     private static func tool(_ name: String, _ description: String, properties: [String:Any] = [:], required: [String] = []) -> [String:Any] {
         ["name":name,"description":description,"inputSchema":["type":"object","properties":properties,"required":required,"additionalProperties":false],"annotations":["readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false]]
     }
-    @MainActor static func route(_ request: DeveloperRequest, token: String, allowedHosts: Set<String>, origin: String, query: (String, [String:Any]) throws -> Any) -> DeveloperResponse {
+    static func route(_ request: DeveloperRequest, token: String, allowedHosts: Set<String>, origin: String, query: (String, [String:Any]) throws -> Any) -> DeveloperResponse {
         guard let host = request.headers["host"], allowedHosts.contains(host.lowercased()) else { return .json(["error":"Host rejected"],status:403) }
         if let incoming = request.headers["origin"], incoming != origin { return .json(["error":"Origin rejected"],status:403) }
         guard !token.isEmpty, equalSecret(request.headers["authorization"] ?? "", "Bearer " + token) else { return .json(["error":"Bearer token required"],status:401) }
@@ -104,7 +104,7 @@ enum DeveloperProtocol {
         }
         do { return .json(try query(route,arguments)) } catch { return .json(["error":error.localizedDescription],status:400) }
     }
-    @MainActor private static func rpc(_ data: Data, query: (String,[String:Any]) throws -> Any) -> DeveloperResponse {
+    private static func rpc(_ data: Data, query: (String,[String:Any]) throws -> Any) -> DeveloperResponse {
         guard let message = try? JSONSerialization.jsonObject(with:data) as? [String:Any], message["jsonrpc"] as? String == "2.0", let method = message["method"] as? String else {
             return .json(["jsonrpc":"2.0","id":NSNull(),"error":["code":-32600,"message":"Invalid JSON-RPC request"]],status:400)
         }

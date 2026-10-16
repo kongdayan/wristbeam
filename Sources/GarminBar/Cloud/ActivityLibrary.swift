@@ -69,25 +69,48 @@ import Combine
         busy = true; status = ""; lastAttempt = Date()
         defer { if token == generation { busy = false } }
         do {
-            let offset = older ? index.nextOffset : 0
-            let rows = try await cloud.fetchActivityPage(offset: offset)
+            let page = try await fetchPage(older: older, cloud: cloud, token: token)
+            let offset = page.offset, rows = page.rows
             guard current(token) else { return }
             let ids = rows.map(\.id)
             if older && !ids.isEmpty && ids == lastPageIDs { throw GarminActivityError.repeatedPage }
             var next = index
-            var byID = Dictionary(next.activities.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
-            for row in rows { byID[row.id] = row }
-            next.activities = byID.values.sorted {
-                let a = $0.startTimeGMT ?? $0.startTimeLocal ?? "", b = $1.startTimeGMT ?? $1.startTimeLocal ?? ""
-                return a == b ? (Int64($0.id) ?? 0) > (Int64($1.id) ?? 0) : a > b
-            }
-            next.nextOffset = offset + rows.count
-            // Only an empty page proves the cursor is exhausted; servers can return short pages.
-            next.reachedEnd = rows.isEmpty
-            if !older { next.refreshedAt = Date() }
+            next.mergePage(rows, offset: offset, older: older)
             do { try store.saveIndex(next) } catch { throw GarminActivityError.storage }
             index = next; lastPageIDs = ids; cacheRevision += 1
         } catch { failure(error, token: token) }
+    }
+    /// Validate the history boundary on every continuation. Insertion/deletion can
+    /// move offset-based pages; the last observed ID (or time if deleted) anchors us.
+    private func fetchPage(older: Bool, cloud: GarminChinaCloud, token: UUID) async throws -> (offset: Int, rows: [GarminActivity]) {
+        guard older else { return (0, try await cloud.fetchActivityPage(offset: 0)) }
+        guard let anchor = index.historyAnchorID else {
+            return (index.nextOffset, try await cloud.fetchActivityPage(offset: index.nextOffset))
+        }
+        var offset = index.needsHistoryRebase == true ? 0 : max(0, index.nextOffset - 1)
+        var restarted = offset == 0
+        var previous: [String] = []
+        while offset <= 1_000_000 {
+            let rows = try await cloud.fetchActivityPage(offset: offset)
+            guard current(token), !Task.isCancelled else { throw CancellationError() }
+            if let position = rows.firstIndex(where: { $0.id == anchor }) {
+                let start = position + 1
+                if start < rows.count { return (offset + start, Array(rows.dropFirst(start))) }
+                let next = offset + rows.count
+                return (next, try await cloud.fetchActivityPage(offset: next))
+            }
+            if !restarted { offset = 0; restarted = true; continue }
+            // A removed boundary record must not strand the history cursor.
+            if let time = index.historyAnchorTime, let position = rows.firstIndex(where: {
+                let value = $0.startTimeGMT ?? $0.startTimeLocal ?? ""
+                return !value.isEmpty && value < time
+            }) { return (offset + position, Array(rows.dropFirst(position))) }
+            if rows.isEmpty { return (offset, []) }
+            let ids = rows.map(\.id)
+            guard ids != previous else { throw GarminActivityError.repeatedPage }
+            previous = ids; offset += rows.count
+        }
+        throw GarminActivityError.repeatedPage
     }
     func detail(_ id: String) -> GarminActivityDetail? {
         if let cached = detailCache[id] { return cached }

@@ -69,7 +69,15 @@ struct DeveloperConfiguration: Codable, Equatable {
             self.requestCount += 1
             let host = self.active.host == "127.0.0.1" ? "127.0.0.1" : self.active.publicHost
             let allowed: Set<String> = ["\(host):\(self.active.port)","localhost:\(self.active.port)","127.0.0.1:\(self.active.port)"]
-            completion(DeveloperProtocol.route(request,token:self.token,allowedHosts:allowed,origin:self.baseURL(config:self.active)) { route,args in try model.developerQuery(route,arguments:args) })
+            let snapshot = model.developerSnapshot(), scope = self.generation
+            let token = self.token, origin = self.baseURL(config: self.active)
+            let response = await Task.detached(priority: .utility) {
+                DeveloperProtocol.route(request, token: token, allowedHosts: allowed, origin: origin) { route, args in
+                    try snapshot.query(route, arguments: args)
+                }
+            }.value
+            guard self.generation == scope, self.active.enabled else { completion(.json(["error": "Data scope changed; retry the request"], status: 409)); return }
+            completion(response)
         } }
         if configuration.enabled || configuration.webhookEnabled { apply() }
     }

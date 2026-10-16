@@ -342,6 +342,10 @@ struct SyncPage: View {
                         Button(L10n.text("上传暂存文件")) { model.uploadStoredFiles() }
                             .disabled(model.preview || !model.cloudSyncEnabled || !model.cloud.isAuthenticated || model.uploads.isSyncing || model.uploads.pendingCount == 0)
                     }.buttonStyle(.bordered)
+                    if !model.storageIssues.isEmpty {
+                        Label(L10n.text("本地保存或读取异常"), systemImage: "externaldrive.badge.exclamationmark").foregroundStyle(.orange)
+                        Button(L10n.text("重试本地存储")) { model.retryLocalStorage() }.buttonStyle(.bordered)
+                    }
                     if !model.localExportStatus.isEmpty { Text(L10n.text(model.localExportStatus)).font(PulseTheme.font(size: 12)) }
                 }
             }
