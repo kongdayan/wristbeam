@@ -9,10 +9,10 @@ the user explicitly clears them. This change performs no destructive migration.
 and developer queries. Export includes `History/YYYY-MM-DD.json` from that same reader, plus original-resolution CSV using its streaming sample parser. The v2 export manifest includes per-day read issues and timezone. A missing
 file is empty history. Invalid records and unreadable files are reported separately,
 while valid earlier records remain usable. No file-size cutoff silently removes a
-large day. Future samples and day mismatches are excluded from returned series.
+large day. Future samples and day mismatches in watch journals are excluded from returned series.
 
 Completed days get a rebuildable `Telemetry/Index/YYYY-MM-DD.json` index. Its v1
-envelope records the source file size, modification time and inode. A changed file
+envelope records the source file size, modification time, inode, timezone and day boundary. A changed file or timezone
 invalidates the index. Active days use in-memory snapshots after restoration so
 API polling does not repeatedly scan the growing journal or continuously write
 derived indexes. Original samples remain available for CSV export.
@@ -21,7 +21,7 @@ Account-scoped chart files use a v1 envelope and still accept legacy array files
 An unsupported/corrupt chart produces an issue, not a fabricated empty success.
 Activity indexes use schema version 2, retaining the previous fields and adding
 history anchors; older indexes without anchors continue from the existing cursor.
-Cloud account/region boundaries remain enforced. Named credentials have a separate
+Cloud account/region boundaries remain enforced. Disabling cloud access retains the last selected account cache via an opaque scope identifier; signing out hides it, and switching regions does not combine caches. Named credentials have a separate
 private v1 store and are excluded from health exports.
 
 ## Failure behavior

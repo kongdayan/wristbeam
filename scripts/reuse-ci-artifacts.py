@@ -110,7 +110,7 @@ def main():
         item = matches[0]
         raw = api(f"{prefix}/artifacts/{item['id']}/zip")
         unpack_verified(raw, item.get('digest'), args.directory, arch, sha, args.run_id, release_version())
-    print('Verified source commit, main CI result, artifact and package hashes')
+    print('Verified source commit, run identity, artifact and package hashes')
 
 
 if __name__ == '__main__':
