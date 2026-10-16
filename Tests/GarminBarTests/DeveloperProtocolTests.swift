@@ -1,7 +1,18 @@
 import XCTest
+import Security
 @testable import GarminBar
 
 @MainActor final class DeveloperProtocolTests: XCTestCase {
+    func testKeychainFailuresAreNotMissingKeys() throws {
+        XCTAssertNil(try DeveloperSecrets.decoded(status: errSecItemNotFound, data: nil))
+        for status in [errSecAuthFailed, errSecInteractionNotAllowed, errSecUserCanceled, errSecMissingEntitlement] {
+            XCTAssertThrowsError(try DeveloperSecrets.decoded(status: status, data: nil)) { error in
+                XCTAssertEqual((error as? DeveloperKeychainError)?.status, status)
+            }
+        }
+        XCTAssertThrowsError(try DeveloperSecrets.decoded(status: errSecSuccess, data: nil))
+        XCTAssertEqual(try DeveloperSecrets.decoded(status: errSecSuccess, data: Data("fixture".utf8)), "fixture")
+    }
     private func request(_ object: Any, token: String = "Bearer fixture", origin: String? = nil, host: String = "127.0.0.1:17890") throws -> DeveloperRequest {
         var headers = ["host":host,"authorization":token,"content-type":"application/json","accept":"application/json, text/event-stream"]
         headers["origin"] = origin

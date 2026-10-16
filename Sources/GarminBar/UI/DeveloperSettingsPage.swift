@@ -6,6 +6,24 @@ struct DeveloperSettingsPage: View {
     @State private var certificatePassword = ""
     var body: some View {
         VStack(alignment:.leading,spacing:23) {
+            VStack(alignment:.leading,spacing:10) {
+                HStack {
+                    StatusDot(active:access.running)
+                    Text(L10n.text(access.status))
+                    Spacer()
+                    Button(L10n.text("应用接口配置")) { access.apply() }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).disabled(access.isApplying || access.isManagingKey)
+                    Button(L10n.text("立即停止全部接口")) { access.stopAll() }
+                }
+                if access.isApplying {
+                    Text(L10n.text("正在读取密钥并启动接口，请完成 macOS 授权…")).foregroundStyle(PulseTheme.secondary)
+                }
+                if access.hasUnappliedChanges {
+                    Text(L10n.text("配置尚未应用，点击上方按钮后生效。")).foregroundStyle(PulseTheme.secondary)
+                }
+                if !access.configurationError.isEmpty {
+                    Text(L10n.text(access.configurationError)).foregroundStyle(.red).textSelection(.enabled)
+                }
+            }.font(PulseTheme.font(size:12))
             PreferenceBlock(title:"MCP 与只读 API") {
                 PreferenceLine(title:"启用 MCP / HTTP API",note:"允许持有密钥的客户端读取已缓存的健康指标、时间序列和同步状态。不会提供账号凭据、设备标识、原始 FIT 或手表控制能力。") {
                     Toggle("",isOn:$access.configuration.enabled).labelsHidden().toggleStyle(.switch)
@@ -22,8 +40,8 @@ struct DeveloperSettingsPage: View {
                     PreferenceLine(title:"PKCS#12 证书密码") { SecureField("",text:$certificatePassword).textFieldStyle(.roundedBorder) }
                     PreferenceLine(title:access.certificateAvailable ? "已保存 HTTPS 证书" : "请导入含私钥的 .p12 / .pfx 证书") { Button(L10n.text("导入证书…")) { access.importCertificate(password:certificatePassword); certificatePassword = "" } }
                 }
-                PreferenceLine(title:"访问密钥（钥匙串保存）") {
-                    HStack { Button(L10n.text("生成 / 轮换密钥")) { access.rotate("api") }; Button(L10n.text("复制密钥")) { access.copyKey("api") } }
+                PreferenceLine(title:"访问密钥（钥匙串保存）",note:access.keyStatus) {
+                    HStack { Button(L10n.text("生成 / 轮换密钥")) { access.rotate("api") }; Button(L10n.text("复制密钥")) { access.copyKey("api") } }.disabled(access.isApplying || access.isManagingKey)
                 }
             }
             PreferenceBlock(title:"客户端接入") {
@@ -51,17 +69,13 @@ struct DeveloperSettingsPage: View {
                         }
                     }.padding(.top,10)
                 }.padding(15)
-                PreferenceLine(title:"签名密钥") { HStack {
+                PreferenceLine(title:"签名密钥",note:access.webhookKeyStatus) { HStack {
                     Button(L10n.text("轮换签名密钥")) { access.rotate("webhook") }; Button(L10n.text("复制签名密钥")) { access.copyKey("webhook") }
-                } }
+                }.disabled(access.isApplying || access.isManagingKey) }
                 VStack(alignment:.leading,spacing:6) {
                     Text(L10n.text(access.webhookStatus))
                     Text(L10n.text("HMAC-SHA256 签名；不跟随重定向，失败最多尝试三次。未投递快照不跨退出持久保存。")).foregroundStyle(PulseTheme.secondary)
                 }.font(PulseTheme.font(size:11)).padding(15)
-            }
-            HStack {
-                Button(L10n.text("应用接口配置")) { access.apply() }.buttonStyle(.borderedProminent).tint(PulseTheme.mint)
-                Button(L10n.text("立即停止全部接口")) { access.stopAll() }
             }
             Text(L10n.text("修改后点击应用。关闭应用或 Mac 休眠时，接口暂停。")).font(PulseTheme.font(size:11)).foregroundStyle(PulseTheme.secondary)
         }.buttonStyle(.bordered).controlSize(.regular)

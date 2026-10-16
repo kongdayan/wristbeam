@@ -24,7 +24,7 @@ final class PulseUpdater: ObservableObject {
             AppPreferences.shared.set(repository, forKey: "updateRepository")
         }
     }
-    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.4" }
+    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.7" }
     var parsedRepository: PulseRepository? { PulseRepository(repository) }
     // Local package tests exercise the production validation/install path. This
     // entry point is absent from Release builds and never changes the server.

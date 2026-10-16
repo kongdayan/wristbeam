@@ -2,20 +2,44 @@ import Foundation
 import Network
 import Security
 
+struct DeveloperKeychainError: LocalizedError {
+    let status: OSStatus
+    var errorDescription: String? {
+        "Keychain (\(status)): " + ((SecCopyErrorMessageString(status, nil) as String?) ?? "Unable to access saved key")
+    }
+}
+
 final class DeveloperSecrets {
-    private let service = "cn.wenyankong.wristbeam.developer" + (PulseRuntime.isPreview ? ".preview" : "")
-    func load(_ name: String) -> String? {
-        let query: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:name,kSecReturnData as String:true,kSecMatchLimit as String:kSecMatchLimitOne]
+    private let service: String
+    init(service: String = "cn.wenyankong.wristbeam.developer" + (PulseRuntime.isPreview ? ".preview" : "")) { self.service = service }
+    private func query(_ name: String) -> [String: Any] {
+        [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:name]
+    }
+    static func decoded(status: OSStatus, data: Data?) throws -> String? {
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess else { throw DeveloperKeychainError(status: status) }
+        guard let data, let value = String(data: data, encoding: .utf8) else { throw DeveloperKeychainError(status: errSecDecode) }
+        return value
+    }
+    func load(_ name: String) throws -> String? {
+        var request = query(name)
+        request[kSecReturnData as String] = true; request[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary,&result) == errSecSuccess, let data = result as? Data else { return nil }; return String(data:data,encoding:.utf8)
+        let status = SecItemCopyMatching(request as CFDictionary,&result)
+        return try Self.decoded(status: status, data: result as? Data)
     }
     func save(_ value: String, name: String) throws {
-        let query: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:name]
+        let request = query(name)
         let attributes: [String:Any] = [kSecValueData as String:Data(value.utf8), kSecAttrAccessible as String:kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        if status == errSecItemNotFound {
-            guard SecItemAdd(query.merging(attributes){_,new in new} as CFDictionary,nil) == errSecSuccess else { throw DeveloperError.invalid("Keychain write failed") }
-        } else if status != errSecSuccess { throw DeveloperError.invalid("Keychain write failed") }
+        var status = SecItemUpdate(request as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound { status = SecItemAdd(request.merging(attributes){_,new in new} as CFDictionary,nil) }
+        guard status == errSecSuccess else { throw DeveloperKeychainError(status: status) }
+    }
+    func key(_ name: String) throws -> String {
+        if let value = try load(name), !value.isEmpty { return value }
+        let value = try Self.generate(); try save(value, name: name)
+        guard try load(name) == value else { throw DeveloperKeychainError(status: errSecDecode) }
+        return value
     }
     static func generate() throws -> String {
         var bytes = [UInt8](repeating:0,count:32)
@@ -30,6 +54,7 @@ final class DeveloperServer {
     private var clients: [UUID:NWConnection] = [:]
     private var generation = UUID()
     var onState: ((Bool) -> Void)?
+    var onFailure: ((String) -> Void)?
     var handle: ((DeveloperRequest, @escaping (DeveloperResponse) -> Void) -> Void)?
     func start(host: String, port: UInt16, identity: SecIdentity?) throws {
         let parameters: NWParameters
@@ -47,7 +72,12 @@ final class DeveloperServer {
             stopOnQueue(); let active = UUID(); generation = active; listener = next
             next.stateUpdateHandler = { [weak self] state in
                 guard let self, self.generation == active else { return }
-                switch state { case .ready: self.onState?(true); case .failed: self.stopOnQueue(); self.onState?(false); default: break }
+                switch state {
+                case .ready: self.onState?(true)
+                case .failed(let error), .waiting(let error):
+                    self.stopOnQueue(); self.onState?(false); self.onFailure?(error.localizedDescription)
+                default: break
+                }
             }
             next.newConnectionHandler = { [weak self] client in self?.accept(client) }
             next.start(queue:queue)

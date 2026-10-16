@@ -8,7 +8,7 @@ import tempfile
 root = Path(__file__).resolve().parent.parent
 sources = root / "Sources/GarminBar"
 production = sorted((sources / "Protocol").glob("*.swift"))
-production += [sources / "Developer/DeveloperProtocol.swift", sources / "Developer/ActivityQueries.swift"]
+production += [sources / "Developer/DeveloperProtocol.swift", sources / "Developer/DeveloperServer.swift", sources / "Developer/ActivityQueries.swift"]
 production += [sources / "Models/ActivityMetricCatalog.swift"]
 production += [sources / "Models" / name for name in ("Metrics.swift", "AppStorage.swift", "LocalDataArchive.swift", "ConnectionPolicy.swift", "MetricTimeSeries.swift", "DisplaySettings.swift", "DashboardSharing.swift", "PulseWidgetSnapshot.swift", "WatchDiscovery.swift", "Localization.swift", "SoftwareRelease.swift")]
 production += [sources / "Cloud" / name for name in (

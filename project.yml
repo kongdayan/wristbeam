@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.3.2"
-    CURRENT_PROJECT_VERSION: 10
+    MARKETING_VERSION: "0.3.7"
+    CURRENT_PROJECT_VERSION: 15
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: ""
 targets:
@@ -41,6 +41,8 @@ targets:
         NSPrincipalClass: NSApplication
         NSBluetoothAlwaysUsageDescription: 连接你的 Garmin 手表，读取实时指标和原始运动健康文件。
         NSBluetoothPeripheralUsageDescription: 连接你的 Garmin 手表并接收实时指标。
+        NSLocationUsageDescription: 获取你选择的当前位置，为手表提供当地天气。
+        NSLocationWhenInUseUsageDescription: 获取你选择的当前位置，为手表提供当地天气。
         GarminPulseWidgetAppGroup: $(DEVELOPMENT_TEAM).cn.wenyankong.garminpulse.shared
         CFBundleURLTypes:
           - CFBundleURLName: cn.wenyankong.garminpulse.metric

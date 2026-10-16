@@ -5,7 +5,9 @@ WristBeam exposes **read-only cached health and workout data**, through a local 
 ## Connect
 
 1. Set the listen port (default `17890`) and scope (default `127.0.0.1`).
-2. Generate a key, enable MCP / HTTP API, and apply. Copy the key into your trusted client's secret store. Rotation immediately rejects the old key. Keys live in macOS Keychain, not preferences or logs.
+2. Enable MCP / HTTP API, then click **Apply interface settings** at the top. Wait for **Interface is listening**. Copy the key into your trusted client's secret store; applying or copying creates a key if none exists. Complete any macOS Keychain authorization prompt. Rotation immediately rejects the old key. Keys live in macOS Keychain, not preferences or logs.
+
+   The switch edits a pending configuration; it does not start a listener until applied. Keychain errors retain their macOS error code instead of being treated as missing keys. Copy success appears beside the key buttons only after a clipboard roundtrip. Port and startup errors appear at the top; the previous active configuration remains active if new settings fail validation.
 3. Set the client's Streamable HTTP endpoint to `http://127.0.0.1:17890/mcp`, with `Authorization: Bearer <key>`.
 4. Only clients supporting manually supplied authorization headers work directly. This server does **not** implement OAuth discovery/login. Use the included stdio bridge for clients requiring stdio.
 
