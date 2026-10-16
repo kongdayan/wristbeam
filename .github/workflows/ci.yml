@@ -42,6 +42,7 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       release-tag: ${{ inputs.release-tag || '' }}
+      full-matrix: ${{ github.event_name != 'pull_request' }}
   security:
     name: Code analysis
     uses: ./.github/workflows/security.yml
@@ -49,10 +50,26 @@ jobs:
       contents: read
       actions: read
       security-events: write
+  artifact-integrity:
+    name: Verify uploaded package provenance
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download and verify this run's actual artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/reuse-ci-artifacts.py audit --run-id "$GITHUB_RUN_ID" --directory "$RUNNER_TEMP/verified-packages"
   required:
     name: CI passed
-    if: always()
-    needs: [quality, build, security]
+    if: ${{ always() && !cancelled() }}
+    needs: [quality, build, security, artifact-integrity]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

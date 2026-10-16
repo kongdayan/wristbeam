@@ -3,7 +3,7 @@ import CoreFoundation
 
 enum ActivityQueries {
     static func query(_ route: String, arguments: [String: Any], index: GarminActivityIndex,
-                      detail: (String) -> GarminActivityDetail?, formats: (String) -> [String]) throws -> [String: Any] {
+                      detail: (String) -> GarminActivityDetail?, formats: (String) -> [String], hasDetail: ((String) -> Bool)? = nil) throws -> [String: Any] {
         let allowed: Set<String> = route == "activities" ? ["offset", "limit", "startDate", "endDate", "type"] : route == "activity" ? ["id", "lapOffset", "lapLimit"] : ["id", "metric", "offset", "limit"]
         guard Set(arguments.keys).isSubset(of: allowed) else { throw DeveloperError.invalid("Unknown query parameter") }
         func integer(_ key: String, fallback: Int, maximum: Int) throws -> Int {
@@ -38,7 +38,7 @@ enum ActivityQueries {
             }
             let page = selected.dropFirst(offset).prefix(limit).map { item -> [String: Any] in
                 var result = row(item)
-                result["detailCached"] = detail(item.id) != nil
+                result["detailCached"] = hasDetail?(item.id) ?? (detail(item.id) != nil)
                 result["downloadedFormats"] = formats(item.id)
                 return result
             }

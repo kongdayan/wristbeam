@@ -8,23 +8,29 @@ private final class ActivityHTTP: URLProtocol {
     private static var stall = false
     private static var oversized = false
     private static var failZones = false
-    static func reset(stall: Bool = false, oversized: Bool = false, failZones: Bool = false) {
+    private static var activityIDs: [Int]?
+    static func reset(stall: Bool = false, oversized: Bool = false, failZones: Bool = false, ids: [Int]? = nil) {
         lock.lock(); defer { lock.unlock() }
-        seen = []; self.stall = stall; self.oversized = oversized; self.failZones = failZones
+        seen = []; self.activityIDs = ids; self.stall = stall; self.oversized = oversized; self.failZones = failZones
     }
     static var requests: [String] { lock.lock(); defer { lock.unlock() }; return seen }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let url = request.url!, path = url.path
-        Self.lock.lock(); Self.seen.append(path); let stall = Self.stall, oversized = Self.oversized, failZones = Self.failZones; Self.lock.unlock()
+        Self.lock.lock(); Self.seen.append(path); let stall = Self.stall, oversized = Self.oversized, failZones = Self.failZones, activityIDs = Self.activityIDs; Self.lock.unlock()
         if stall && path.contains("activitylist-service") { return }
         let body: String
         if path.contains("socialProfile") { body = #"{"garminGUID":"activity-fixture","displayName":"Fixture"}"# }
         else if path.contains("deviceregistration") { body = "[]" }
         else if path.contains("activitylist-service") {
             let offset = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems?.first { $0.name == "start" }?.value
-            if offset == "0" { body = #"[{"activityId":1002,"activityName":"Synthetic run","startTimeLocal":"2026-01-03 10:00:00"},{"activityId":1001,"activityName":"Synthetic walk","startTimeLocal":"2026-01-02 10:00:00"}]"# }
+            if let activityIDs {
+                let rows = activityIDs.dropFirst(Int(offset ?? "0") ?? 0).prefix(2).map { id -> [String: Any] in
+                    ["activityId": id, "activityName": "Synthetic", "startTimeGMT": ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: Double(id) * 60))]
+                }
+                body = String(decoding: try! JSONSerialization.data(withJSONObject: rows), as: UTF8.self)
+            } else if offset == "0" { body = #"[{"activityId":1002,"activityName":"Synthetic run","startTimeLocal":"2026-01-03 10:00:00"},{"activityId":1001,"activityName":"Synthetic walk","startTimeLocal":"2026-01-02 10:00:00"}]"# }
             else if offset == "2" { body = #"[{"activityId":1000,"activityName":"Synthetic swim","startTimeLocal":"2026-01-01 10:00:00"}]"# }
             else { body = "[]" }
         } else if path.hasSuffix("/details") {
@@ -96,6 +102,24 @@ private final class ActivityHTTP: URLProtocol {
         XCTAssertNil(library.detail("1001")?.heartRateZones)
         XCTAssertEqual(library.detail("1001")?.unavailableSections, ["hrTimeInZones"])
         XCTAssertEqual(library.detail("1001")?.laps?.count, 1)
+    }
+    func testHistoryBoundarySurvivesHeadInsertionAndDeletedAnchor() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString), domain = "wristbeam.activity-test.\(UUID().uuidString)"
+        ActivityHTTP.reset(ids: [1004, 1003, 1002, 1001])
+        let (cloud, library, session) = try fixture(root, domain: domain)
+        defer { cloud.setNetworkEnabled(false); session.invalidateAndCancel(); try? FileManager.default.removeItem(at: root); UserDefaults.standard.removePersistentDomain(forName: domain) }
+        await cloud.refreshAccount(); await library.loadPage(older: false); await library.loadPage(older: true)
+        XCTAssertEqual(library.index.historyAnchorID, "1002")
+        ActivityHTTP.reset(ids: [1005, 1004, 1003, 1001])
+        await library.loadPage(older: false)
+        XCTAssertEqual(library.index.nextOffset, 4)
+        await library.loadPage(older: true)
+        XCTAssertTrue(library.index.activities.contains { $0.id == "1001" })
+        XCTAssertEqual(library.index.historyAnchorID, "1001")
+        await library.loadPage(older: true)
+        XCTAssertTrue(library.index.reachedEnd)
+        await library.loadPage(older: false)
+        XCTAssertTrue(library.index.reachedEnd)
     }
     private func fixture(_ root: URL, domain: String) throws -> (GarminChinaCloud, ActivityLibrary, URLSession) {
         let auth = root.appendingPathComponent("session.json"), preferences = AppPreferences(domain: domain)

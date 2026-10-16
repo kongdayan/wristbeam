@@ -2,6 +2,9 @@ name: macOS build
 on:
   workflow_call:
     inputs:
+      full-matrix:
+        type: boolean
+        default: true
       release-tag:
         type: string
         default: ''
@@ -13,24 +16,7 @@ jobs:
     timeout-minutes: 25
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner: macos-14
-            label: macOS 14 · Apple Silicon
-            arch: arm64
-            artifact: package-macos14-arm64
-          - runner: macos-15
-            label: macOS 15 · Apple Silicon
-            arch: arm64
-            artifact: release-arm64
-          - runner: macos-15-intel
-            label: macOS 15 · Intel
-            arch: x86_64
-            artifact: release-x86_64
-          - runner: macos-26
-            label: macOS 26 · Apple Silicon
-            arch: arm64
-            artifact: package-macos26-arm64
+      matrix: ${{ fromJSON(inputs.full-matrix && '{"include":[{"runner":"macos-14","label":"macOS 14 · Apple Silicon","arch":"arm64","artifact":"package-macos14-arm64"},{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"},{"runner":"macos-15-intel","label":"macOS 15 · Intel","arch":"x86_64","artifact":"release-x86_64"},{"runner":"macos-26","label":"macOS 26 · Apple Silicon","arch":"arm64","artifact":"package-macos26-arm64"}]}' || '{"include":[{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"},{"runner":"macos-15-intel","label":"macOS 15 · Intel","arch":"x86_64","artifact":"release-x86_64"}]}') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -107,9 +93,15 @@ jobs:
           python3 scripts/test-update-helper.py
       - name: Validate real signed package
         run: python3 scripts/test-updater.py
+      - name: Record verified package identity
+        env:
+          WRISTBEAM_ARCH: ${{ matrix.arch }}
+        run: python3 scripts/reuse-ci-artifacts.py evidence --directory dist --arch "$WRISTBEAM_ARCH"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.artifact }}
-          path: dist/WristBeam-macOS-${{ matrix.arch }}.zip
+          path: |
+            dist/WristBeam-macOS-${{ matrix.arch }}.zip
+            dist/build-evidence-${{ matrix.arch }}.json
           if-no-files-found: error
           retention-days: 14

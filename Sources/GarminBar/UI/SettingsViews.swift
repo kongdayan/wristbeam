@@ -102,6 +102,11 @@ struct OverviewPage: View {
                 HStack(alignment: .center) { title; Spacer(minLength: 12); DashboardConnectionStatus(model: model) }
                 VStack(alignment: .leading, spacing: 12) { title; DashboardConnectionStatus(model: model) }
             }
+            if !model.storageIssues.isEmpty {
+                Button { model.openSettings(.sync) } label: {
+                    Label(L10n.text("本地保存或读取异常"), systemImage: "exclamationmark.triangle")
+                }.buttonStyle(.bordered).tint(.orange)
+            }
             HStack(spacing: 8) {
                 Text(L10n.text(model.preview ? "演示数据 · 用于功能展示" : model.healthStatus))
                     .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineLimit(1)
@@ -182,14 +187,18 @@ struct DevicePage: View {
 struct WatchPage: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var bluetooth: WatchBluetooth
+    @State private var showPairing = false
     init(model: AppModel) { self.model = model; bluetooth = model.bluetooth }
     var body: some View {
         VStack(alignment: .leading, spacing: 19) {
-            BluetoothPermissionGuide(bluetooth: bluetooth)
-            PairingGuide(model: model)
             PulseCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.status)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer(); WatchBatteryBadge(model: model) }
+                    HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.connectionStage(now: model.now).title)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer(); WatchBatteryBadge(model: model) }
+                    if bluetooth.isConnected && !bluetooth.protocolReady {
+                        Button(L10n.text("重新准备数据通道")) { bluetooth.retryProtocol() }.buttonStyle(.bordered)
+                    } else if !bluetooth.isConnected && !bluetooth.isConnecting && bluetooth.hasSavedWatch {
+                        Button(L10n.text("重新连接手表")) { bluetooth.reconnectSaved() }.buttonStyle(.bordered).disabled(model.preview)
+                    }
                     Text(L10n.text(bluetooth.bluetoothStatus)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                     HStack(spacing: 10) {
                         if bluetooth.isConnected || bluetooth.isConnecting { Button(L10n.text(bluetooth.isConnecting ? "取消连接" : "断开")) { bluetooth.disconnect() }.buttonStyle(.bordered) }
@@ -199,13 +208,21 @@ struct WatchPage: View {
                     }
                 }
             }
-            if bluetooth.nearby.isEmpty {
+            if bluetooth.access != .allowed || !bluetooth.sessionActivated || bluetooth.managerState == 4 {
+                BluetoothPermissionGuide(bluetooth: bluetooth)
+            }
+            if bluetooth.protocolReady {
+                DisclosureGroup(L10n.text("一步步连接手表"), isExpanded: $showPairing) {
+                    PairingGuide(model: model).padding(.top, 10)
+                }.font(PulseTheme.font(size: 13)).padding(.horizontal, 5)
+            } else { PairingGuide(model: model) }
+            if bluetooth.nearby.isEmpty && !bluetooth.isConnected {
                 VStack(alignment: .leading, spacing: 9) {
                     Text(L10n.text("准备你的手表")).font(PulseTheme.font(size: 13, weight: .semibold))
                     Text(L10n.text("从手表的“手机 → 配对手机”进入正常佳明连接。实时指标与文件都使用佳明服务；扫描结果会出现在这里。"))
                         .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).lineSpacing(6)
                 }.padding(5)
-            } else {
+            } else if !bluetooth.nearby.isEmpty {
                 VStack(spacing: 9) {
                     ForEach(bluetooth.nearby) { watch in
                         PulseCard {
@@ -328,6 +345,7 @@ struct SyncPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 19) {
             SyncSetupGuide(model: model)
+            SyncProgressView(model: model)
             PulseCard {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(L10n.text("本地暂存")).font(PulseTheme.font(size: 17, weight: .semibold))
@@ -342,6 +360,10 @@ struct SyncPage: View {
                         Button(L10n.text("上传暂存文件")) { model.uploadStoredFiles() }
                             .disabled(model.preview || !model.cloudSyncEnabled || !model.cloud.isAuthenticated || model.uploads.isSyncing || model.uploads.pendingCount == 0)
                     }.buttonStyle(.bordered)
+                    if !model.storageIssues.isEmpty {
+                        Label(L10n.text("本地保存或读取异常"), systemImage: "externaldrive.badge.exclamationmark").foregroundStyle(.orange)
+                        Button(L10n.text("重试本地存储")) { model.retryLocalStorage() }.buttonStyle(.bordered)
+                    }
                     if !model.localExportStatus.isEmpty { Text(L10n.text(model.localExportStatus)).font(PulseTheme.font(size: 12)) }
                 }
             }

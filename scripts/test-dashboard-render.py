@@ -15,7 +15,7 @@ output = args.output or Path(tempfile.mkdtemp(prefix='wristbeam-native-renders-'
 output.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='wristbeam-render-test-') as temporary:
     stage = Path(temporary)
-    files = [sources / 'Models' / name for name in ('Metrics.swift', 'AppStorage.swift', 'ConnectionPolicy.swift', 'MetricTimeSeries.swift', 'DisplaySettings.swift', 'DashboardSharing.swift', 'Localization.swift')]
+    files = [sources / 'Models' / name for name in ('Metrics.swift', 'AppStorage.swift', 'ConnectionPolicy.swift', 'MetricTimeSeries.swift', 'HealthHistoryReader.swift', 'ChartSampling.swift', 'DisplaySettings.swift', 'DashboardSharing.swift', 'Localization.swift')]
     files += sorted((sources / 'Protocol').glob('*.swift'))
     files += [sources / 'Cloud' / name for name in ('GarminCloudModels.swift', 'GarminHealthMetrics.swift', 'GarminHRV.swift', 'GarminDailySeries.swift')]
     files.append(sources / 'UI/MetricIcon.swift')

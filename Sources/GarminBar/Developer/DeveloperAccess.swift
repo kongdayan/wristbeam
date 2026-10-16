@@ -4,6 +4,7 @@ import CryptoKit
 import Security
 
 struct DeveloperConfiguration: Codable, Equatable {
+    var primaryKeyEnabled: Bool? = true
     var enabled = false
     var host = "127.0.0.1"
     var port = 17890
@@ -26,8 +27,11 @@ struct DeveloperConfiguration: Codable, Equatable {
     @Published private(set) var revealedKeys: [String: String] = [:]
     @Published private(set) var webhookKeyStatus = ""
     @Published private(set) var configurationError = ""
-    @Published private(set) var isManagingKey = false
+    @Published var isManagingKey = false
     @Published private(set) var isApplying = false
+    @Published var clients: [DeveloperClientCredential] = []
+    @Published var clientStatus = ""
+    let clientStore = DeveloperClientStore(url: AppPaths.directory("Developer").appendingPathComponent("Credentials/clients.json"))
     private var operationGeneration = UUID()
     private let secrets = DeveloperSecrets()
     private let server = DeveloperServer()
@@ -40,7 +44,7 @@ struct DeveloperConfiguration: Codable, Equatable {
     private var webhookTask: Task<Void,Never>?
     private var lastWebhook = Date.distantPast
     private var lastPayloadHash = ""
-    private var generation = UUID()
+    var generation = UUID()
     private let redirectPolicy = WebhookNoRedirect()
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.ephemeral; config.timeoutIntervalForRequest = 10; config.timeoutIntervalForResource = 15
@@ -69,9 +73,30 @@ struct DeveloperConfiguration: Codable, Equatable {
             self.requestCount += 1
             let host = self.active.host == "127.0.0.1" ? "127.0.0.1" : self.active.publicHost
             let allowed: Set<String> = ["\(host):\(self.active.port)","localhost:\(self.active.port)","127.0.0.1:\(self.active.port)"]
-            completion(DeveloperProtocol.route(request,token:self.token,allowedHosts:allowed,origin:self.baseURL(config:self.active)) { route,args in try model.developerQuery(route,arguments:args) })
+            let incoming = request.headers["authorization"] ?? ""
+            let client = self.clients.first { $0.enabled && DeveloperProtocol.equalSecret(incoming, "Bearer " + $0.key) }
+            let primary = self.active.primaryKeyEnabled != false
+            let token = client?.key ?? (primary ? self.token : "")
+            let scopes = client.map { Set($0.scopes.map(\.rawValue)) }
+            let snapshot = model.developerSnapshot(), scope = self.generation
+            let origin = self.baseURL(config: self.active)
+            let response = await Task.detached(priority: .utility) {
+                DeveloperProtocol.route(request, token: token, allowedHosts: allowed, origin: origin, scopes: scopes) { route, args in
+                    try snapshot.query(route, arguments: args)
+                }
+            }.value
+            guard self.generation == scope, self.active.enabled else { completion(.json(["error": "Data scope changed; retry the request"], status: 409)); return }
+            if let client, response.status == 200 { self.recordClientAccess(client.id) }
+            completion(response)
         } }
         if configuration.enabled || configuration.webhookEnabled { apply() }
+        else {
+            let file = clientStore
+            Task {
+                do { clients = try await Task.detached(priority: .utility) { try file.load() }.value }
+                catch { clientStatus = "无法读取客户端密钥" }
+            }
+        }
     }
     var hasUnappliedChanges: Bool { configuration != active }
     var baseURL: String { baseURL(config:configuration) }
@@ -92,7 +117,7 @@ struct DeveloperConfiguration: Codable, Equatable {
         } catch { configurationError = error.localizedDescription; return }
         isApplying = true
         let operation = UUID(); operationGeneration = operation
-        let store = secrets
+        let store = secrets, clientsFile = clientStore
         Task { [self] in
             defer { isApplying = false }
             do {
@@ -101,11 +126,12 @@ struct DeveloperConfiguration: Codable, Equatable {
                     let api = config.enabled ? try store.key("api") : ""
                     let webhook = config.webhookEnabled ? try store.key("webhook") : ""
                     let password = config.enabled && config.https ? try store.load("certificatePassword") ?? "" : ""
-                    return (api, password, webhook)
+                    let clients = try clientsFile.load()
+                    return (api, password, webhook, clients)
                 }.value
                 guard operationGeneration == operation else { return }
                 let identity = config.enabled && config.https ? try DeveloperServer.identity(data:Data(contentsOf:certificateURL),password:values.1) : nil
-                token = values.0; webhookToken = values.2
+                token = values.0; webhookToken = values.2; clients = values.3
                 generation = UUID(); webhookTask?.cancel(); webhookTask = nil; lastPayloadHash = ""; lastWebhook = .distantPast
                 active = config; running = false; server.stop()
                 if config.enabled { status = "正在启动接口…"; try server.start(host:config.host,port:UInt16(config.port),identity:identity) }
@@ -120,6 +146,9 @@ struct DeveloperConfiguration: Codable, Equatable {
     }
     func accountChanged() {
         generation = UUID(); webhookTask?.cancel(); webhookTask = nil; lastPayloadHash = ""; lastWebhook = Date()
+    }
+    func resumeAfterWake() {
+        if active.enabled && !running && !isApplying && !hasUnappliedChanges { apply() }
     }
     func stopAll() {
         operationGeneration = UUID(); configurationError = ""; accountChanged(); configuration.enabled = false; configuration.webhookEnabled = false
@@ -157,8 +186,8 @@ struct DeveloperConfiguration: Codable, Equatable {
                 if name == "api" { token = key } else { webhookToken = key }
                 switch action {
                 case .rotate, .importValue, .legacy:
+                    accountChanged()
                     revealedKeys.removeValue(forKey: name)
-                    if name == "webhook" { generation = UUID(); webhookTask?.cancel(); webhookTask = nil; lastPayloadHash = "" }
                     setKeyStatus("密钥已保存并生效",name:name)
                 case .reveal: revealedKeys[name] = key
                 case .copy:
@@ -201,7 +230,7 @@ struct DeveloperConfiguration: Codable, Equatable {
             let rows = (all["metrics"] as? [[String:Any]] ?? []).filter { active.webhookMetrics.contains($0["id"] as? String ?? "") }
             guard !rows.isEmpty else { return }
             let payload: [String:Any] = ["metrics":rows,"sync":try model.developerQuery("status",arguments:[:])]
-            let compare = try JSONSerialization.data(withJSONObject:payload,options:[.sortedKeys])
+            let compare = try DeveloperWebhook.changeFingerprint(payload)
             let hash = SHA256.hash(data:compare).map{String(format:"%02x",$0)}.joined()
             guard hash != lastPayloadHash, let url = DeveloperProtocol.webhookURL(active.webhookURL), !webhookToken.isEmpty else { return }
             let secret = webhookToken

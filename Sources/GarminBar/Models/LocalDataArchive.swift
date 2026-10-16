@@ -49,26 +49,34 @@ enum LocalDataArchive {
         defer { try? writer.close() }
         try writer.seekToEnd()
         let formatter = ISO8601DateFormatter()
-        var identities = Set<String>(), readings = 0
+        var identities = Set<String>(), readings = 0, days = 0
+        var historyIssues: [String: [String]] = [:]
+        let history = payload.appendingPathComponent("History")
+        try manager.createDirectory(at: history, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let reader = HealthHistoryReader(telemetry: root.appendingPathComponent("Telemetry"))
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
         for url in files(root: root) {
             if url.pathExtension.lowercased() == "fit" {
                 let bytes = try Data(contentsOf: url, options: .mappedIfSafe)
                 let digest = GarminPrivateFile.digest(bytes)
                 if identities.insert(digest).inserted { try GarminPrivateFile.write(bytes, to: fits.appendingPathComponent(digest + ".fit")) }
             } else {
-                try lines(url) { line in
-                    guard let object = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any],
-                          (object["origin"] as? String ?? "watch") == "watch",
-                          let raw = object["kind"] as? String, let kind = MetricKind(rawValue: raw), !kind.isDeviceStatus,
-                          let stamp = object["timestamp"] as? String, let date = GarminHealthMetrics.gmtDate(stamp),
-                          let value = object["value"] as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue.isFinite else { return }
-                    let row = "\(formatter.string(from: date)),\(kind.rawValue),\(value.doubleValue)\n"
+                try HealthHistoryReader.samples(file: url) { sample in
+                    let row = "\(formatter.string(from: sample.timestamp)),\(sample.kind.rawValue),\(sample.value)\n"
                     try writer.write(contentsOf: Data(row.utf8)); readings += 1
+                }
+                let key = url.deletingPathExtension().lastPathComponent
+                if let day = GarminHRV.date(key) {
+                    let result = reader.read(day: day)
+                    try GarminPrivateFile.write(encoder.encode(result.series.values.sorted { $0.kind.rawValue < $1.kind.rawValue }), to: history.appendingPathComponent(key + ".json"))
+                    days += 1
+                    if !result.issues.isEmpty { historyIssues[key] = result.issues }
                 }
             }
         }
         try writer.synchronize()
-        let manifest: [String: Any] = ["formatVersion": 1, "fitFiles": identities.count, "watchReadings": readings,
+        let manifest: [String: Any] = ["formatVersion": 2, "fitFiles": identities.count, "watchReadings": readings,
+                                       "historyDays": days, "historyIssues": historyIssues, "timeZone": TimeZone.current.identifier,
                                        "readingsSource": "watch", "createdAt": ISO8601DateFormatter().string(from: Date())]
         try GarminPrivateFile.write(JSONSerialization.data(withJSONObject: manifest, options: [.sortedKeys, .prettyPrinted]), to: payload.appendingPathComponent("manifest.json"))
         let staged = destination.deletingLastPathComponent().appendingPathComponent(".wristbeam-export-\(UUID().uuidString).zip")
@@ -81,19 +89,5 @@ enum LocalDataArchive {
         try manager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: staged.path)
         if manager.fileExists(atPath: destination.path) { _ = try manager.replaceItemAt(destination, withItemAt: staged) }
         else { try manager.moveItem(at: staged, to: destination) }
-    }
-    private static func lines(_ url: URL, body: (Data) throws -> Void) throws {
-        let reader = try FileHandle(forReadingFrom: url)
-        defer { try? reader.close() }
-        var pending = Data()
-        while let chunk = try reader.read(upToCount: 65_536), !chunk.isEmpty {
-            pending.append(chunk)
-            while let end = pending.firstIndex(of: 10) {
-                try body(pending.subdata(in: pending.startIndex..<end))
-                pending.removeSubrange(pending.startIndex...end)
-            }
-            guard pending.count < 1_000_000 else { throw CocoaError(.fileReadCorruptFile) }
-        }
-        if !pending.isEmpty { try body(pending) }
     }
 }

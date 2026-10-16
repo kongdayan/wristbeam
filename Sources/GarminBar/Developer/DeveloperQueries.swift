@@ -1,12 +1,34 @@
 import Foundation
 import CoreFoundation
 
-@MainActor extension AppModel {
-    func developerQuery(_ route: String, arguments: [String:Any]) throws -> Any {
+struct DeveloperQuerySnapshot {
+    var metrics: [MetricKind: MetricSample]
+    var freshness: [MetricKind: MetricFreshness]
+    var hrvReport: GarminHRVReport?
+    var history: [String: [MetricKind: MetricDaySeries]]
+    var reader: HealthHistoryReader
+    var activityIndex: GarminActivityIndex
+    var activityStore: GarminActivityStore?
+    var statusValue: [String: Any]
+    var observedAt: Date
+    var metadata: [MetricKind: (title: String, unit: String)]
+    var loadedDays: Set<String> = []
+    var historyIssues: [String: [String]] = [:]
+
+    func cachedHistory(day: Date) -> HealthHistoryResult {
+        let key = GarminHealthMetrics.calendarDate(day)
+        if loadedDays.contains(key) { return HealthHistoryResult(series: history[key] ?? [:], issues: historyIssues[key] ?? []) }
+        var result = reader.read(day: day, now: observedAt)
+        for (kind, series) in history[key] ?? [:] { result.series[kind] = result.series[kind].map { $0.merging(series) } ?? series }
+        return result
+    }
+
+    func query(_ route: String, arguments: [String:Any]) throws -> Any {
+        if route == "summary" { return try healthSummary(arguments) }
         if ["activities", "activity", "activity_series"].contains(route) {
-            activities.reconcile()
-            return try ActivityQueries.query(route, arguments: arguments, index: activities.index,
-                detail: { activities.detail($0) }, formats: { activities.formats($0) })
+            return try ActivityQueries.query(route, arguments: arguments, index: activityIndex,
+                detail: { activityStore?.detail($0) }, formats: { activityStore?.formats($0) ?? [] },
+                hasDetail: { activityStore?.hasDetail($0) ?? false })
         }
         let allowed: Set<String> = route == "series" ? ["metric","date","offset","limit"] : route == "hrv" ? ["date"] : []
         guard Set(arguments.keys).isSubset(of:allowed) else { throw DeveloperError.invalid("Unknown query parameter") }
@@ -27,34 +49,41 @@ import CoreFoundation
         }
         switch route {
         case "status":
-            var status: [String:Any] = ["schemaVersion":1,"watchConnected":bluetooth.isConnected,"fileChannelReady":bluetooth.canSyncFiles,"cloudConnected":cloud.isAuthenticated,"pendingFiles":uploads.pendingCount,"readOnly":true,"demo":preview]
-            status["watchBattery"] = NSNull()
-            if let battery = metrics[.watchBattery], battery.value.isFinite, (0...100).contains(battery.value) {
-                status["watchBattery"] = ["percent":battery.value,"recordedAt":stamp(battery.timestamp),"stale":isStale(.watchBattery),"charging":bluetooth.batteryCharging as Any? ?? NSNull()] as [String:Any]
-            }
-            return status
+            return statusValue
         case "metrics":
             let rows: [[String:Any]] = MetricKind.allCases.compactMap { kind in
                 guard let sample = metrics[kind], sample.value.isFinite else { return nil }
-                var row: [String:Any] = ["id":kind.rawValue,"name":kind.title,"value":sample.value,"unit":kind.unit,"origin":sample.origin.rawValue,"recordedAt":stamp(sample.timestamp),"stale":isStale(kind)]
+                var row: [String:Any] = ["id":kind.rawValue,"name":metadata[kind]?.title ?? kind.rawValue,"value":sample.value,"unit":metadata[kind]?.unit ?? "","origin":sample.origin.rawValue,"recordedAt":stamp(sample.timestamp),"stale":freshness[kind]?.stale ?? true]
+                if let timing = freshness[kind] {
+                    row["syncedAt"] = timing.syncedAt.map(stamp) as Any? ?? NSNull()
+                    row["ageSeconds"] = sample.timestampIsMeasurement == false ? NSNull() : timing.ageSeconds as Any
+                    if sample.timestampIsMeasurement == false {
+                        row["recordedAt"] = NSNull()
+                        row["recordDate"] = GarminHealthMetrics.calendarDate(sample.timestamp)
+                    }
+                    row["suitableForCurrentState"] = timing.suitableForCurrentState
+                    row["temporalKind"] = timing.temporalKind
+                }
                 row["deviceStatus"] = kind.isDeviceStatus
                 if kind == .hrvStatus { row["status"] = GarminHRVStatus(rawValue:Int(sample.value)).map { String(describing:$0) } ?? "unknown" }
                 if kind.rawValue == "hrv" { row["limitation"] = "Provisional service-12 reading; not a validated continuous RR stream or realtime HRV." }
                 if kind.isOvernightHRV { row["recordDate"] = GarminHealthMetrics.calendarDate(sample.timestamp); row["syncedAt"] = hrvReport.map { stamp($0.refreshedAt) } ?? "" }
                 return row
             }
-            return ["schemaVersion":1,"observedAt":stamp(Date()),"metrics":rows]
+            return ["schemaVersion":1,"observedAt":stamp(observedAt),"metrics":rows]
         case "catalog":
             return ["schemaVersion":1,"metrics":MetricKind.allCases.map { kind -> [String:Any] in
-                ["id":kind.rawValue,"name":kind.title,"unit":kind.unit,"available":metrics[kind] != nil,"timeline":kind.timelineKind != nil || kind.isOvernightHRV,"overnightHRV":kind.isOvernightHRV,"deviceStatus":kind.isDeviceStatus]
+                ["id":kind.rawValue,"name":metadata[kind]?.title ?? kind.rawValue,"unit":metadata[kind]?.unit ?? "","available":metrics[kind] != nil,"timeline":kind.timelineKind != nil || kind.isOvernightHRV,"overnightHRV":kind.isOvernightHRV,"deviceStatus":kind.isDeviceStatus]
             }]
         case "series":
             guard let raw = arguments["metric"] as? String, let kind = MetricKind(rawValue:raw), !kind.isOvernightHRV else { throw DeveloperError.invalid("Use a valid time-series metric ID; use hrv for overnight HRV") }
             guard kind.timelineKind != nil else { throw DeveloperError.invalid("Metric is a daily scalar, not a time series") }
             let day = try dateArgument()!, offset = try integer("offset",fallback:0,range:0...100000), limit = try integer("limit",fallback:1440,range:1...1440)
-            let series = developerCachedSeries(kind:kind,day:day), all = series?.points ?? []
+            let result = cachedHistory(day: day)
+            let series = result.series[kind.timelineKind ?? kind]
+            let all = series?.points ?? []
             let slice = Array(all.dropFirst(offset).prefix(limit))
-            return ["schemaVersion":1,"metric":raw,"timelineMetric":(kind.timelineKind ?? kind).rawValue,"date":GarminHealthMetrics.calendarDate(day),"timezone":TimeZone.current.identifier,"unit":(kind.timelineKind ?? kind).unit,"points":points(slice),"total":all.count,"nextOffset":offset + slice.count < all.count ? offset + slice.count as Any : NSNull(),"cached":series != nil]
+            return ["schemaVersion":1,"metric":raw,"timelineMetric":(kind.timelineKind ?? kind).rawValue,"date":GarminHealthMetrics.calendarDate(day),"timezone":TimeZone.current.identifier,"unit":metadata[kind.timelineKind ?? kind]?.unit ?? "","points":points(slice),"total":all.count,"nextOffset":offset + slice.count < all.count ? offset + slice.count as Any : NSNull(),"cached":series != nil,"issues":result.issues]
         case "hrv":
             let day = try dateArgument(false), summaries = (hrvReport?.summaries ?? []).filter { day == nil || Calendar.current.isDate($0.day,inSameDayAs:day!) }
             let rows: [[String:Any]] = summaries.map { item in

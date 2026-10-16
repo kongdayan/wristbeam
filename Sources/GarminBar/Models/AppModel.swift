@@ -15,6 +15,8 @@ final class AppModel: ObservableObject {
     lazy var uploads = GarminUploadQueue(cloud: cloud, directory: AppPaths.directory("UploadQueue"))
     @Published var metrics: [MetricKind: MetricSample] = [:]
     @Published var history: [MetricKind: [MetricSample]] = [:]
+    var loadedHistoryDays: Set<String> = []
+    var historyReadIssues: [String: [String]] = [:]
     @Published var seriesDays: [String: [MetricKind: MetricDaySeries]] = [:]
     @Published var seriesStatus = "等待读取全天趋势"
     @Published var loadingSeriesDays: Set<String> = []
@@ -22,14 +24,14 @@ final class AppModel: ObservableObject {
     @Published var hrvReport: GarminHRVReport?
     @Published var hrvStatusMessage = ""
     @Published var hrvLoading = false
-    private var hrvRequestID = UUID()
-    private var hrvMessageDay: String?
-    private var hrvStore: GarminHRVStore?
+    var hrvRequestID = UUID()
+    var hrvMessageDay: String?
+    var hrvStore: GarminHRVStore?
     @Published var detailMetric: MetricKind? = nil
     @Published var detailDay = Date()
     @Published var metricNotes: [MetricKind: String] = [:]
     @Published var events: [ActivityLog] = []
-    @Published var now = Date()
+    var now = Date()
     @Published var page = AppPage.overview
     @Published var selectedActivityID: String?
     @Published var showLogin = false
@@ -115,23 +117,36 @@ final class AppModel: ObservableObject {
     var onAppearanceChange: (() -> Void)?
     var onShowMenu: (() -> Void)?
     var onQuit: (() -> Void)?
-    private let journal = TelemetryJournal()
+    let journal = TelemetryJournal()
+    @Published var storageIssues: Set<String> = []
+    @Published var lastReceivedAt: Date?
+    @Published var lastLocalSavedAt: Date?
+    var metricSyncedAt: [MetricKind: Date] = [:]
+    var chartSaveRevisions: [String: UInt64] = [:]
+    var pendingChartSaves: [String: [MetricKind: MetricDaySeries]] = [:]
     private var subscriptions: Set<AnyCancellable> = []
-    private var lastAutoSync = Date.distantPast
-    private var manualFileSync = false
-    private var fileSyncRequested = false
-    private var recentSyncRequested = false
-    private var lastStatusWrite = Date.distantPast
+    var lastAutoSync = Date.distantPast
+    var manualFileSync = false
+    var fileSyncRequested = false
+    var recentSyncRequested = false
+    var lastStatusWrite = Date.distantPast
     private var lastWidgetBuild = Date.distantPast
-    private var lastHealthRefresh = Date.distantPast
-    private var lastSeriesRefresh: [String: Date] = [:]
-    private var seriesStore: MetricSeriesStore?
-    private var seriesOwner = ""
+    var lastHealthRefresh = Date.distantPast
+    var lastSeriesRefresh: [String: Date] = [:]
+    var seriesStore: MetricSeriesStore?
+    var seriesOwner = ""
     var lastControlRequest = ""
 
     init() {
         L10n.language = language
         PulseTheme.textScale = fontScale
+        journal.onEvent = { [weak self] event in Task { @MainActor in
+            guard let self else { return }
+            switch event {
+            case .saved(let date): self.lastLocalSavedAt = date; self.storageIssues.remove("telemetryWriteFailed")
+            case .failed: self.storageIssues.insert("telemetryWriteFailed")
+            }
+        } }
         bluetooth.onSample = { [weak self] in self?.receive($0) }
         bluetooth.onUnavailable = { [weak self] kind, text in
             guard let self, self.metrics[kind]?.origin == .watch || self.metrics[kind] == nil else { return }
@@ -156,15 +171,17 @@ final class AppModel: ObservableObject {
         }
         bluetooth.onFile = { [weak self] url, metadata in
             guard let self else { return }
+            self.lastReceivedAt = Date()
             guard self.bluetooth.archiveRegion == self.cloud.region else { self.log("账户区域已变化，原文件保留，等候同一区域恢复"); return }
             let id = metadata.deviceID > 0 ? String(metadata.deviceID) : (!self.watchUnitID.isEmpty ? self.watchUnitID : self.cloud.deviceId)
             let type = GarminDataType(fitSubtype: UInt8(clamping: metadata.subtype))
             do {
                 try self.uploads.enqueue(fileURL: url, deviceID: id, dataType: type)
+                self.lastLocalSavedAt = Date(); self.storageIssues.remove("fileQueueWriteFailed")
                 self.log("已接收\(type.label)原始文件，已暂存在本机")
                 self.refreshLocalDataSummary()
             }
-            catch { self.log("文件入队失败：\(error.localizedDescription)") }
+            catch { self.storageIssues.insert("fileQueueWriteFailed"); self.log("文件入队失败：\(error.localizedDescription)") }
             if self.cloudSyncEnabled && self.autoUpload && !self.preview { Task { await self.uploads.syncNow(force: false) } }
         }
         uploads.automaticSyncEnabled = cloudSyncEnabled && autoUpload && !preview
@@ -198,16 +215,7 @@ final class AppModel: ObservableObject {
         cloud.$accountGUID.sink { [weak self] guid in
             guard let self else { return }
             self.bluetooth.updateAccountGUID(self.cloudSyncEnabled && !guid.isEmpty ? guid : nil)
-            let owner = guid.isEmpty ? "" : "\(self.cloud.region.rawValue):\(guid)"
-            if self.seriesOwner != owner {
-                self.developer.accountChanged()
-                self.hrvReport = nil; self.hrvRequestID = UUID(); self.hrvLoading = false; self.hrvStatusMessage = ""; self.hrvMessageDay = nil; self.hrvStore = owner.isEmpty ? nil : GarminHRVStore(owner: owner)
-                self.seriesOwner = owner; self.seriesDays = [:]; self.seriesNotes = [:]; self.lastSeriesRefresh = [:]; self.lastHealthRefresh = .distantPast
-                self.metrics = self.metrics.filter { $0.value.origin == .watch }; self.metricNotes = [:]
-                self.seriesStore = guid.isEmpty ? nil : MetricSeriesStore(accountGUID: owner)
-                self.restoreSeries(day: Date())
-                if !guid.isEmpty, let cached = self.hrvStore?.load() { self.applyHRV(cached) }
-            }
+            Task { @MainActor [weak self] in self?.reconcileHealthScope() }
         }.store(in: &subscriptions)
         cloud.$deviceId.sink { [weak self] id in
             if self?.watchUnitID.isEmpty == true { self?.watchUnitID = id }
@@ -230,16 +238,7 @@ final class AppModel: ObservableObject {
         developer.attach(self)
         weather.attach(cloud: cloud, bluetooth: bluetooth)
         Timer.publish(every: 1, on: .main, in: .common).autoconnect().sink { [weak self] date in
-            guard let self else { return }; self.now = date
-            self.developer.tick()
-            if !self.preview { self.activities.tick(now: date) }
-            if date.timeIntervalSince(self.lastStatusWrite) >= 5 { self.writeRuntimeState() }
-            if self.autoRefreshMetrics && date.timeIntervalSince(self.lastHealthRefresh) >= Double(max(1, self.metricRefreshInterval)) * 60 { Task { await self.refreshHealthMetrics() } }
-            if self.autoSync && !self.preview && date.timeIntervalSince(self.lastAutoSync) >= Double(max(1, self.syncInterval)) * 60 {
-                self.lastAutoSync = date
-                if self.bluetooth.canSyncFiles { self.bluetooth.requestFileSync() }
-                if self.cloudSyncEnabled && self.autoUpload && self.cloud.isAuthenticated { Task { await self.uploads.syncNow(force: false) } }
-            }
+            self?.tickSynchronization(at: date)
         }.store(in: &subscriptions)
         if !preview { restoreSeries(day: Date()); refreshLocalDataSummary() }
         log("WristBeam 已启动")
@@ -293,16 +292,17 @@ final class AppModel: ObservableObject {
         return readings.isEmpty ? "WristBeam" : "WristBeam · " + readings
     }
     func display(_ kind: MetricKind) -> String {
-        guard let sample = metrics[kind], metricNotes[kind] == nil, !isStale(kind) else { return "—" }
+        guard let sample = metrics[kind], metricNotes[kind] == nil, kind.isOvernightHRV || !isStale(kind) else { return "—" }
         if kind == .hrvStatus { return GarminHRVStatus(rawValue: Int(sample.value))?.title ?? "—" }
         return sample.formatted
     }
+    func freshness(_ sample: MetricSample) -> MetricFreshness {
+        MetricFreshness.evaluate(sample, now: now, connected: bluetooth.isConnected,
+                                 syncedAt: sample.kind.isOvernightHRV ? hrvReport?.refreshedAt : metricSyncedAt[sample.kind])
+    }
     func isStale(_ kind: MetricKind) -> Bool {
         guard let sample = metrics[kind] else { return true }
-        if preview || kind.isOvernightHRV { return false }
-        if sample.origin == .watch { return !bluetooth.isConnected || now.timeIntervalSince(sample.timestamp) > kind.definition.freshness }
-        if !Calendar.current.isDate(sample.timestamp, inSameDayAs: now) { return true }
-        return kind == .solarIntensity && now.timeIntervalSince(sample.timestamp) > kind.definition.freshness
+        return !preview && freshness(sample).stale
     }
     func detail(_ kind: MetricKind) -> String {
         if preview { return "演示数据" }
@@ -319,7 +319,9 @@ final class AppModel: ObservableObject {
         return bluetooth.availableMetrics.contains(kind) ? "已订阅 · 等待读数" : "当前服务未开放此指标"
     }
     func receive(_ sample: MetricSample) {
+        if sample.origin == .watch { lastReceivedAt = Date() }
         if sample.origin != .watch, let current = metrics[sample.kind], current.origin == .watch, !isStale(sample.kind) { return }
+        metricSyncedAt[sample.kind] = Date()
         metrics[sample.kind] = sample; metricNotes.removeValue(forKey: sample.kind)
         guard !sample.kind.isDeviceStatus else { return }
         var points = history[sample.kind] ?? []; points.append(sample)
@@ -357,7 +359,7 @@ final class AppModel: ObservableObject {
         await refreshSeries(day: Date(), force: force)
     }
 
-    private func applyHRV(_ incoming: GarminHRVReport) {
+    func applyHRV(_ incoming: GarminHRVReport) {
         var report = incoming
         // Preserve previously loaded nights for the same account and current window.
         for (key, points) in hrvReport?.nights ?? [:] where report.nights[key] == nil && report.summaries.contains(where: { GarminHealthMetrics.calendarDate($0.day) == key }) { report.nights[key] = points }
@@ -400,206 +402,12 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func developerCachedSeries(kind: MetricKind, day: Date) -> MetricDaySeries? {
-        guard !kind.isDeviceStatus else { return nil }
-        return series(for: kind, day: day) ?? seriesStore?.load(day: day)[kind.timelineKind ?? kind]
-    }
-    func series(for kind: MetricKind, day: Date? = nil) -> MetricDaySeries? {
-        if kind.isOvernightHRV { return hrvReport?.trend(kind) }
-        guard let canonical = kind.timelineKind else { return nil }
-        return seriesDays[GarminHealthMetrics.calendarDate(day ?? now)]?[canonical]
-    }
-    func mergeSeries(_ incoming: [MetricKind: MetricDaySeries], day: Date) {
-        let key = GarminHealthMetrics.calendarDate(day)
-        var collection = seriesDays[key] ?? [:]
-        for (kind, series) in incoming where !kind.isDeviceStatus { collection[kind] = collection[kind].map { $0.merging(series) } ?? series }
-        seriesDays[key] = collection
-        // Bound memory without deleting stored history. Requested dates reload.
-        if seriesDays.count > 10, let oldest = seriesDays.keys.sorted().first, oldest != key { seriesDays.removeValue(forKey: oldest) }
-    }
-    func restoreSeries(day: Date) {
-        let store = seriesStore
-        var cached = store?.load(day: day) ?? [:]
-        if cached.isEmpty, cloud.region == .china, !cloud.accountGUID.isEmpty {
-            cached = MetricSeriesStore(accountGUID: cloud.accountGUID).load(day: day)
-            if !cached.isEmpty { store?.save(cached, day: day) }
-        }
-        mergeSeries(cached, day: day)
-        Task { @MainActor [weak self] in
-            let local = await Task.detached(priority: .utility) { MetricSeriesStore.localReadings(day: day) }.value
-            guard let self, self.seriesStore === store else { return }
-            self.mergeSeries(local, day: day)
-        }
-    }
-    func refreshSeries(day: Date, force: Bool = false) async {
-        let key = GarminHealthMetrics.calendarDate(day)
-        if !preview, seriesDays[key] == nil { restoreSeries(day: day) }
-        guard !preview, cloudSyncEnabled, cloud.isAuthenticated, !loadingSeriesDays.contains(key),
-              force || Date().timeIntervalSince(lastSeriesRefresh[key] ?? .distantPast) >= Double(max(1, metricRefreshInterval)) * 60 else { return }
-        let device = watchUnitID.isEmpty ? cloud.deviceId : watchUnitID
-        guard !device.isEmpty, cloud.devices.contains(where: { $0.id == device }) else { return }
-        if seriesDays[key] == nil { restoreSeries(day: day) }
-        let owner = seriesOwner
-        loadingSeriesDays.insert(key); lastSeriesRefresh[key] = Date()
-        defer { loadingSeriesDays.remove(key) }
-        let snapshot = await cloud.dailySeries(deviceID: device, day: day)
-        guard seriesOwner == owner else { return }
-        mergeSeries(snapshot.series, day: day)
-        seriesNotes[key] = snapshot.notes
-        seriesStatus = snapshot.detail
-        if let collection = seriesDays[key] { seriesStore?.save(collection, day: day) }
-        if Calendar.current.isDateInToday(day) {
-            for series in snapshot.series.values where series.kind.definition.dailyKey == nil {
-                if let latest = series.latest, let value = latest.value, !["floors", "pushes"].contains(series.kind.rawValue) {
-                    receive(MetricSample(kind: series.kind, value: value, source: "\(cloud.region.title) · 最近同步读数", timestamp: latest.timestamp, origin: .cloud))
-                }
-            }
-        }
-    }
     func openMetric(_ kind: MetricKind, day: Date? = nil) {
         if kind.isDeviceStatus { openSettings(.watch); return }
         detailDay = day ?? Date(); openSettings(.overview); detailMetric = kind
         Task { await refreshSeries(day: detailDay) }
     }
-    func writeRuntimeState() {
-        lastStatusWrite = Date()
-        let state: [String: Any] = [
-            "reportedAt": lastStatusWrite.timeIntervalSince1970,
-            "pid": ProcessInfo.processInfo.processIdentifier,
-            "bundleIdentifier": Bundle.main.bundleIdentifier ?? "unbundled",
-            "watchConnected": bluetooth.isConnected,
-            "watchConnecting": bluetooth.isConnecting,
-            "bluetoothStatus": bluetooth.bluetoothStatus,
-            "bluetoothPermission": bluetooth.permissionState,
-            "bluetoothManagerState": bluetooth.managerState ?? -1,
-            "bluetoothSessionActivated": bluetooth.sessionActivated,
-            "connectsOnLaunch": bluetooth.connectsOnLaunch,
-            "automaticFileSync": autoSync,
-            "watchConnectionStatus": bluetooth.status,
-            "fileChannelReady": bluetooth.canSyncFiles,
-            "developerRunning": developer.running,
-            "developerApplying": developer.isApplying,
-            "developerConfigurationPending": developer.hasUnappliedChanges,
-            "developerError": developer.configurationError,
-            "developerKeyStatus": developer.keyStatus,
-            "protocolReady": bluetooth.protocolReady,
-            "watchRequestCaptureActive": bluetooth.requestCapture.isCapturing,
-            "watchRequestCaptureEvents": bluetooth.requestCapture.log.totalEvents,
-            "watchRequestCaptureStorageError": bluetooth.requestCapture.storageError,
-            "watchWeatherEnabled": weather.enabled,
-            "watchWeatherSource": weather.source.rawValue,
-            "watchWeatherConfigured": weather.location != nil,
-            "watchWeatherStatus": weather.status,
-            "watchWeatherLastDelivered": weather.lastDelivered?.timeIntervalSince1970 ?? 0,
-            "liveSampleCount": bluetooth.liveSampleCount,
-            "lastLiveSampleAt": bluetooth.lastLiveSampleAt?.timeIntervalSince1970 ?? 0,
-            "registeredMetrics": bluetooth.registeredMetrics.map(\.rawValue).sorted(),
-            "nearbyWatches": bluetooth.nearby.filter(\.offersGarmin).map { ["name": $0.name, "id": $0.id.uuidString, "rssi": $0.rssi] as [String: Any] },
-            "watchFileStatus": bluetooth.transferStatus,
-            "cloudSyncEnabled": cloudSyncEnabled,
-            "automaticCloudUpload": autoUpload,
-            "cloudRequestCount": cloud.requestCount,
-            "cloudAuthenticated": cloud.isAuthenticated,
-            "cloudRegion": cloud.region.rawValue,
-            "uploadQueueStatus": uploads.status,
-            "pendingFileCount": uploads.pendingCount,
-            "metrics": Dictionary(uniqueKeysWithValues: MetricKind.allCases.map { ($0.rawValue, display($0)) }),
-            "metricSources": Dictionary(uniqueKeysWithValues: metrics.map { ($0.key.rawValue, $0.value.source) }),
-            "healthStatus": healthStatus,
-            "seriesStatus": seriesStatus,
-            "seriesCounts": Dictionary(uniqueKeysWithValues: (seriesDays[GarminHealthMetrics.calendarDate(Date())] ?? [:]).map { ($0.key.rawValue, $0.value.values.count) }),
-            "detailMetric": detailMetric?.rawValue ?? "",
-            "detailDate": GarminHealthMetrics.calendarDate(detailDay),
-            "chartPlotBuilds": ChartRenderDiagnostics.plotBuilds,
-            "chartCursorEvents": ChartRenderDiagnostics.cursorEvents,
-            "floatingMetrics": visibleMetrics.map(\.rawValue),
-            "dashboardMetrics": dashboardVisibleMetrics.map(\.rawValue),
-            "widgetMetrics": widgetMetrics.map(\.rawValue).sorted(),
-            "widgetStatus": widgetPublisher.status,
-            "fontScale": fontScale,
-            "appearance": appearance.rawValue,
-            "menuMetrics": menuVisibleMetrics.map(\.rawValue),
-            "uploadJobs": uploads.jobs.map { ["type": $0.dataType.rawValue, "state": $0.state.rawValue,
-                "httpStatus": $0.cloudStatus?.httpStatus ?? 0, "detail": $0.detail] as [String: Any] },
-            "lastControlRequest": lastControlRequest,
-            "windows": NSApp.windows.map { ["title": $0.title, "number": $0.windowNumber, "visible": $0.isVisible, "minimized": $0.isMiniaturized] as [String: Any] },
-            "recentEvents": events.prefix(12).map(\.message)
-        ]
-        if let data = try? JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys]) {
-            try? GarminPrivateFile.write(data, to: PulseLocalControl.statusURL)
-        }
-    }
     func openSettings(_ page: AppPage = .overview) { detailMetric = nil; self.page = page; onOpenSettings?(page) }
-    func syncNow() {
-        guard !preview else { return }
-        if bluetooth.canSyncFiles {
-            manualFileSync = true; bluetooth.requestFileSync()
-        } else {
-            if bluetooth.sessionActivated {
-                fileSyncRequested = true; bluetooth.reconnectSaved()
-            } else { openSettings(.watch) }
-        }
-    }
-    func syncRecentActivity() {
-        guard !preview else { return }
-        if bluetooth.canSyncFiles {
-            manualFileSync = true; bluetooth.requestRecentActivity()
-        } else {
-            if bluetooth.sessionActivated {
-                recentSyncRequested = true; bluetooth.reconnectSaved()
-            } else { openSettings(.watch) }
-        }
-    }
-    func importFIT() {
-        let panel = NSOpenPanel(); panel.allowedContentTypes = [UTType(filenameExtension: "fit") ?? .data]; panel.allowsMultipleSelection = true
-        panel.prompt = L10n.text("暂存原始文件")
-        panel.message = L10n.text("原始 FIT 会先保存在本机。开启云同步并登录后，可以选择补传。")
-        guard panel.runModal() == .OK else { return }
-        for url in panel.urls {
-            do {
-                try uploads.importFIT(fileURL: url, deviceID: watchUnitID.isEmpty ? cloud.deviceId : watchUnitID)
-                log("已导入 \(url.lastPathComponent)")
-            } catch { log("导入失败：\(error.localizedDescription)") }
-        }
-        refreshLocalDataSummary()
-        if cloudSyncEnabled && autoUpload && !preview { Task { await uploads.syncNow(force: false) } }
-    }
-    func watchFITFolder() {
-        let panel = NSOpenPanel(); panel.canChooseFiles = false; panel.canChooseDirectories = true
-        panel.prompt = L10n.text("选择并监测此文件夹")
-        panel.message = L10n.text("将所选文件夹中的新增 FIT 暂存到本机；云上传由独立开关控制。")
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        uploads.startWatching(directory: url)
-        log(uploads.watchedDirectory == url ? "已启用 FIT 文件夹自动同步" : uploads.status)
-    }
-    func refreshLocalDataSummary() {
-        guard !preview else { return }
-        let root = AppPaths.root
-        Task {
-            let summary = await Task.detached(priority: .utility) { LocalDataArchive.summary(root: root) }.value
-            self.localDataSummary = summary
-        }
-    }
-    func uploadStoredFiles() {
-        guard cloudSyncEnabled, cloud.isAuthenticated, !preview else { openSettings(.account); return }
-        Task { await uploads.syncNow(force: true) }
-    }
-    func exportLocalData() {
-        guard !preview, !isExportingLocalData else { return }
-        let panel = NSSavePanel(); panel.allowedContentTypes = [.zip]
-        panel.nameFieldStringValue = "WristBeam-Local-Data.zip"
-        panel.prompt = L10n.text("导出暂存数据")
-        guard panel.runModal() == .OK, let destination = panel.url else { return }
-        isExportingLocalData = true; localExportStatus = "正在导出暂存数据"
-        let root = AppPaths.root
-        Task {
-            defer { isExportingLocalData = false }
-            do {
-                try await Task.detached(priority: .utility) { try LocalDataArchive.export(root: root, to: destination) }.value
-                localExportStatus = "暂存数据已导出"
-            } catch { localExportStatus = "导出未完成，原始数据保留" }
-        }
-    }
     func enablePreview() {
         preview = true; cloud.setNetworkEnabled(false); uploads.automaticSyncEnabled = false
         log("已进入演示预览；蓝牙与上传暂停")

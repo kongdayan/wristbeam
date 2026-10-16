@@ -139,7 +139,7 @@ final class LocalModeTests: XCTestCase {
         let process = Process(); process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto"); process.arguments = ["-x", "-k", zip.path, extracted.path]
         try process.run(); process.waitUntilExit(); XCTAssertEqual(process.terminationStatus, 0)
         let payload = extracted.appendingPathComponent("WristBeam-Local-Data")
-        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: payload.path)), Set(["FIT", "manifest.json", "watch-readings.csv"]))
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: payload.path)), Set(["FIT", "History", "manifest.json", "watch-readings.csv"]))
         let fits = try FileManager.default.contentsOfDirectory(at: payload.appendingPathComponent("FIT"), includingPropertiesForKeys: nil)
         XCTAssertEqual(fits.count, 1); XCTAssertEqual(try Data(contentsOf: XCTUnwrap(fits.first)), bytes)
         let csv = try String(contentsOf: payload.appendingPathComponent("watch-readings.csv"))

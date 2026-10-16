@@ -50,6 +50,12 @@ class WristBeamClient:
     def metrics(self):
         return self._request('/api/v1/metrics')
 
+    def summary(self, start_date, end_date, *, metrics=None):
+        query = dict(startDate=start_date, endDate=end_date)
+        if metrics is not None:
+            query['metrics'] = ','.join(metrics)
+        return self._request('/api/v1/summary?' + urlencode(query))
+
     def catalog(self):
         return self._request('/api/v1/catalog')
 

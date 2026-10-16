@@ -27,11 +27,11 @@ enum GarminHealthMetrics {
             if key.localizedCaseInsensitiveContains("HeartRate"), value <= 0 || value >= 400 { continue }
             if key.localizedCaseInsensitiveContains("Spo2"), value <= 0 || value > 100 { continue }
             if key.hasPrefix("bodyBattery"), value > 100 { continue }
-            samples.append(MetricSample(kind: kind, value: value * kind.definition.scale, source: "佳明中国 · 今日已同步", timestamp: now, origin: .cloud))
+            samples.append(MetricSample(kind: kind, value: value * kind.definition.scale, source: "佳明中国 · 今日已同步", timestamp: now, origin: .cloud, timestampIsMeasurement: false))
         }
         if let moderate = object["moderateIntensityMinutes"] as? NSNumber, let vigorous = object["vigorousIntensityMinutes"] as? NSNumber,
            moderate.doubleValue >= 0, vigorous.doubleValue >= 0, let kind = MetricKind(rawValue: "intensityMinutes") {
-            samples.append(MetricSample(kind: kind, value: moderate.doubleValue + 2 * vigorous.doubleValue, source: "佳明中国 · 今日已同步", timestamp: now, origin: .cloud))
+            samples.append(MetricSample(kind: kind, value: moderate.doubleValue + 2 * vigorous.doubleValue, source: "佳明中国 · 今日已同步", timestamp: now, origin: .cloud, timestampIsMeasurement: false))
         }
         return samples
     }

@@ -141,43 +141,44 @@ struct GarminSeriesRefresh {
 // credentials stay in the existing authentication store.
 final class MetricSeriesStore {
     private let directory: URL
+    private let lock = NSLock()
+    private var writtenRevisions: [String: UInt64] = [:]
+    init(directory: URL) { self.directory = directory }
     init(accountGUID: String, root: URL = AppPaths.directory("Charts")) {
         let digest = SHA256.hash(data: Data(accountGUID.utf8)).map { String(format: "%02x", $0) }.joined()
         directory = root.appendingPathComponent(digest, isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
     }
-    func load(day: Date) -> [MetricKind: MetricDaySeries] {
+    private struct Envelope: Codable {
+        var schemaVersion = 1
+        var series: [MetricDaySeries]
+    }
+    func loadChecked(day: Date) throws -> [MetricKind: MetricDaySeries] {
+        let url = file(day)
+        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
-        guard let data = try? Data(contentsOf: file(day)), let series = try? decoder.decode([MetricDaySeries].self, from: data) else { return [:] }
+        let data = try Data(contentsOf: url)
+        let series: [MetricDaySeries]
+        if let legacy = try? decoder.decode([MetricDaySeries].self, from: data) { series = legacy }
+        else {
+            let envelope = try decoder.decode(Envelope.self, from: data)
+            guard envelope.schemaVersion == 1 else { throw CocoaError(.fileReadCorruptFile) }
+            series = envelope.series
+        }
         return Dictionary(series.filter { Calendar.current.isDate($0.day, inSameDayAs: day) }.map { ($0.kind, $0) }, uniquingKeysWith: { _, new in new })
     }
-    func save(_ series: [MetricKind: MetricDaySeries], day: Date) {
+    func load(day: Date) -> [MetricKind: MetricDaySeries] { (try? loadChecked(day: day)) ?? [:] }
+    func saveChecked(_ series: [MetricKind: MetricDaySeries], day: Date, revision: UInt64 = 0) throws {
+        lock.lock(); defer { lock.unlock() }
+        let key = GarminHealthMetrics.calendarDate(day)
+        guard revision >= (writtenRevisions[key] ?? 0) else { return }
         let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
-        guard let bytes = try? encoder.encode(Array(series.values)) else { return }
-        try? GarminPrivateFile.write(bytes, to: file(day))
+        try GarminPrivateFile.write(encoder.encode(Envelope(series: Array(series.values))), to: file(day))
+        writtenRevisions[key] = revision
     }
+    func save(_ series: [MetricKind: MetricDaySeries], day: Date) { try? saveChecked(series, day: day) }
     private func file(_ day: Date) -> URL { directory.appendingPathComponent(GarminHealthMetrics.calendarDate(day) + ".json") }
     static func localReadings(day: Date, now: Date = Date()) -> [MetricKind: MetricDaySeries] {
-        let file = AppPaths.directory("Telemetry").appendingPathComponent(GarminHealthMetrics.calendarDate(day) + ".jsonl")
-        guard let size = (try? file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize, size < 50_000_000,
-              let bytes = try? Data(contentsOf: file), let text = String(data: bytes, encoding: .utf8) else { return [:] }
-        var result: [MetricKind: MetricDaySeries] = [:]
-        var minutes: [MetricKind: [Int: MetricSeriesPoint]] = [:]
-        for line in text.split(separator: "\n") {
-            guard let data = line.data(using: .utf8), let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-                  (object["origin"] as? String ?? "watch") == "watch", let raw = object["kind"] as? String,
-                  let kind = MetricKind(rawValue: raw), kind.acceptsLiveTimeline,
-                  let value = object["value"] as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue.isFinite,
-                  let stamp = object["timestamp"] as? String, let date = GarminHealthMetrics.gmtDate(stamp),
-                  Calendar.current.isDate(date, inSameDayAs: day), date <= now else { continue }
-            let key = Int(date.timeIntervalSince1970 / 60)
-            if minutes[kind]?[key]?.timestamp ?? .distantPast <= date {
-                minutes[kind, default: [:]][key] = MetricSeriesPoint(timestamp: date, value: value.doubleValue, origin: .watch)
-            }
-        }
-        for (kind, points) in minutes {
-            result[kind] = MetricDaySeries(kind: kind, day: Calendar.current.startOfDay(for: day), points: points.values.sorted { $0.timestamp < $1.timestamp }, source: "Mac 接收的手表读数 · 每分钟最近一次", refreshedAt: now)
-        }
-        return result
+        HealthHistoryReader(telemetry: AppPaths.directory("Telemetry")).read(day: day, now: now).series
     }
 }

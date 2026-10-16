@@ -109,6 +109,7 @@ enum GarminHRV {
 
 final class GarminHRVStore {
     private let file: URL
+    init(file: URL) { self.file = file }
     init(owner: String, root: URL = AppPaths.directory("HRV")) {
         let hash = SHA256.hash(data: Data(owner.utf8)).map { String(format: "%02x", $0) }.joined()
         file = root.appendingPathComponent(hash + ".json")

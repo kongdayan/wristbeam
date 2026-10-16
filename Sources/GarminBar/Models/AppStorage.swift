@@ -63,25 +63,57 @@ struct ActivityLog: Identifiable {
 }
 
 final class TelemetryJournal {
-    private let encoder = JSONEncoder()
-    private let queue = DispatchQueue(label: "cn.garminpulse.telemetry", qos: .utility)
+    enum Event { case saved(Date), failed(Int) }
+    var onEvent: ((Event) -> Void)?
+    private let queue = DispatchQueue(label: "cn.wristbeam.telemetry", qos: .utility)
+    private let directory: URL
+    private let write: (Data, URL) throws -> Void
     private var lastSaved: [MetricKind: Date] = [:]
-    init() { encoder.dateEncodingStrategy = .iso8601 }
-    func append(_ sample: MetricSample) {
-        // A maximum of one sample per metric per second avoids duplicate sources.
-        if let previous = lastSaved[sample.kind], sample.timestamp.timeIntervalSince(previous) < 1 { return }
-        lastSaved[sample.kind] = sample.timestamp
-        queue.async { [self] in
-            guard var bytes = try? encoder.encode(sample) else { return }
-            bytes.append(0x0A)
-            let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd"
-            let file = AppPaths.directory("Telemetry").appendingPathComponent(formatter.string(from: sample.timestamp) + ".jsonl")
+    private var pending: [(MetricSample, Data)] = []
+    private var attempts = 0
+    private var scheduled = false
+    private var dropped = 0
+    init(directory: URL = AppPaths.directory("Telemetry"), writer: ((Data, URL) throws -> Void)? = nil) {
+        self.directory = directory
+        self.write = writer ?? { bytes, file in
+            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             if !FileManager.default.fileExists(atPath: file.path) {
-                FileManager.default.createFile(atPath: file.path, contents: nil, attributes: [.posixPermissions: 0o600])
+                guard FileManager.default.createFile(atPath: file.path, contents: nil, attributes: [.posixPermissions: 0o600]) else { throw CocoaError(.fileWriteUnknown) }
             }
-            guard let handle = try? FileHandle(forWritingTo: file) else { return }
+            let handle = try FileHandle(forWritingTo: file)
             defer { try? handle.close() }
-            do { try handle.seekToEnd(); try handle.write(contentsOf: bytes) } catch { /* retain UI samples; storage errors are not cloud success */ }
+            let offset = try handle.seekToEnd()
+            do { try handle.write(contentsOf: bytes); try handle.synchronize() }
+            catch { try? handle.truncate(atOffset: offset); throw error }
         }
+    }
+    func append(_ sample: MetricSample) {
+        queue.async { [self] in
+            if let previous = lastSaved[sample.kind], sample.timestamp.timeIntervalSince(previous) < 1 { return }
+            let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+            guard var bytes = try? encoder.encode(sample) else { onEvent?(.failed(pending.count + 1)); return }
+            bytes.append(0x0A)
+            guard pending.count < 4096 else { dropped += 1; onEvent?(.failed(pending.count + dropped)); return }
+            lastSaved[sample.kind] = sample.timestamp
+            pending.append((sample, bytes))
+            if attempts < 3 && !scheduled { flush() }
+        }
+    }
+    func retry() { queue.async { [self] in attempts = 0; if !scheduled { flush() } } }
+    private func flush() {
+        while let item = pending.first {
+            let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.calendar = Calendar(identifier: .gregorian); formatter.dateFormat = "yyyy-MM-dd"
+            let file = directory.appendingPathComponent(formatter.string(from: item.0.timestamp) + ".jsonl")
+            do { try write(item.1, file); pending.removeFirst(); attempts = 0; onEvent?(.saved(Date())) }
+            catch {
+                attempts += 1; onEvent?(.failed(pending.count + dropped))
+                if attempts < 3 {
+                    scheduled = true
+                    queue.asyncAfter(deadline: .now() + Double(attempts)) { [self] in scheduled = false; flush() }
+                }
+                return
+            }
+        }
+        if dropped > 0 { onEvent?(.failed(dropped)) }
     }
 }

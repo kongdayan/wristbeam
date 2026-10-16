@@ -68,7 +68,8 @@ enum DeveloperProtocol {
         return url
     }
     static var tools: [[String: Any]] {
-        [tool("wristbeam_status", "Read connection/sync availability, without account or device identifiers."),
+        [tool("wristbeam_summary", "Read a local-only date-bounded health summary (1–31 days), sample coverage, missing metrics, overnight HRV and cached workout totals. Does not infer health conditions or refresh data.", properties: ["startDate": ["type": "string"], "endDate": ["type": "string"], "metrics": ["type": "array", "items": ["type": "string"], "minItems": 1, "maxItems": 12]], required: ["startDate", "endDate"]),
+         tool("wristbeam_status", "Read connection/sync availability, without account or device identifiers."),
          tool("wristbeam_metrics", "Read current cached health readings with units, source, record time and staleness. Not medical advice."),
          tool("wristbeam_catalog", "List available metric IDs and supported fields; definitions do not guarantee watch support."),
          tool("wristbeam_series", "Read one cached day of a metric, retaining gaps. No watch/cloud refresh is triggered.", properties: ["metric": ["type":"string"], "date":["type":"string","description":"Local calendar day YYYY-MM-DD"],"offset":["type":"integer","minimum":0],"limit":["type":"integer","minimum":1,"maximum":1440]], required:["metric","date"]),
@@ -77,10 +78,16 @@ enum DeveloperProtocol {
          tool("wristbeam_activity", "Read one cached workout, heart rate zones and paginated laps. Download details in the app first. No coordinates or file paths.", properties: ["id":["type":"string","description":"Activity ID from wristbeam_activities"], "lapOffset":["type":"integer","minimum":0,"maximum":5000], "lapLimit":["type":"integer","minimum":1,"maximum":100]], required:["id"]),
          tool("wristbeam_activity_series", "Read a page of a downloaded reduced activity chart, not full original samples. Descriptor factor is metadata; values are unconverted. Aligned timestamp series is directTimestamp (epoch milliseconds).", properties: ["id":["type":"string"], "metric":["type":"string"], "offset":["type":"integer","minimum":0], "limit":["type":"integer","minimum":1,"maximum":500]], required:["id","metric"])]
     }
+    static func permits(_ route: String, scopes: Set<String>?) -> Bool {
+        guard let scopes else { return true }
+        let scope = ["status": "status", "metrics": "metrics", "catalog": "metrics", "series": "history", "hrv": "history",
+                     "activities": "activities", "activity": "activities", "activity_series": "activities", "summary": "summary"][route]
+        return scope.map { scopes.contains($0) } ?? false
+    }
     private static func tool(_ name: String, _ description: String, properties: [String:Any] = [:], required: [String] = []) -> [String:Any] {
         ["name":name,"description":description,"inputSchema":["type":"object","properties":properties,"required":required,"additionalProperties":false],"annotations":["readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false]]
     }
-    @MainActor static func route(_ request: DeveloperRequest, token: String, allowedHosts: Set<String>, origin: String, query: (String, [String:Any]) throws -> Any) -> DeveloperResponse {
+    static func route(_ request: DeveloperRequest, token: String, allowedHosts: Set<String>, origin: String, scopes: Set<String>? = nil, query: (String, [String:Any]) throws -> Any) -> DeveloperResponse {
         guard let host = request.headers["host"], allowedHosts.contains(host.lowercased()) else { return .json(["error":"Host rejected"],status:403) }
         if let incoming = request.headers["origin"], incoming != origin { return .json(["error":"Origin rejected"],status:403) }
         guard !token.isEmpty, equalSecret(request.headers["authorization"] ?? "", "Bearer " + token) else { return .json(["error":"Bearer token required"],status:401) }
@@ -91,11 +98,12 @@ enum DeveloperProtocol {
             guard request.headers["content-type"]?.hasPrefix("application/json") == true else { return .json(["error":"JSON required"],status:415) }
             let accept = request.headers["accept"] ?? ""
             guard accept.contains("application/json"), accept.contains("text/event-stream") else { return .json(["error":"Accept application/json and text/event-stream"],status:406) }
-            return rpc(request.body, query:query)
+            return rpc(request.body, scopes: scopes, query:query)
         }
         guard request.method == "GET" else { return .json(["error":"Read-only API"],status:405) }
-        let routes = ["/api/v1/status":"status","/api/v1/metrics":"metrics","/api/v1/catalog":"catalog","/api/v1/series":"series","/api/v1/hrv":"hrv","/api/v1/activities":"activities","/api/v1/activity":"activity","/api/v1/activity-series":"activity_series"]
+        let routes = ["/api/v1/summary":"summary", "/api/v1/status":"status","/api/v1/metrics":"metrics","/api/v1/catalog":"catalog","/api/v1/series":"series","/api/v1/hrv":"hrv","/api/v1/activities":"activities","/api/v1/activity":"activity","/api/v1/activity-series":"activity_series"]
         guard let route = routes[components.path] else { return .json(["error":"Not found"],status:404) }
+        guard permits(route, scopes: scopes) else { return .json(["error": "Scope denied"], status: 403) }
         var arguments: [String:Any] = [:]
         for item in components.queryItems ?? [] {
             guard arguments[item.name] == nil, let value = item.value else { return .json(["error":"Duplicate or empty parameter"],status:400) }
@@ -104,7 +112,7 @@ enum DeveloperProtocol {
         }
         do { return .json(try query(route,arguments)) } catch { return .json(["error":error.localizedDescription],status:400) }
     }
-    @MainActor private static func rpc(_ data: Data, query: (String,[String:Any]) throws -> Any) -> DeveloperResponse {
+    private static func rpc(_ data: Data, scopes: Set<String>?, query: (String,[String:Any]) throws -> Any) -> DeveloperResponse {
         guard let message = try? JSONSerialization.jsonObject(with:data) as? [String:Any], message["jsonrpc"] as? String == "2.0", let method = message["method"] as? String else {
             return .json(["jsonrpc":"2.0","id":NSNull(),"error":["code":-32600,"message":"Invalid JSON-RPC request"]],status:400)
         }
@@ -113,19 +121,23 @@ enum DeveloperProtocol {
         func result(_ value: Any) -> DeveloperResponse { .json(["jsonrpc":"2.0","id":id,"result":value]) }
         func rpcError(_ code: Int, _ text: String) -> DeveloperResponse { .json(["jsonrpc":"2.0","id":id,"error":["code":code,"message":text]]) }
         let params = message["params"] as? [String:Any] ?? [:]
+        let allowedTools = tools.filter { permits(String(($0["name"] as? String ?? "").dropFirst("wristbeam_".count)), scopes: scopes) }
         switch method {
         case "initialize":
             let wanted = params["protocolVersion"] as? String ?? ""
             return result(["protocolVersion":versions.contains(wanted) ? wanted : versions[0],"capabilities":["tools":[:],"resources":[:]],"serverInfo":["name":"wristbeam","version":"1.0.0"],"instructions":"Read-only local cached health data. Missing/stale data is explicit; RR is not validated realtime HRV. No account, upload or device-control tools."])
         case "ping": return result([:])
-        case "tools/list": return result(["tools":tools])
-        case "resources/list": return result(["resources":[["uri":"wristbeam://metrics","name":"Current health readings","mimeType":"application/json"],["uri":"wristbeam://status","name":"Connection and sync availability","mimeType":"application/json"]]])
+        case "tools/list": return result(["tools":allowedTools])
+        case "resources/list":
+            return result(["resources": ["metrics", "status"].filter { permits($0, scopes: scopes) }.map {
+                ["uri": "wristbeam://" + $0, "name": $0, "mimeType": "application/json"]
+            }])
         case "resources/templates/list": return result(["resourceTemplates":[]])
         case "resources/read":
-            guard let uri = params["uri"] as? String, ["wristbeam://metrics","wristbeam://status"].contains(uri) else { return rpcError(-32602,"Unknown resource") }
+            guard let uri = params["uri"] as? String, ["wristbeam://metrics","wristbeam://status"].contains(uri), permits(uri.hasSuffix("metrics") ? "metrics" : "status", scopes: scopes) else { return rpcError(-32602,"Unknown resource") }
             do { let value = try query(uri.hasSuffix("metrics") ? "metrics" : "status",[:]); let bytes = try JSONSerialization.data(withJSONObject:value, options:[.sortedKeys]); return result(["contents":[["uri":uri,"mimeType":"application/json","text":String(decoding:bytes,as:UTF8.self)]]]) } catch { return rpcError(-32603,"Resource unavailable") }
         case "tools/call":
-            guard let name = params["name"] as? String, tools.contains(where:{$0["name"] as? String == name}), params["arguments"] == nil || params["arguments"] is [String:Any] else { return rpcError(-32602,"Unknown tool or invalid arguments") }
+            guard let name = params["name"] as? String, allowedTools.contains(where:{$0["name"] as? String == name}), params["arguments"] == nil || params["arguments"] is [String:Any] else { return rpcError(-32602,"Unknown tool or invalid arguments") }
             do {
                 let value = try query(String(name.dropFirst("wristbeam_".count)),params["arguments"] as? [String:Any] ?? [:])
                 let bytes = try JSONSerialization.data(withJSONObject:value, options:[.sortedKeys])

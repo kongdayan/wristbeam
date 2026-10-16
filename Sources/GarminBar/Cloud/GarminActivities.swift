@@ -199,6 +199,39 @@ struct GarminActivityIndex: Codable {
     var nextOffset = 0
     var reachedEnd = false
     var refreshedAt: Date?
+    var schemaVersion: Int? = 2
+    var historyAnchorID: String?
+    var historyAnchorTime: String?
+    var needsHistoryRebase: Bool?
+
+    mutating func mergePage(_ rows: [GarminActivity], offset: Int, older: Bool) {
+        let previous = activities
+        if older || previous.isEmpty {
+            nextOffset = offset + rows.count
+            reachedEnd = rows.isEmpty
+            if let last = rows.last {
+                historyAnchorID = last.id
+                historyAnchorTime = last.startTimeGMT ?? last.startTimeLocal
+            }
+            needsHistoryRebase = false
+        } else {
+            // Refreshing the head must not reset a cursor deep in history.
+            if let overlap = rows.enumerated().first(where: { row in previous.contains { $0.id == row.element.id } }),
+               let oldPosition = previous.firstIndex(where: { $0.id == overlap.element.id }) {
+                nextOffset = max(0, nextOffset + overlap.offset - oldPosition)
+            } else if !rows.isEmpty {
+                needsHistoryRebase = true; reachedEnd = false
+            }
+        }
+        var byID = Dictionary(activities.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
+        for row in rows { byID[row.id] = row }
+        activities = byID.values.sorted {
+            let a = $0.startTimeGMT ?? $0.startTimeLocal ?? "", b = $1.startTimeGMT ?? $1.startTimeLocal ?? ""
+            return a == b ? (Int64($0.id) ?? 0) > (Int64($1.id) ?? 0) : a > b
+        }
+        schemaVersion = 2
+        if !older { refreshedAt = Date() }
+    }
 }
 
 /// Each cloud account/region gets a separate private directory. File names are
@@ -221,6 +254,16 @@ struct GarminActivityStore {
         guard let url = try? file(id, extension: "json"), let data = try? Data(contentsOf: url), data.count <= GarminActivities.maximumJSONBytes,
               let result = try? JSONDecoder().decode(GarminActivityDetail.self, from: data), result.summary.id == id else { return nil }
         return result
+    }
+    func hasDetail(_ id: String) -> Bool {
+        guard let url = try? file(id, extension: "json") else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+    func formats(_ id: String) -> [String] {
+        GarminActivityFormat.allCases.filter {
+            guard let url = try? file(id, extension: $0.fileExtension) else { return false }
+            return FileManager.default.fileExists(atPath: url.path)
+        }.map(\.rawValue)
     }
     func save(_ detail: GarminActivityDetail) throws { try GarminPrivateFile.write(JSONEncoder().encode(detail), to: file(detail.summary.id, extension: "json")) }
 }

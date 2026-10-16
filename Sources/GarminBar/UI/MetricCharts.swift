@@ -47,7 +47,8 @@ struct MetricMiniChart: View, Equatable {
                 for fraction in [0.0, 0.5, 1.0] { grid.move(to: CGPoint(x: fraction * size.width, y: 0)); grid.addLine(to: CGPoint(x: fraction * size.width, y: size.height)) }
                 grid.move(to: CGPoint(x: 0, y: size.height)); grid.addLine(to: CGPoint(x: size.width, y: size.height))
                 context.stroke(grid, with: .color(Color.primary.opacity(0.07)), style: StrokeStyle(lineWidth: 0.6))
-                guard let series else { return }
+                guard let original = series else { return }
+                let series = original.sampled(width: Double(size.width), domain: start...end)
                 if kind.seriesStyle == .bars {
                     for point in series.points {
                         let value = point.value, baseline = y(0)
@@ -254,7 +255,10 @@ private struct DailyMetricChart: View {
     @Binding var selectedTime: Date?
     let threshold: Double
     var body: some View {
-        MetricChartPlot(series: series, stress: stress, kind: kind, domain: domain, selectedTime: $selectedTime, threshold: threshold).equatable()
+        GeometryReader { geometry in
+            MetricChartPlot(series: series, stress: stress, kind: kind, domain: domain,
+                selectedTime: $selectedTime, threshold: threshold, renderWidth: max(1, geometry.size.width - 50)).equatable()
+        }
     }
 }
 
@@ -267,19 +271,22 @@ private struct MetricChartPlot: View, Equatable {
     let domain: ClosedRange<Date>
     @Binding var selectedTime: Date?
     let threshold: Double
+    let renderWidth: Double
     var textScale = PulseTheme.textScale
     var language = L10n.language
     static func == (left: Self, right: Self) -> Bool {
-        left.series == right.series && left.stress == right.stress && left.kind == right.kind && left.domain == right.domain && left.threshold == right.threshold && left.textScale == right.textScale && left.language == right.language
+        left.renderWidth == right.renderWidth && left.series == right.series && left.stress == right.stress && left.kind == right.kind && left.domain == right.domain && left.threshold == right.threshold && left.textScale == right.textScale && left.language == right.language
     }
     var body: some View {
+        let plotted = series?.sampled(width: renderWidth, domain: domain)
+        let stressPlot = stress?.sampled(width: renderWidth, domain: domain)
         Chart {
-            if let stress {
+            if let stress = stressPlot {
                 ForEach(stress.points) { point in
                     if let value = point.value { BarMark(x: .value("时间", point.timestamp), y: .value("压力", value), width: .fixed(1.5)).foregroundStyle(stressColor(value).opacity(0.4)) }
                 }
             }
-            marks
+            marks(plotted)
             if kind == .solarIntensity {
                 RuleMark(y: .value("日照估算阈值", threshold)).foregroundStyle(PulseTheme.color(kind).opacity(0.35)).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
@@ -307,7 +314,7 @@ private struct MetricChartPlot: View, Equatable {
         }
         .accessibilityLabel(L10n.text("\(kind.title)详细时间图，\(series?.values.count ?? 0)条有效记录"))
     }
-    @ChartContentBuilder private var marks: some ChartContent {
+    @ChartContentBuilder private func marks(_ series: MetricDaySeries?) -> some ChartContent {
         let _ = ChartRenderDiagnostics.built(kind)
         // Compute once per dataset, not once for every mark in every segment.
         let segments = series?.segments ?? []
