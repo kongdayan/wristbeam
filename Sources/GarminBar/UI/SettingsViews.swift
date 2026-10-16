@@ -57,20 +57,25 @@ struct SettingsRootView: View {
             }.padding(.horizontal, 18).frame(width: 210)
                 .background(Color.primary.opacity(0.025))
             Rectangle().fill(Color.primary.opacity(0.06)).frame(width: 1)
+            ScrollViewReader { scroll in
             ScrollView {
                 VStack(alignment: .leading, spacing: 23) {
                     if let kind = model.detailMetric {
                         if kind.isOvernightHRV { HRVDetailView(model: model, kind: kind) } else { MetricDetailView(model: model, kind: kind) }
                     } else {
-                    if model.page != .overview { pageHeader }
+                    if model.page != .overview && model.page != .activities { pageHeader }
                     switch model.page {
                     case .overview: OverviewPage(model: model)
+                    case .activities: ActivitiesPage(model: model)
                     case .watch, .account: DevicePage(model: model)
                     case .sync: SyncPage(model: model)
                     case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about: PreferencesPage(model: model)
                     }
                     }
-                }.padding(32).frame(maxWidth: .infinity, alignment: .leading)
+                }.id("settings-top").padding(32).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .onChange(of: model.selectedActivityID) { _ in scroll.scrollTo("settings-top", anchor: .top) }
+            .onChange(of: model.page) { _ in scroll.scrollTo("settings-top", anchor: .top) }
             }
         }.id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
             .font(PulseTheme.font(size: 13)).controlSize(.large)

@@ -558,8 +558,53 @@ final class GarminChinaCloud: ObservableObject {
         return snapshot
     }
 
+    func fetchActivityPage(offset: Int) async throws -> [GarminActivity] {
+        let url = try GarminActivities.listURL(region: region, offset: offset)
+        return try GarminActivities.list(try await activityRequest(url, limit: GarminActivities.maximumJSONBytes))
+    }
+
+    func fetchActivityDetail(id: String) async throws -> GarminActivityDetail {
+        guard GarminActivities.validID(id) else { throw GarminActivityError.invalidResponse }
+        let generation = authenticationGeneration, requestRegion = region
+        let base = requestRegion.apiBase + "/activity-service/activity/" + id
+        let summary = try await activityRequest(URL(string: base)!, limit: GarminActivities.maximumJSONBytes)
+        guard generation == authenticationGeneration, requestRegion == region else { throw CancellationError() }
+        let chart = try await activityRequest(URL(string: base + "/details?maxChartSize=\(GarminActivities.chartLimit)&maxPolylineSize=0")!, limit: GarminActivities.maximumJSONBytes)
+        guard generation == authenticationGeneration, requestRegion == region else { throw CancellationError() }
+        var result = try GarminActivities.detail(summary: summary, chart: chart, expectedID: id)
+        result.unavailableSections = []
+        for section in ["hrTimeInZones", "splits"] {
+            do {
+                let data = try await activityRequest(URL(string: base + "/" + section)!, limit: GarminActivities.maximumJSONBytes)
+                guard generation == authenticationGeneration, requestRegion == region, networkEnabled, !Task.isCancelled else { throw CancellationError() }
+                if section == "hrTimeInZones" { result.heartRateZones = try GarminActivities.zones(data) }
+                else { result.laps = try GarminActivities.laps(data, expectedID: id) }
+            } catch {
+                guard generation == authenticationGeneration, requestRegion == region, networkEnabled, !Task.isCancelled,
+                      !(error is CancellationError) else { throw CancellationError() }
+                result.unavailableSections?.append(section)
+            }
+        }
+        return result
+    }
+
+    func fetchActivityFile(id: String, format: GarminActivityFormat) async throws -> Data {
+        guard GarminActivities.validID(id) else { throw GarminActivityError.invalidResponse }
+        let data = try await activityRequest(URL(string: region.apiBase + format.endpoint + id)!, limit: GarminActivities.maximumFileBytes, accept: "*/*")
+        try GarminActivities.validateFile(data, format: format)
+        return data
+    }
+
+    private func activityRequest(_ url: URL, limit: Int, accept: String = "application/json") async throws -> Data {
+        guard networkEnabled, !Task.isCancelled else { throw CancellationError() }
+        guard isAuthenticated, !accountGUID.isEmpty else { throw GarminCloudError.authenticationRequired }
+        let response = try await authenticatedRequest(url: url, authFailureInvalidatesSession: false, additionalHeaders: ["Accept": accept], maximumBytes: limit)
+        guard response.1.statusCode == 200 else { throw GarminActivityError.unavailable }
+        return response.0
+    }
+
     private func authenticatedRequest(url: URL, method: String = "GET", body: Data? = nil, contentType: String? = nil,
-                                      authFailureInvalidatesSession: Bool = true, additionalHeaders: [String: String] = [:]) async throws -> (Data, HTTPURLResponse) {
+                                      authFailureInvalidatesSession: Bool = true, additionalHeaders: [String: String] = [:], maximumBytes: Int? = nil) async throws -> (Data, HTTPURLResponse) {
         let generation = authenticationGeneration
         guard GarminChinaURLPolicy.isTrusted(url, region: region) else { throw GarminCloudError.untrustedURL }
         let current = try await validToken()
@@ -570,28 +615,45 @@ final class GarminChinaCloud: ObservableObject {
         for (key, value) in additionalHeaders { request.setValue(value, forHTTPHeaderField: key) }
         if let contentType { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
         request.setValue("Bearer \(current.accessToken)", forHTTPHeaderField: "Authorization")
-        var response = try await perform(request)
+        var response = try await perform(request, maximumBytes: maximumBytes)
         guard authenticationGeneration == generation else { throw CancellationError() }
         if response.1.statusCode == 401 {
             let renewed = try await validToken(forceRefresh: true)
             guard authenticationGeneration == generation else { throw CancellationError() }
             request.setValue("Bearer \(renewed.accessToken)", forHTTPHeaderField: "Authorization")
-            response = try await perform(request)
+            response = try await perform(request, maximumBytes: maximumBytes)
             guard authenticationGeneration == generation else { throw CancellationError() }
         }
         if authFailureInvalidatesSession && (response.1.statusCode == 401 || response.1.statusCode == 403) { isAuthenticated = false }
         return response
     }
 
-    private func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    private func perform(_ request: URLRequest, maximumBytes: Int? = nil) async throws -> (Data, HTTPURLResponse) {
         guard let url = request.url, GarminChinaURLPolicy.isTrusted(url, region: region) else { throw GarminCloudError.untrustedURL }
         guard networkEnabled, !Task.isCancelled else { throw CancellationError() }
         let generation = authenticationGeneration
         requestCount += 1
-        let (data, response) = try await session.data(for: request)
+        let data: Data, response: URLResponse
+        if let maximumBytes {
+            (data, response) = try await Self.activityBytes(session: session, request: request, maximumBytes: maximumBytes)
+        } else { (data, response) = try await session.data(for: request) }
         guard networkEnabled, generation == authenticationGeneration, !Task.isCancelled else { throw CancellationError() }
         guard let http = response as? HTTPURLResponse else { throw GarminCloudError.invalidResponse("没有收到 HTTP 响应") }
         return (data, http)
+    }
+
+    // Reading a potentially large export must not monopolize the menu bar's main actor.
+    private nonisolated static func activityBytes(session: URLSession, request: URLRequest, maximumBytes: Int) async throws -> (Data, URLResponse) {
+        let (bytes, response) = try await session.bytes(for: request)
+        defer { bytes.task.cancel() }
+        guard response.expectedContentLength <= Int64(maximumBytes) else { throw GarminActivityError.invalidResponse }
+        var buffer = Data()
+        for try await byte in bytes {
+            guard buffer.count < maximumBytes else { throw GarminActivityError.invalidResponse }
+            if buffer.count % 65536 == 0 { try Task.checkCancellation() }
+            buffer.append(byte)
+        }
+        return (buffer, response)
     }
 
     private func setClientHeaders(_ request: inout URLRequest) {

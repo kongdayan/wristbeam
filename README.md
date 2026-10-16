@@ -45,6 +45,7 @@ Real app UI with isolated demo data. [Original captures and artwork notes](docs/
 ## Features
 
 - **Keep it on your Mac.** Watch data works without a cloud account. Pause all Garmin cloud access, keep local files, then export FIT + CSV or upload later. [Local mode](docs/SETUP.md).
+- **Let your AI remember your workouts.** Browse the Activities sidebar, open a workout to load its statistics and charts, export JSON / TCX / GPX / original files, and query cached workouts over MCP. Optional scheduled summary refresh. [Activity API](docs/developer/API.md#activity-library).
 - Compact dimensional cards with timestamps beside the title. Customize layout and essentials in one panel; share the dashboard, selected cards or a single value as a framed image in light or dark, with copy, save and native sharing.
 - Independent menu bar, panel and dashboard selections, group toggles, search, drag ordering, adjustable text and layout.
 - Daily curves, interval bars, date/time ranges, cursor readings and original records. Gaps remain empty.

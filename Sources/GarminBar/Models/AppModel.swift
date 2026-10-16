@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     let updater = PulseUpdater()
     let developer = DeveloperAccess()
     let weather = WatchWeatherController()
+    let activities = ActivityLibrary()
     lazy var uploads = GarminUploadQueue(cloud: cloud, directory: AppPaths.directory("UploadQueue"))
     @Published var metrics: [MetricKind: MetricSample] = [:]
     @Published var history: [MetricKind: [MetricSample]] = [:]
@@ -30,6 +31,7 @@ final class AppModel: ObservableObject {
     @Published var events: [ActivityLog] = []
     @Published var now = Date()
     @Published var page = AppPage.overview
+    @Published var selectedActivityID: String?
     @Published var showLogin = false
     @Published var language = PulseLanguage(rawValue: AppPreferences.shared.string(forKey: "language") ?? "system") ?? .system {
         didSet { L10n.language = language; AppPreferences.shared.set(language.rawValue, forKey: "language"); onAppearanceChange?() }
@@ -223,11 +225,14 @@ final class AppModel: ObservableObject {
                 if self.cloudSyncEnabled && self.autoUpload && !self.preview { Task { await self.uploads.syncNow(force: false) } }
             }
         }.store(in: &subscriptions)
+        if !preview { activities.attach(cloud) }
+        activities.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
         developer.attach(self)
         weather.attach(cloud: cloud, bluetooth: bluetooth)
         Timer.publish(every: 1, on: .main, in: .common).autoconnect().sink { [weak self] date in
             guard let self else { return }; self.now = date
             self.developer.tick()
+            if !self.preview { self.activities.tick(now: date) }
             if date.timeIntervalSince(self.lastStatusWrite) >= 5 { self.writeRuntimeState() }
             if self.autoRefreshMetrics && date.timeIntervalSince(self.lastHealthRefresh) >= Double(max(1, self.metricRefreshInterval)) * 60 { Task { await self.refreshHealthMetrics() } }
             if self.autoSync && !self.preview && date.timeIntervalSince(self.lastAutoSync) >= Double(max(1, self.syncInterval)) * 60 {
@@ -639,14 +644,15 @@ final class AppModel: ObservableObject {
 }
 
 enum AppPage: String, CaseIterable, Identifiable {
-    static var navigationPages: [Self] { [.overview, .watch, .sync, .settings] }
+    static var navigationPages: [Self] { [.overview, .activities, .watch, .sync, .settings] }
     static var settingsPages: [Self] { [.settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about] }
     var navigationPage: Self { self == .account ? .watch : Self.settingsPages.contains(self) ? .settings : self }
-    case overview, watch, account, sync, settings, appearance, metricSelection, refresh, developer, updates, about
+    case overview, activities, watch, account, sync, settings, appearance, metricSelection, refresh, developer, updates, about
     var id: String { rawValue }
     var title: String {
         switch self {
         case .overview: return L10n.text("健康看板")
+        case .activities: return L10n.text("运动记录")
         case .watch: return L10n.text("设备")
         case .account: return L10n.text("设备账号")
         case .sync: return L10n.text("同步记录")
@@ -662,6 +668,7 @@ enum AppPage: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .overview: return "square.grid.2x2"
+        case .activities: return "figure.run"
         case .watch: return "applewatch"
         case .account: return "person.crop.circle"
         case .sync: return "arrow.triangle.2.circlepath"
