@@ -153,7 +153,7 @@ struct ActivityDetailPage: View {
                 }
             } label: { Label(L10n.text("导出运动"), systemImage: "square.and.arrow.up") }
                 .disabled(library.busy || loading || exporting)
-        }.buttonStyle(.bordered)
+        }.buttonStyle(.bordered).fixedSize(horizontal: true, vertical: false)
     }
     private func export(_ format: GarminActivityFormat?) {
         exporting = true; exportStatus = ""

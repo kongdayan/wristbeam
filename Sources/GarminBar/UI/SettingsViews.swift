@@ -60,7 +60,6 @@ struct SettingsRootView: View {
             ScrollViewReader { scroll in
             ScrollView {
                 VStack(alignment: .leading, spacing: 23) {
-                    Color.clear.frame(height: 0).id("settings-top")
                     if let kind = model.detailMetric {
                         if kind.isOvernightHRV { HRVDetailView(model: model, kind: kind) } else { MetricDetailView(model: model, kind: kind) }
                     } else {
@@ -73,7 +72,7 @@ struct SettingsRootView: View {
                     case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about: PreferencesPage(model: model)
                     }
                     }
-                }.padding(32).frame(maxWidth: .infinity, alignment: .leading)
+                }.id("settings-top").padding(32).frame(maxWidth: .infinity, alignment: .leading)
             }
             .onChange(of: model.selectedActivityID) { _ in scroll.scrollTo("settings-top", anchor: .top) }
             .onChange(of: model.page) { _ in scroll.scrollTo("settings-top", anchor: .top) }

@@ -51,6 +51,23 @@ enum ActivityMetricCatalog {
         .init("directCaloriesBurnRate", "热量消耗速率", "kcal/min"), .init("sumDistance", "累计距离", "m"),
         .init("sumDuration", "计时时长", "s"), .init("sumElapsedDuration", "经过时长", "s"), .init("sumMovingDuration", "移动时长", "s")
     ]
+    /// Presentation only: keep every series in the cache and developer API.
+    static func visibleCharts(_ detail: GarminActivityDetail) -> [ActivityMetricDefinition] {
+        charts.filter { field in
+            guard field.unit != "s",
+                  let series = detail.series.first(where: { $0.key == field.key }) else { return false }
+            let values = series.values.compactMap { $0 }.filter(\.isFinite)
+            return !values.isEmpty && (field.key != "sumDistance" || values.contains { $0 > 0 })
+        }
+    }
+    static func highlights(_ values: [String: Double]) -> [ActivityMetricDefinition] {
+        let keys = ["duration", values["distance", default: 0] > 0 ? "distance" : "calories", "averageHR", "maxHR", "calories", "steps", "activityTrainingLoad"]
+        var selected: [ActivityMetricDefinition] = []
+        for key in keys where selected.count < 4 && !selected.contains(where: { $0.key == key }) {
+            if values[key]?.isFinite == true, let field = statistics.first(where: { $0.key == key }) { selected.append(field) }
+        }
+        return selected
+    }
     static func duration(_ value: Double) -> String {
         guard value.isFinite, value >= 0, value < 1_000_000_000 else { return "—" }
         let seconds = Int(value.rounded())

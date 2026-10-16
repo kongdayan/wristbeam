@@ -3,6 +3,22 @@ import XCTest
 @testable import GarminBar
 
 final class ActivityTests: XCTestCase {
+    func testChartPresentationKeepsDurationDataAvailableToAIAndExports() throws {
+        let summary = try GarminActivities.summary(activity())
+        let series = ["sumDuration", "sumElapsedDuration", "sumMovingDuration", "directHeartRate"].map {
+            GarminActivitySeries(key: $0, unit: $0 == "directHeartRate" ? "bpm" : "s", factor: nil, values: [10, 20])
+        } + [GarminActivitySeries(key: "sumDistance", unit: "m", factor: nil, values: [0, 0])]
+        let detail = GarminActivityDetail(summary: summary, series: series, fetchedAt: Date(), chartPointLimit: 1000, chartAvailable: true)
+        XCTAssertEqual(ActivityMetricCatalog.visibleCharts(detail).map(\.key), ["directHeartRate"])
+        var index = GarminActivityIndex(); index.activities = [summary]
+        for key in ["sumDuration", "sumElapsedDuration", "sumMovingDuration"] {
+            let result = try ActivityQueries.query("activity_series", arguments: ["id": summary.id, "metric": key], index: index, detail: { _ in detail }, formats: { _ in [] })
+            XCTAssertEqual(result["values"] as? [Double], [10, 20])
+        }
+        let decoded = try JSONDecoder().decode(GarminActivityDetail.self, from: JSONEncoder().encode(detail))
+        XCTAssertEqual(decoded.series, series)
+        XCTAssertEqual(ActivityMetricCatalog.highlights(["duration": 600, "distance": 0, "calories": 200, "averageHR": 110, "maxHR": 150]).map(\.key), ["duration", "calories", "averageHR", "maxHR"])
+    }
     func testExpandedMetricsKeepSIUnitsAndNullChartGaps() throws {
         let summary: [String: Any] = ["activityId": 1001, "summaryDTO": ["averageTemperature": 20, "waterEstimated": 500, "avgElevation": 120, "trainingEffect": 2.1]]
         let chart: [String: Any] = ["activityId": 1001, "metricDescriptors": [

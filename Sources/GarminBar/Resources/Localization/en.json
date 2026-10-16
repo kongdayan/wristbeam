@@ -1125,5 +1125,6 @@
   "正在准备导出文件…": "Preparing export…",
   "正在加载运动数据…": "Loading activity…",
   "已保存运动摘要；连接云账号后自动加载详情。": "Summary saved. Details load automatically when your cloud account is connected.",
-  "这部分数据暂时未能读取，可刷新详情重试。": "This section is unavailable. Refresh details to try again."
+  "这部分数据暂时未能读取，可刷新详情重试。": "This section is unavailable. Refresh details to try again.",
+  "详细统计": "Detailed statistics"
 }

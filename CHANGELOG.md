@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Simplify activity details with four key readings, a primary heart-rate chart, responsive secondary charts and expandable full statistics. Hide duration curves and zero-only cumulative distance from the UI while retaining cached/API/export data; make lap rows clickable across their full width.
+
 - Move Activities to its own sidebar page with inline navigation, automatic detail loading and one scrolling statistics/charts/zones/laps view.
 - Fix TCX/GPX/original exports rejected by Garmin's file endpoints (HTTP 406 from JSON-only Accept headers); present the save panel on the activity's hosting window.
 - Cover concurrent activity opens, cached/offline access and cancelled queued loads in regression tests.

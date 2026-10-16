@@ -56,6 +56,9 @@ import SwiftUI
         try activityStore.saveIndex(activityIndex)
         try activityStore.save(GarminActivityDetail(summary:activity, series:[
             GarminActivitySeries(key:"directHeartRate",unit:"bpm",factor:1,values:[100,110,120,nil,130,140,135,145]),
+            GarminActivitySeries(key:"directAirTemperature",unit:"celcius",factor:1,values:[20,21,21,22,22,23,22,21]),
+            GarminActivitySeries(key:"directElevation",unit:"m",factor:1,values:[100,102,104,105,107,106,108,110]),
+            GarminActivitySeries(key:"sumDuration",unit:"s",factor:1,values:[0,60,120,180,240,300,360,420]),
             GarminActivitySeries(key:"directTimestamp",unit:"gmt",factor:0,values:(0..<8).map { 1_767_319_200_000.0 + Double($0) * 60_000 })],
             fetchedAt:Date(),chartPointLimit:1000,chartAvailable:true,
             heartRateZones:[.init(number:1,seconds:300,lowerBPM:90),.init(number:2,seconds:600,lowerBPM:110),.init(number:3,seconds:900,lowerBPM:130)],
@@ -107,6 +110,7 @@ import SwiftUI
                     try render(ActivityChartsSection(detail:detail).padding(24).frame(width:820),name:"activity-charts-\(language)-\(theme)",dark:dark,output:output)
                     try render(ActivityZonesSection(detail:detail).padding(24).frame(width:820),name:"activity-zones-\(language)-\(theme)",dark:dark,output:output)
                     try render(ActivityLapsSection(detail:detail).padding(24).frame(width:820),name:"activity-laps-\(language)-\(theme)",dark:dark,output:output)
+                    try render(ActivityStatisticsSection(statistics:detail.summary.statistics,initiallyExpanded:true).padding(24).frame(width:820),name:"activity-statistics-\(language)-\(theme)",dark:dark,output:output)
                 }
             }
         }
