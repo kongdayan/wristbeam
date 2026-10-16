@@ -23,6 +23,7 @@ struct DeveloperConfiguration: Codable, Equatable {
     @Published private(set) var webhookStatus = "Webhook 已关闭"
     @Published private(set) var certificateAvailable = false
     @Published private(set) var keyStatus = ""
+    @Published private(set) var revealedKeys: [String: String] = [:]
     @Published private(set) var webhookKeyStatus = ""
     @Published private(set) var configurationError = ""
     @Published private(set) var isManagingKey = false
@@ -95,7 +96,7 @@ struct DeveloperConfiguration: Codable, Equatable {
         Task { [self] in
             defer { isApplying = false }
             do {
-                // Keychain may wait for macOS authorization. Never block the UI thread.
+                // Read private local files away from the UI thread.
                 let values = try await Task.detached(priority: .userInitiated) {
                     let api = config.enabled ? try store.key("api") : ""
                     let webhook = config.webhookEnabled ? try store.key("webhook") : ""
@@ -129,35 +130,55 @@ struct DeveloperConfiguration: Codable, Equatable {
     private func setKeyStatus(_ message: String, name: String) {
         if name == "api" { keyStatus = message } else { webhookKeyStatus = message }
     }
-    func rotate(_ name: String) { manageKey(name, rotate: true) }
-    func copyKey(_ name: String) { manageKey(name, rotate: false) }
-    private func manageKey(_ name: String, rotate: Bool) {
-        guard !isManagingKey, !isApplying else { return }
+    enum KeyAction { case copy, reveal, rotate, importValue(String), legacy, export }
+    func hideKeys() { revealedKeys.removeAll() }
+    func hideKey(_ name: String) { revealedKeys.removeValue(forKey: name) }
+    func rotate(_ name: String) { manageKey(name, action: .rotate) }
+    func copyKey(_ name: String) { manageKey(name, action: .copy) }
+    func manageKey(_ name: String, action: KeyAction) {
+        guard ["api", "webhook"].contains(name), !isManagingKey, !isApplying else { return }
         isManagingKey = true
-        setKeyStatus("正在访问钥匙串，请完成 macOS 授权…",name:name)
+        setKeyStatus("", name: name)
         let store = secrets
         Task { [self] in
             defer { isManagingKey = false }
             do {
                 let key = try await Task.detached(priority: .userInitiated) {
-                    if rotate {
-                        let value = try DeveloperSecrets.generate()
-                        try store.save(value,name:name)
-                        guard try store.load(name) == value else { throw DeveloperKeychainError(status: errSecDecode) }
-                        return value
+                    switch action {
+                    case .rotate:
+                        let value = try DeveloperSecrets.generate(); try store.save(value, name:name); return value
+                    case .importValue(let text):
+                        let value = try DeveloperSecrets.validated(text); try store.save(value, name:name); return value
+                    case .legacy:
+                        let value = try DeveloperSecrets.legacyKey(name); try store.save(value, name:name); return value
+                    default: return try store.key(name)
                     }
-                    return try store.key(name)
                 }.value
                 if name == "api" { token = key } else { webhookToken = key }
-                if rotate {
+                switch action {
+                case .rotate, .importValue, .legacy:
+                    revealedKeys.removeValue(forKey: name)
                     if name == "webhook" { generation = UUID(); webhookTask?.cancel(); webhookTask = nil; lastPayloadHash = "" }
-                    setKeyStatus("密钥已轮换，旧密钥立即失效",name:name)
-                } else {
+                    setKeyStatus("密钥已保存并生效",name:name)
+                case .reveal: revealedKeys[name] = key
+                case .copy:
                     NSPasteboard.general.clearContents()
                     guard NSPasteboard.general.setString(key,forType:.string), NSPasteboard.general.string(forType:.string) == key else {
                         throw DeveloperError.invalid("无法写入剪贴板，请重试")
                     }
-                    setKeyStatus("密钥已复制，请只交给可信客户端",name:name)
+                    setKeyStatus("密钥已复制",name:name)
+                case .export:
+                    let panel = NSSavePanel()
+                    panel.nameFieldStringValue = "wristbeam-\(name)-key.txt"
+                    panel.canCreateDirectories = true
+                    let response = await withCheckedContinuation { continuation in
+                        if let window = NSApp.keyWindow {
+                            panel.beginSheetModal(for:window) { continuation.resume(returning:$0) }
+                        } else { panel.begin { continuation.resume(returning:$0) } }
+                    }
+                    guard response == .OK, let url = panel.url else { return }
+                    try await Task.detached(priority:.userInitiated) { try DeveloperSecrets.export(key, to:url) }.value
+                    setKeyStatus("密钥已导出",name:name)
                 }
             } catch { setKeyStatus(error.localizedDescription,name:name) }
         }

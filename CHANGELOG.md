@@ -4,7 +4,7 @@
 
 ## 0.3.7
 
-- Keep developer Keychain operations off the UI thread, distinguish authorization errors from missing keys, verify clipboard writes, and make pending interface settings and startup failures visible. Add a signed-package Keychain/clipboard/MCP smoke test.
+- Manage MCP/API and Webhook keys locally: show, copy, paste/import, export and regenerate keys without Keychain authorization. Offer explicit legacy key import, verify clipboard writes, and surface pending settings and listener errors. Add signed-package credential, clipboard and MCP checks.
 
 - Add a dedicated Activities sidebar: browse paginated workout history, open a record to load details automatically, and optionally refresh summaries on a schedule.
 - Read key statistics, interactive charts, heart-rate zones and expandable laps on one scrolling page. Prioritize heart rate, arrange secondary charts responsively and keep full statistics expandable; omit duration curves and zero-only distance graphs without removing their cached/export/API data.

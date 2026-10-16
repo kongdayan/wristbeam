@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct DeveloperSettingsPage: View {
     @ObservedObject var access: DeveloperAccess
@@ -15,7 +16,7 @@ struct DeveloperSettingsPage: View {
                     Button(L10n.text("立即停止全部接口")) { access.stopAll() }
                 }
                 if access.isApplying {
-                    Text(L10n.text("正在读取密钥并启动接口，请完成 macOS 授权…")).foregroundStyle(PulseTheme.secondary)
+                    Text(L10n.text("正在启动接口…")).foregroundStyle(PulseTheme.secondary)
                 }
                 if access.hasUnappliedChanges {
                     Text(L10n.text("配置尚未应用，点击上方按钮后生效。")).foregroundStyle(PulseTheme.secondary)
@@ -40,9 +41,7 @@ struct DeveloperSettingsPage: View {
                     PreferenceLine(title:"PKCS#12 证书密码") { SecureField("",text:$certificatePassword).textFieldStyle(.roundedBorder) }
                     PreferenceLine(title:access.certificateAvailable ? "已保存 HTTPS 证书" : "请导入含私钥的 .p12 / .pfx 证书") { Button(L10n.text("导入证书…")) { access.importCertificate(password:certificatePassword); certificatePassword = "" } }
                 }
-                PreferenceLine(title:"访问密钥（钥匙串保存）",note:access.keyStatus) {
-                    HStack { Button(L10n.text("生成 / 轮换密钥")) { access.rotate("api") }; Button(L10n.text("复制密钥")) { access.copyKey("api") } }.disabled(access.isApplying || access.isManagingKey)
-                }
+                DeveloperKeyControls(access:access, name:"api", title:"访问密钥")
             }
             PreferenceBlock(title:"客户端接入") {
                 VStack(alignment:.leading,spacing:12) {
@@ -69,9 +68,7 @@ struct DeveloperSettingsPage: View {
                         }
                     }.padding(.top,10)
                 }.padding(15)
-                PreferenceLine(title:"签名密钥",note:access.webhookKeyStatus) { HStack {
-                    Button(L10n.text("轮换签名密钥")) { access.rotate("webhook") }; Button(L10n.text("复制签名密钥")) { access.copyKey("webhook") }
-                }.disabled(access.isApplying || access.isManagingKey) }
+                DeveloperKeyControls(access:access, name:"webhook", title:"签名密钥")
                 VStack(alignment:.leading,spacing:6) {
                     Text(L10n.text(access.webhookStatus))
                     Text(L10n.text("HMAC-SHA256 签名；不跟随重定向，失败最多尝试三次。未投递快照不跨退出持久保存。")).foregroundStyle(PulseTheme.secondary)
@@ -79,5 +76,61 @@ struct DeveloperSettingsPage: View {
             }
             Text(L10n.text("修改后点击应用。关闭应用或 Mac 休眠时，接口暂停。")).font(PulseTheme.font(size:11)).foregroundStyle(PulseTheme.secondary)
         }.buttonStyle(.bordered).controlSize(.regular)
+    }
+}
+
+
+private struct DeveloperKeyControls: View {
+    @ObservedObject var access: DeveloperAccess
+    let name: String
+    let title: String
+    @State private var importing = false
+    @State private var draft = ""
+    @State private var importError = ""
+    var body: some View {
+        VStack(alignment:.leading, spacing:10) {
+            HStack {
+                Text(L10n.text(title)).font(PulseTheme.font(size:13,weight:.medium))
+                Spacer()
+                Button(L10n.text(access.revealedKeys[name] == nil ? "显示密钥" : "隐藏密钥")) {
+                    if access.revealedKeys[name] == nil { access.manageKey(name,action:.reveal) } else { access.hideKey(name) }
+                }
+                Button(L10n.text("复制密钥")) { access.copyKey(name) }
+                Menu(L10n.text("管理密钥")) {
+                    Button(L10n.text("导入密钥…")) { draft = ""; importError = ""; importing = true }
+                    Button(L10n.text("导出密钥…")) { access.manageKey(name,action:.export) }
+                    Button(L10n.text("重新生成密钥")) { access.rotate(name) }
+                    Divider()
+                    Button(L10n.text("从旧版钥匙串导入")) { access.manageKey(name,action:.legacy) }
+                }.fixedSize()
+            }.disabled(access.isApplying || access.isManagingKey)
+            if let key = access.revealedKeys[name] {
+                Text(key).font(PulseTheme.font(size:12,design:.monospaced)).textSelection(.enabled)
+            }
+            let status = name == "api" ? access.keyStatus : access.webhookKeyStatus
+            if !status.isEmpty { Text(L10n.text(status)).font(PulseTheme.font(size:11)).foregroundStyle(PulseTheme.secondary) }
+        }.padding(15)
+        .onDisappear { access.hideKey(name) }
+        .sheet(isPresented:$importing,onDismiss:{ draft = "" }) {
+            VStack(alignment:.leading,spacing:16) {
+                Text(L10n.text("导入密钥")).font(.headline)
+                HStack {
+                    SecureField(L10n.text("粘贴密钥"),text:$draft).textFieldStyle(.roundedBorder)
+                    Button(L10n.text("粘贴")) { draft = NSPasteboard.general.string(forType:.string) ?? "" }
+                }
+                Text(L10n.text("保存后立即替换当前密钥。")).font(.caption).foregroundStyle(.secondary)
+                if !importError.isEmpty { Text(L10n.text(importError)).foregroundStyle(.red) }
+                HStack {
+                    Spacer()
+                    Button(L10n.text("取消")) { importing = false }.keyboardShortcut(.cancelAction)
+                    Button(L10n.text("保存")) {
+                        do {
+                            let value = try DeveloperSecrets.validated(draft)
+                            access.manageKey(name,action:.importValue(value)); importing = false; draft = ""
+                        } catch { importError = error.localizedDescription }
+                    }.keyboardShortcut(.defaultAction)
+                }
+            }.padding(24).frame(width:470)
+        }
     }
 }

@@ -2,52 +2,6 @@ import Foundation
 import Network
 import Security
 
-struct DeveloperKeychainError: LocalizedError {
-    let status: OSStatus
-    var errorDescription: String? {
-        "Keychain (\(status)): " + ((SecCopyErrorMessageString(status, nil) as String?) ?? "Unable to access saved key")
-    }
-}
-
-final class DeveloperSecrets {
-    private let service: String
-    init(service: String = "cn.wenyankong.wristbeam.developer" + (PulseRuntime.isPreview ? ".preview" : "")) { self.service = service }
-    private func query(_ name: String) -> [String: Any] {
-        [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:name]
-    }
-    static func decoded(status: OSStatus, data: Data?) throws -> String? {
-        if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess else { throw DeveloperKeychainError(status: status) }
-        guard let data, let value = String(data: data, encoding: .utf8) else { throw DeveloperKeychainError(status: errSecDecode) }
-        return value
-    }
-    func load(_ name: String) throws -> String? {
-        var request = query(name)
-        request[kSecReturnData as String] = true; request[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(request as CFDictionary,&result)
-        return try Self.decoded(status: status, data: result as? Data)
-    }
-    func save(_ value: String, name: String) throws {
-        let request = query(name)
-        let attributes: [String:Any] = [kSecValueData as String:Data(value.utf8), kSecAttrAccessible as String:kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
-        var status = SecItemUpdate(request as CFDictionary, attributes as CFDictionary)
-        if status == errSecItemNotFound { status = SecItemAdd(request.merging(attributes){_,new in new} as CFDictionary,nil) }
-        guard status == errSecSuccess else { throw DeveloperKeychainError(status: status) }
-    }
-    func key(_ name: String) throws -> String {
-        if let value = try load(name), !value.isEmpty { return value }
-        let value = try Self.generate(); try save(value, name: name)
-        guard try load(name) == value else { throw DeveloperKeychainError(status: errSecDecode) }
-        return value
-    }
-    static func generate() throws -> String {
-        var bytes = [UInt8](repeating:0,count:32)
-        guard SecRandomCopyBytes(kSecRandomDefault,bytes.count,&bytes) == errSecSuccess else { throw DeveloperError.invalid("Secure random generator unavailable") }
-        return bytes.map { String(format:"%02x",$0) }.joined()
-    }
-}
-
 final class DeveloperServer {
     private let queue = DispatchQueue(label:"cn.wristbeam.developer.http",qos:.utility)
     private var listener: NWListener?

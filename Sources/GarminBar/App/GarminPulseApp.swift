@@ -12,7 +12,7 @@ enum GarminPulseMain {
         }
         if CommandLine.arguments.contains("--verify-developer") {
             Task { @MainActor in
-                do { try await DeveloperSelfTest.run(); print("PASS packaged Keychain, clipboard, listener and MCP authentication"); exit(0) }
+                do { try await DeveloperSelfTest.run(); print("PASS packaged local credentials, clipboard, listener and MCP authentication"); exit(0) }
                 catch { fputs("Packaged developer check failed: \(error.localizedDescription)\n", stderr); exit(1) }
             }
             RunLoop.main.run(); return

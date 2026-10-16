@@ -50,6 +50,7 @@
 		9474DCEC765B379FE05F967A /* WatchWeatherController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D0605A0AED008BD50EB52D /* WatchWeatherController.swift */; };
 		94EDDBCFB7C9239C51663120 /* WatchWeatherCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DBF677771A3C348478B0F88 /* WatchWeatherCard.swift */; };
 		9AFC94B1592DEC9418153098 /* FloatingPulseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2149999B03F9F7757980DBDC /* FloatingPulseView.swift */; };
+		A1A8CC90C5C44457BDC8B004 /* DeveloperSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32FEAEDC3A2A448B6BBECE60 /* DeveloperSecrets.swift */; };
 		A25AD073C9FB17DE960927DC /* GFDIFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B239BE2900F5FF25136C71E /* GFDIFiles.swift */; };
 		A59B3505A975EF75A8DB39D7 /* GarminChinaCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB678CE0A78BCD6BBD5B15FC /* GarminChinaCloud.swift */; };
 		A8B0AACC23F9BB694756F2AB /* GarminPulseWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 771947003FAF57AB0DF4666E /* GarminPulseWidget.swift */; };
@@ -114,6 +115,7 @@
 		2389E19745ED094D5057B2BB /* SoftwareUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdater.swift; sourceTree = "<group>"; };
 		2CBDFF83C706E69D8A223DD5 /* OpenMeteoWeather.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMeteoWeather.swift; sourceTree = "<group>"; };
 		2E6E77C39F52A8AF89FABADB /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		32FEAEDC3A2A448B6BBECE60 /* DeveloperSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSecrets.swift; sourceTree = "<group>"; };
 		35A9B5D83E9076E506A2A398 /* ActivityDetailContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityDetailContent.swift; sourceTree = "<group>"; };
 		3878BA8A3430F7EB71271C3F /* GFDIRequestCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIRequestCapture.swift; sourceTree = "<group>"; };
 		404AC4A545215804EEBBE174 /* DeveloperSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsPage.swift; sourceTree = "<group>"; };
@@ -330,6 +332,7 @@
 				11A40CB0D368FDDCE48CEAFA /* DeveloperAccess.swift */,
 				73417F9F09F145ED7CB9A894 /* DeveloperProtocol.swift */,
 				B2AE568744CD4884E10F89ED /* DeveloperQueries.swift */,
+				32FEAEDC3A2A448B6BBECE60 /* DeveloperSecrets.swift */,
 				A33C0B77581375AAA6E6F01B /* DeveloperSelfTest.swift */,
 				CB951F73431D0D5919ACAC88 /* DeveloperServer.swift */,
 			);
@@ -458,6 +461,7 @@
 				E8BC93A5077E1266DCFADD54 /* DeveloperAccess.swift in Sources */,
 				10E745ED10D62EECA3C11F37 /* DeveloperProtocol.swift in Sources */,
 				69C718B73D2568DA04669202 /* DeveloperQueries.swift in Sources */,
+				A1A8CC90C5C44457BDC8B004 /* DeveloperSecrets.swift in Sources */,
 				C876CC4BB8647540AA16B8C1 /* DeveloperSelfTest.swift in Sources */,
 				53CE41DD72FA2FAB61864C0D /* DeveloperServer.swift in Sources */,
 				6315B38EF81821F9C427A0BA /* DeveloperSettingsPage.swift in Sources */,

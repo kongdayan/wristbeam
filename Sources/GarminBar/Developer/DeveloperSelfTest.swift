@@ -5,14 +5,19 @@ import Security
 /// Does not initialize AppModel, open user caches, or change normal preferences.
 enum DeveloperSelfTest {
     @MainActor static func run() async throws {
-        let service = "cn.wenyankong.wristbeam.selftest." + UUID().uuidString
-        let store = DeveloperSecrets(service: service)
-        defer {
-            SecItemDelete([kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:service,kSecAttrAccount as String:"api"] as CFDictionary)
-        }
+        let service = "cn.wristbeam.selftest." + UUID().uuidString
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(service)
+        let store = DeveloperSecrets(directory: directory)
+        defer { try? FileManager.default.removeItem(at: directory) }
         let token = try await Task.detached { try store.key("api") }.value
-        let restored = try await Task.detached { try DeveloperSecrets(service: service).load("api") }.value
+        let restored = try await Task.detached { try DeveloperSecrets(directory: directory).load("api") }.value
         guard token.count == 64, restored == token else { throw DeveloperError.invalid("Packaged key persistence failed") }
+        let exported = directory.appendingPathComponent("exported.txt")
+        try DeveloperSecrets.export(token, to:exported)
+        let imported = try DeveloperSecrets.validated(String(contentsOf:exported,encoding:.utf8))
+        try store.save(imported,name:"webhook")
+        let mode = try FileManager.default.attributesOfItem(atPath:exported.path)[.posixPermissions] as? NSNumber
+        guard try store.load("webhook") == token, mode?.intValue == 0o600 else { throw DeveloperError.invalid("Packaged key export/import failed") }
         let pasteboard = NSPasteboard(name: NSPasteboard.Name(service))
         defer { pasteboard.clearContents(); pasteboard.releaseGlobally() }
         guard pasteboard.setString(token, forType: .string), pasteboard.string(forType: .string) == token else {
