@@ -140,24 +140,26 @@ struct ActivityDetailSheet: View {
                             Text(L10n.text("当前仅保存摘要。下载详情后可查看图表，AI 也能查询这些数据。"))
                                 .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary)
                         }
-                        HStack {
-                            Button(L10n.text(detail == nil ? "下载详情" : "重新下载详情")) { Task { await library.downloadDetail(id) } }
-                                .disabled(!library.online || library.busy)
-                            Menu(L10n.text("导出运动")) {
-                                Button("JSON") { exportJSON() }
-                                ForEach(GarminActivityFormat.allCases) { format in
-                                    Button(format.label) { export(format) }
-                                        .disabled(!library.online && !library.formats(id).contains(format.rawValue))
-                                }
-                            }.disabled(library.busy)
-                            if library.busy { ProgressView().controlSize(.small) }
-                        }.buttonStyle(.bordered)
-                        if !library.status.isEmpty { Text(L10n.text(library.status)).foregroundStyle(.orange) }
-                        if !exportStatus.isEmpty { Text(L10n.text(exportStatus)).foregroundStyle(PulseTheme.secondary) }
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
+                HStack {
+                    Button(L10n.text(detail == nil ? "下载详情" : "重新下载详情")) { Task { await library.downloadDetail(id) } }
+                        .disabled(!library.online || library.busy)
+                    Menu(L10n.text("导出运动")) {
+                        Button("JSON") { exportJSON() }
+                        ForEach(GarminActivityFormat.allCases) { format in
+                            Button(format.label) { export(format) }
+                                .disabled(!library.online && !library.formats(id).contains(format.rawValue))
+                        }
+                    }.disabled(library.busy)
+                    if library.busy { ProgressView().controlSize(.small) }
+                }.buttonStyle(.bordered)
+                if !library.status.isEmpty { Text(L10n.text(library.status)).foregroundStyle(.orange) }
+                if !exportStatus.isEmpty { Text(L10n.text(exportStatus)).foregroundStyle(PulseTheme.secondary) }
+
             } else { Text(L10n.text("尚未下载这条运动的数据")) }
         }.padding(24).frame(width: 660, height: 570)
+            .background(PulseTheme.background).foregroundStyle(.primary)
     }
     private func save(_ data: Data, extension ext: String) {
         let panel = NSSavePanel()
