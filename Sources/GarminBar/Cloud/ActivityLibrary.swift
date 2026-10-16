@@ -17,6 +17,7 @@ import Combine
     private var generation = UUID()
     private var lastAttempt = Date()
     private var lastPageIDs: [String] = []
+    private var detailCache: [String: GarminActivityDetail] = [:]
     private(set) var store: GarminActivityStore?
     var online: Bool { cloud?.networkEnabled == true && cloud?.isAuthenticated == true && cloud?.accountGUID.isEmpty == false }
 
@@ -46,7 +47,7 @@ import Combine
             if saved.count == 64 && saved.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) { next = saved }
         }
         guard next != scope else { return }
-        scope = next; generation = UUID(); busy = false; status = ""; lastPageIDs = []
+        scope = next; generation = UUID(); busy = false; status = ""; lastPageIDs = []; detailCache = [:]
         store = next.isEmpty ? nil : GarminActivityStore(directory: root.appendingPathComponent(next, isDirectory: true))
         index = store?.loadIndex() ?? .init(); cacheRevision += 1
     }
@@ -88,7 +89,17 @@ import Combine
             index = next; lastPageIDs = ids; cacheRevision += 1
         } catch { failure(error, token: token) }
     }
-    func detail(_ id: String) -> GarminActivityDetail? { store?.detail(id) }
+    func detail(_ id: String) -> GarminActivityDetail? {
+        if let cached = detailCache[id] { return cached }
+        guard let cached = store?.detail(id) else { return nil }
+        if detailCache.count >= 20 { detailCache.removeAll() }
+        detailCache[id] = cached
+        return cached
+    }
+    func hasDetail(_ id: String) -> Bool {
+        guard let file = try? store?.file(id, extension: "json") else { return false }
+        return FileManager.default.fileExists(atPath: file.path)
+    }
     func formats(_ id: String) -> [String] {
         guard let store else { return [] }
         return GarminActivityFormat.allCases.filter {
@@ -106,6 +117,8 @@ import Combine
             let detail = try await cloud.fetchActivityDetail(id: id)
             guard current(token) else { return }
             do { try store.save(detail) } catch { throw GarminActivityError.storage }
+            if detailCache.count >= 20 { detailCache.removeAll() }
+            detailCache[id] = detail
             cacheRevision += 1
         } catch { failure(error, token: token) }
     }

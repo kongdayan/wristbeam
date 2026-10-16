@@ -1,5 +1,4 @@
 import Foundation
-import FoundationXML
 import CoreFoundation
 
 /// A deliberately small, account-free projection. Raw cloud JSON can contain names,

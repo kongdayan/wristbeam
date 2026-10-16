@@ -56,7 +56,7 @@ struct ActivityLibraryCard: View {
                                 }
                                 Spacer()
                                 if let duration = activity.statistics["duration"] { Text(String(format: "%.0f min", duration / 60)).monospacedDigit() }
-                                if library.detail(activity.id) != nil { Image(systemName: "arrow.down.circle.fill").foregroundStyle(PulseTheme.mint).help(L10n.text("详情已下载")) }
+                                if library.hasDetail(activity.id) { Image(systemName: "arrow.down.circle.fill").foregroundStyle(PulseTheme.mint).help(L10n.text("详情已下载")) }
                                 Image(systemName: "chevron.right").foregroundStyle(PulseTheme.secondary)
                             }.padding(.vertical, 8).contentShape(Rectangle())
                         }.buttonStyle(.plain)
@@ -87,6 +87,15 @@ private struct ActivityDetailSheet: View {
     @State private var exportStatus = ""
     private var summary: GarminActivity? { library.index.activities.first { $0.id == id } }
     private var detail: GarminActivityDetail? { library.detail(id) }
+    private var heartPoints: [ActivityHeartPoint] {
+        guard let detail, let values = detail.series.first(where: { $0.key == "directHeartRate" })?.values,
+              let timestamps = detail.series.first(where: { $0.key == "directTimestamp" })?.values else { return [] }
+        var segment = 0
+        return values.enumerated().compactMap { index, value in
+            guard let value, timestamps.indices.contains(index), let time = timestamps[index], time > 0 else { segment += 1; return nil }
+            return ActivityHeartPoint(id: index, time: Date(timeIntervalSince1970: time / 1000), value: value, segment: segment)
+        }
+    }
     private let statLabels: [(String, String, String)] = [
         ("duration", "时长", "s"), ("distance", "距离", "m"), ("calories", "热量", "kcal"),
         ("averageHR", "平均心率", "bpm"), ("maxHR", "最高心率", "bpm"),
@@ -116,15 +125,14 @@ private struct ActivityDetailSheet: View {
                                 }
                             }
                         }
-                        if let detail {
+                        if detail != nil {
                             Text(L10n.text("详情已下载")).foregroundStyle(PulseTheme.mint)
-                            if let heart = detail.series.first(where: { $0.key == "directHeartRate" }), heart.values.contains(where: { $0 != nil }) {
+                            if !heartPoints.isEmpty {
                                 Text(L10n.text("心率图表")).font(PulseTheme.font(size: 15, weight: .medium))
-                                Chart(Array(heart.values.enumerated()), id: \.offset) { point in
-                                    if let value = point.element {
-                                        PointMark(x: .value("Sample", point.offset), y: .value("bpm", value)).symbolSize(8).foregroundStyle(PulseTheme.mint)
-                                    }
-                                }.frame(height: 180).chartXAxisLabel(L10n.text("图表采样点"))
+                                Chart(heartPoints) { point in
+                                    LineMark(x: .value("Time", point.time), y: .value("bpm", point.value), series: .value("Segment", point.segment))
+                                        .foregroundStyle(PulseTheme.mint)
+                                }.frame(height: 180)
                             }
                             Text(L10n.text("图表为云端缩减采样；完整记录可导出 TCX 或原始文件。"))
                                 .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
@@ -169,4 +177,11 @@ private struct ActivityDetailSheet: View {
             catch { exportStatus = "无法保存运动数据，请检查可用空间" }
         }
     }
+}
+
+private struct ActivityHeartPoint: Identifiable {
+    let id: Int
+    let time: Date
+    let value: Double
+    let segment: Int
 }
