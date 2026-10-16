@@ -98,6 +98,11 @@ final class WatchBluetooth: NSObject, ObservableObject {
     var hasSavedWatch: Bool { AppPreferences.shared.string(forKey: "watchIdentifier").flatMap(UUID.init(uuidString:)) != nil }
     var savedWatchName: String { AppPreferences.shared.string(forKey: "watchName") ?? "已配对手表" }
 
+    func connectionStage(now: Date = Date()) -> WatchConnectionStage {
+        WatchConnectionStage.resolve(access: access, powered: central.map { $0.state == .poweredOn },
+            scanning: isScanning, discovered: !nearby.isEmpty, connecting: isConnecting, connected: isConnected,
+            protocolReady: protocolReady, lastSample: lastLiveSampleAt, now: now)
+    }
     private func initialize() {
         guard central == nil, !PulseRuntime.isPreview else { return }
         sessionActivated = true
@@ -230,7 +235,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
     }
 
     func resumeRequestedConnection() {
-        guard sessionActivated, connectRequested, autoReconnect, !isConnected, !isConnecting else { return }
+        guard ConnectionStartupPolicy.canResume(activated: sessionActivated, requested: connectRequested, automatic: autoReconnect, connected: isConnected, connecting: isConnecting) else { return }
         reconnectSaved()
     }
 

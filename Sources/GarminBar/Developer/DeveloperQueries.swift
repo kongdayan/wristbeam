@@ -14,6 +14,7 @@ struct DeveloperQuerySnapshot {
     var metadata: [MetricKind: (title: String, unit: String)]
 
     func query(_ route: String, arguments: [String:Any]) throws -> Any {
+        if route == "summary" { return try healthSummary(arguments) }
         if ["activities", "activity", "activity_series"].contains(route) {
             return try ActivityQueries.query(route, arguments: arguments, index: activityIndex,
                 detail: { activityStore?.detail($0) }, formats: { activityStore?.formats($0) ?? [] },

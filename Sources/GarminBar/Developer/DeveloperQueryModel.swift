@@ -7,7 +7,9 @@ import Foundation
         var status: [String: Any] = ["schemaVersion": 1, "watchConnected": bluetooth.isConnected,
             "fileChannelReady": bluetooth.canSyncFiles, "cloudConnected": cloud.isAuthenticated,
             "pendingFiles": uploads.pendingCount, "readOnly": true, "demo": preview,
-            "storageIssues": storageIssues.sorted(), "watchBattery": NSNull()]
+            "storageIssues": storageIssues.sorted(), "connectionStage": bluetooth.connectionStage(now: now).rawValue,
+            "lastReceivedAt": lastReceivedAt.map { formatter.string(from: $0) } as Any? ?? NSNull(),
+            "lastSavedAt": lastLocalSavedAt.map { formatter.string(from: $0) } as Any? ?? NSNull(), "watchBattery": NSNull()]
         if let battery = metrics[.watchBattery], battery.value.isFinite, (0...100).contains(battery.value) {
             status["watchBattery"] = ["percent": battery.value, "recordedAt": formatter.string(from: battery.timestamp),
                 "stale": isStale(.watchBattery), "charging": bluetooth.batteryCharging as Any? ?? NSNull()]

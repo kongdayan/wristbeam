@@ -96,7 +96,7 @@ import Security
         let object = try JSONSerialization.jsonObject(with:response.data) as! [String:Any]
         let result = object["result"] as! [String:Any]
         XCTAssertEqual(result["protocolVersion"] as? String,"2025-06-18")
-        XCTAssertEqual(DeveloperProtocol.tools.count,8)
+        XCTAssertEqual(DeveloperProtocol.tools.count,9)
         for item in DeveloperProtocol.tools { XCTAssertEqual((item["annotations"] as? [String:Bool])?["readOnlyHint"],true) }
         XCTAssertFalse(DeveloperProtocol.tools.contains { ($0["name"] as? String ?? "").contains("upload") })
     }

@@ -3,6 +3,69 @@ import XCTest
 @testable import GarminBar
 
 final class ReliabilityTests: XCTestCase {
+    func testSummaryDatesMissingDataAndCoverageAreExplicit() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let date = GarminHRV.date("2026-01-10")!
+        let snapshot = DeveloperQuerySnapshot(metrics: [:], freshness: [:], history: [:], reader: HealthHistoryReader(telemetry: root),
+            activityIndex: .init(), statusValue: [:], observedAt: date, metadata: [:])
+        let summary = try snapshot.healthSummary(["startDate": "2026-01-01", "endDate": "2026-01-02"])
+        let days = summary["days"] as! [[String: Any]]
+        XCTAssertEqual(days.count, 2)
+        XCTAssertEqual((days[0]["missingMetrics"] as? [String])?.count, 4)
+        let rows = days[0]["metrics"] as! [[String: Any]]
+        XCTAssertTrue(rows[0]["sampleMean"] is NSNull)
+        XCTAssertEqual(rows[0]["observedMinuteCount"] as? Int, 0)
+        XCTAssertThrowsError(try snapshot.healthSummary(["startDate": "2025-01-01", "endDate": "2026-01-01"]))
+        XCTAssertThrowsError(try snapshot.healthSummary(["startDate": "2026-01-01", "endDate": "2027-01-01"]))
+    }
+
+    func testNamedCredentialsPersistAndRevokeIndependently() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = DeveloperClientStore(url: root.appendingPathComponent("clients.json"))
+        let first = try DeveloperClientStore.create(name: "Coach", scopes: [.summary]), second = try DeveloperClientStore.create(name: "Dashboard", scopes: [.metrics])
+        _ = try store.update { $0 = [first, second] }
+        _ = try store.update { $0[0].revokedAt = Date(); $0[0].key = "" }
+        let restored = try store.load()
+        XCTAssertFalse(restored[0].enabled); XCTAssertEqual(restored[1].key, second.key)
+        XCTAssertTrue(DeveloperProtocol.permits("summary", scopes: ["summary"]))
+        XCTAssertFalse(DeveloperProtocol.permits("metrics", scopes: ["summary"]))
+        let request = DeveloperRequest(method: "GET", target: "/api/v1/metrics", headers: ["host": "localhost", "authorization": "Bearer " + second.key], body: Data())
+        var queried = false
+        let response = DeveloperProtocol.route(request, token: second.key, allowedHosts: ["localhost"], origin: "http://localhost", scopes: ["status"]) { _, _ in queried = true; return [:] }
+        XCTAssertEqual(response.status, 403); XCTAssertFalse(queried)
+    }
+
+    func testConnectionStagesAndWakeRespectManualDisconnect() {
+        XCTAssertFalse(ConnectionStartupPolicy.canResume(activated: true, requested: false, automatic: true, connected: false, connecting: false))
+        XCTAssertTrue(ConnectionStartupPolicy.canResume(activated: true, requested: true, automatic: true, connected: false, connecting: false))
+        XCTAssertFalse(ConnectionStartupPolicy.canResume(activated: true, requested: true, automatic: false, connected: false, connecting: false))
+        let now = Date()
+        func stage(_ ready: Bool, _ last: Date?) -> WatchConnectionStage {
+            WatchConnectionStage.resolve(access: .allowed, powered: true, scanning: false, discovered: true,
+                connecting: false, connected: true, protocolReady: ready, lastSample: last, now: now)
+        }
+        XCTAssertEqual(stage(false, nil), .negotiating)
+        XCTAssertEqual(stage(true, nil), .ready)
+        XCTAssertEqual(stage(true, now), .receiving)
+        XCTAssertEqual(stage(true, now.addingTimeInterval(-100)), .ready)
+    }
+
+    func testPixelSamplingKeepsPeaksGapsAndOriginalCursorValues() {
+        let day = GarminHRV.date("2026-01-01")!
+        var points = (0..<86_400).map { MetricSeriesPoint(timestamp: day.addingTimeInterval(Double($0)), value: Double($0 % 60)) }
+        points[12345].value = 199
+        points[40000].value = nil
+        let source = MetricDaySeries(kind: .heartRate, day: day, points: points, source: "fixture", refreshedAt: day)
+        let rendered = source.sampled(width: 300, domain: day...day.addingTimeInterval(86400))
+        XCTAssertTrue(rendered.points.count < 4000)
+        XCTAssertEqual(rendered.maximum, 199)
+        XCTAssertEqual(rendered.minimum, 0)
+        XCTAssertEqual(rendered.segments.count, source.segments.count)
+        XCTAssertEqual(source.reading(at: day.addingTimeInterval(12345))?.value, 199)
+        XCTAssertEqual(source.points.count, 86400)
+    }
     func testOfflineColdQueryUsesJournalWithoutOpeningDashboard() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

@@ -29,7 +29,7 @@ final class AppModel: ObservableObject {
     @Published var detailDay = Date()
     @Published var metricNotes: [MetricKind: String] = [:]
     @Published var events: [ActivityLog] = []
-    @Published var now = Date()
+    var now = Date()
     @Published var page = AppPage.overview
     @Published var selectedActivityID: String?
     @Published var showLogin = false
@@ -117,6 +117,7 @@ final class AppModel: ObservableObject {
     var onQuit: (() -> Void)?
     let journal = TelemetryJournal()
     @Published var storageIssues: Set<String> = []
+    @Published var lastReceivedAt: Date?
     @Published var lastLocalSavedAt: Date?
     var metricSyncedAt: [MetricKind: Date] = [:]
     var pendingChartSaves: [String: [MetricKind: MetricDaySeries]] = [:]
@@ -128,9 +129,9 @@ final class AppModel: ObservableObject {
     private var lastStatusWrite = Date.distantPast
     private var lastWidgetBuild = Date.distantPast
     private var lastHealthRefresh = Date.distantPast
-    private var lastSeriesRefresh: [String: Date] = [:]
+    var lastSeriesRefresh: [String: Date] = [:]
     var seriesStore: MetricSeriesStore?
-    private var seriesOwner = ""
+    var seriesOwner = ""
     var lastControlRequest = ""
 
     init() {
@@ -167,15 +168,17 @@ final class AppModel: ObservableObject {
         }
         bluetooth.onFile = { [weak self] url, metadata in
             guard let self else { return }
+            self.lastReceivedAt = Date()
             guard self.bluetooth.archiveRegion == self.cloud.region else { self.log("账户区域已变化，原文件保留，等候同一区域恢复"); return }
             let id = metadata.deviceID > 0 ? String(metadata.deviceID) : (!self.watchUnitID.isEmpty ? self.watchUnitID : self.cloud.deviceId)
             let type = GarminDataType(fitSubtype: UInt8(clamping: metadata.subtype))
             do {
                 try self.uploads.enqueue(fileURL: url, deviceID: id, dataType: type)
+                self.lastLocalSavedAt = Date(); self.storageIssues.remove("fileQueueWriteFailed")
                 self.log("已接收\(type.label)原始文件，已暂存在本机")
                 self.refreshLocalDataSummary()
             }
-            catch { self.log("文件入队失败：\(error.localizedDescription)") }
+            catch { self.storageIssues.insert("fileQueueWriteFailed"); self.log("文件入队失败：\(error.localizedDescription)") }
             if self.cloudSyncEnabled && self.autoUpload && !self.preview { Task { await self.uploads.syncNow(force: false) } }
         }
         uploads.automaticSyncEnabled = cloudSyncEnabled && autoUpload && !preview
@@ -241,7 +244,14 @@ final class AppModel: ObservableObject {
         developer.attach(self)
         weather.attach(cloud: cloud, bluetooth: bluetooth)
         Timer.publish(every: 1, on: .main, in: .common).autoconnect().sink { [weak self] date in
-            guard let self else { return }; self.now = date
+            guard let self else { return }
+            let previousStage = self.bluetooth.connectionStage(now: self.now)
+            let oldStale = Set(self.metrics.keys.filter { self.isStale($0) })
+            let previousDay = Calendar.current.startOfDay(for: self.now)
+            self.now = date
+            if previousStage != self.bluetooth.connectionStage(now: date) || oldStale != Set(self.metrics.keys.filter { self.isStale($0) }) || previousDay != Calendar.current.startOfDay(for: date) {
+                self.objectWillChange.send()
+            }
             self.developer.tick()
             if !self.preview { self.activities.tick(now: date) }
             if date.timeIntervalSince(self.lastStatusWrite) >= 5 { self.writeRuntimeState() }
@@ -331,6 +341,7 @@ final class AppModel: ObservableObject {
         return bluetooth.availableMetrics.contains(kind) ? "已订阅 · 等待读数" : "当前服务未开放此指标"
     }
     func receive(_ sample: MetricSample) {
+        if sample.origin == .watch { lastReceivedAt = Date() }
         if sample.origin != .watch, let current = metrics[sample.kind], current.origin == .watch, !isStale(sample.kind) { return }
         metricSyncedAt[sample.kind] = Date()
         metrics[sample.kind] = sample; metricNotes.removeValue(forKey: sample.kind)
@@ -413,76 +424,6 @@ final class AppModel: ObservableObject {
         }
     }
 
-    var historyReader: HealthHistoryReader { HealthHistoryReader(telemetry: AppPaths.directory("Telemetry"), charts: seriesStore) }
-    func series(for kind: MetricKind, day: Date? = nil) -> MetricDaySeries? {
-        if kind.isOvernightHRV { return hrvReport?.trend(kind) }
-        guard let canonical = kind.timelineKind else { return nil }
-        return seriesDays[GarminHealthMetrics.calendarDate(day ?? now)]?[canonical]
-    }
-    func mergeSeries(_ incoming: [MetricKind: MetricDaySeries], day: Date) {
-        let key = GarminHealthMetrics.calendarDate(day)
-        var collection = seriesDays[key] ?? [:]
-        for (kind, series) in incoming where !kind.isDeviceStatus { collection[kind] = collection[kind].map { $0.merging(series) } ?? series }
-        seriesDays[key] = collection
-        // Bound memory without deleting stored history. Requested dates reload.
-        if seriesDays.count > 10, let oldest = seriesDays.keys.sorted().first, oldest != key { seriesDays.removeValue(forKey: oldest) }
-    }
-    func restoreSeries(day: Date) {
-        let store = seriesStore, reader = historyReader
-        Task { @MainActor [weak self] in
-            let result = await Task.detached(priority: .utility) { reader.read(day: day) }.value
-            guard let self, self.seriesStore === store else { return }
-            self.mergeSeries(result.series, day: day)
-            self.storageIssues.formUnion(result.issues)
-        }
-    }
-    func saveSeries(_ collection: [MetricKind: MetricDaySeries], day: Date) async {
-        guard let store = seriesStore else { return }
-        let key = GarminHealthMetrics.calendarDate(day)
-        pendingChartSaves[key] = collection
-        let saved = await Task.detached(priority: .utility) { () -> Bool in
-            for _ in 0..<3 {
-                do { try store.saveChecked(collection, day: day); return true } catch { }
-            }
-            return false
-        }.value
-        guard seriesStore === store else { return }
-        if saved { pendingChartSaves.removeValue(forKey: key); if pendingChartSaves.isEmpty { storageIssues.remove("chartWriteFailed") } }
-        else { storageIssues.insert("chartWriteFailed") }
-    }
-    func retryLocalStorage() {
-        journal.retry()
-        Task {
-            for (key, values) in pendingChartSaves { if let day = GarminHRV.date(key) { await saveSeries(values, day: day) } }
-            restoreSeries(day: detailDay)
-            refreshLocalDataSummary()
-        }
-    }
-    func refreshSeries(day: Date, force: Bool = false) async {
-        let key = GarminHealthMetrics.calendarDate(day)
-        if !preview, seriesDays[key] == nil { restoreSeries(day: day) }
-        guard !preview, cloudSyncEnabled, cloud.isAuthenticated, !loadingSeriesDays.contains(key),
-              force || Date().timeIntervalSince(lastSeriesRefresh[key] ?? .distantPast) >= Double(max(1, metricRefreshInterval)) * 60 else { return }
-        let device = watchUnitID.isEmpty ? cloud.deviceId : watchUnitID
-        guard !device.isEmpty, cloud.devices.contains(where: { $0.id == device }) else { return }
-        if seriesDays[key] == nil { restoreSeries(day: day) }
-        let owner = seriesOwner
-        loadingSeriesDays.insert(key); lastSeriesRefresh[key] = Date()
-        defer { loadingSeriesDays.remove(key) }
-        let snapshot = await cloud.dailySeries(deviceID: device, day: day)
-        guard seriesOwner == owner else { return }
-        mergeSeries(snapshot.series, day: day)
-        seriesNotes[key] = snapshot.notes
-        seriesStatus = snapshot.detail
-        if let collection = seriesDays[key] { await saveSeries(collection, day: day) }
-        if Calendar.current.isDateInToday(day) {
-            for series in snapshot.series.values where series.kind.definition.dailyKey == nil {
-                if let latest = series.latest, let value = latest.value, !["floors", "pushes"].contains(series.kind.rawValue) {
-                    receive(MetricSample(kind: series.kind, value: value, source: "\(cloud.region.title) · 最近同步读数", timestamp: latest.timestamp, origin: .cloud))
-                }
-            }
-        }
-    }
     func openMetric(_ kind: MetricKind, day: Date? = nil) {
         if kind.isDeviceStatus { openSettings(.watch); return }
         detailDay = day ?? Date(); openSettings(.overview); detailMetric = kind
@@ -598,34 +539,6 @@ final class AppModel: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         uploads.startWatching(directory: url)
         log(uploads.watchedDirectory == url ? "已启用 FIT 文件夹自动同步" : uploads.status)
-    }
-    func refreshLocalDataSummary() {
-        guard !preview else { return }
-        let root = AppPaths.root
-        Task {
-            let summary = await Task.detached(priority: .utility) { LocalDataArchive.summary(root: root) }.value
-            self.localDataSummary = summary
-        }
-    }
-    func uploadStoredFiles() {
-        guard cloudSyncEnabled, cloud.isAuthenticated, !preview else { openSettings(.account); return }
-        Task { await uploads.syncNow(force: true) }
-    }
-    func exportLocalData() {
-        guard !preview, !isExportingLocalData else { return }
-        let panel = NSSavePanel(); panel.allowedContentTypes = [.zip]
-        panel.nameFieldStringValue = "WristBeam-Local-Data.zip"
-        panel.prompt = L10n.text("导出暂存数据")
-        guard panel.runModal() == .OK, let destination = panel.url else { return }
-        isExportingLocalData = true; localExportStatus = "正在导出暂存数据"
-        let root = AppPaths.root
-        Task {
-            defer { isExportingLocalData = false }
-            do {
-                try await Task.detached(priority: .utility) { try LocalDataArchive.export(root: root, to: destination) }.value
-                localExportStatus = "暂存数据已导出"
-            } catch { localExportStatus = "导出未完成，原始数据保留" }
-        }
     }
     func enablePreview() {
         preview = true; cloud.setNetworkEnabled(false); uploads.automaticSyncEnabled = false

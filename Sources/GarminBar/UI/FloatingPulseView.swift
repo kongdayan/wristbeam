@@ -40,7 +40,7 @@ struct FloatingPulseView: View {
             Spacer(minLength:0)
             HStack {
                 StatusDot(active:model.preview || model.bluetooth.isConnected)
-                Text(L10n.text(model.preview ? "演示数据" : model.bluetooth.isConnected ? "手表已连接" : "等待手表"))
+                Text(L10n.text(model.preview ? "演示数据" : model.bluetooth.connectionStage(now: model.now).title))
                 Spacer()
                 Button { if let kind { model.openMetric(kind) } else { model.openSettings(.overview) } } label: {
                     Label(L10n.text("查看详情"),systemImage:"arrow.up.right")

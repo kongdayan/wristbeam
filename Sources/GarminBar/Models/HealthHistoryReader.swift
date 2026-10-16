@@ -11,10 +11,14 @@ struct HealthHistoryResult {
 struct HealthHistoryReader {
     let telemetry: URL
     var charts: MetricSeriesStore?
+    var legacyCharts: MetricSeriesStore?
 
     func read(day: Date, now: Date = Date()) -> HealthHistoryResult {
         var result = HealthHistoryResult()
-        do { result.series = try charts?.loadChecked(day: day) ?? [:] }
+        do {
+            result.series = try charts?.loadChecked(day: day) ?? [:]
+            if result.series.isEmpty { result.series = try legacyCharts?.loadChecked(day: day) ?? [:] }
+        }
         catch { result.issues.append("chartReadFailed") }
         let file = telemetry.appendingPathComponent(GarminHealthMetrics.calendarDate(day) + ".jsonl")
         guard FileManager.default.fileExists(atPath: file.path) else { return result }

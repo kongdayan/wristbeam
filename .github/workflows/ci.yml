@@ -51,7 +51,7 @@ jobs:
       security-events: write
   required:
     name: CI passed
-    if: always()
+    if: ${{ always() && !cancelled() }}
     needs: [quality, build, security]
     runs-on: ubuntu-24.04
     timeout-minutes: 5

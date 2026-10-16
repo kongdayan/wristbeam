@@ -41,8 +41,12 @@ struct DeveloperSettingsPage: View {
                     PreferenceLine(title:"PKCS#12 证书密码") { SecureField("",text:$certificatePassword).textFieldStyle(.roundedBorder) }
                     PreferenceLine(title:access.certificateAvailable ? "已保存 HTTPS 证书" : "请导入含私钥的 .p12 / .pfx 证书") { Button(L10n.text("导入证书…")) { access.importCertificate(password:certificatePassword); certificatePassword = "" } }
                 }
+                PreferenceLine(title: "启用默认密钥") {
+                    Toggle("", isOn: Binding(get: { access.configuration.primaryKeyEnabled != false }, set: { access.configuration.primaryKeyEnabled = $0 })).labelsHidden().toggleStyle(.switch)
+                }
                 DeveloperKeyControls(access:access, name:"api", title:"访问密钥")
             }
+            DeveloperClientsView(access: access)
             PreferenceBlock(title:"客户端接入") {
                 VStack(alignment:.leading,spacing:12) {
                     HStack { StatusDot(active:access.running); Text(L10n.text(access.status)); Spacer(); Text(L10n.format("已处理 {0} 次请求",String(access.requestCount))) }.font(PulseTheme.font(size:11))

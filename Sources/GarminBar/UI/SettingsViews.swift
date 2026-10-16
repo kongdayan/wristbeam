@@ -102,6 +102,11 @@ struct OverviewPage: View {
                 HStack(alignment: .center) { title; Spacer(minLength: 12); DashboardConnectionStatus(model: model) }
                 VStack(alignment: .leading, spacing: 12) { title; DashboardConnectionStatus(model: model) }
             }
+            if !model.storageIssues.isEmpty {
+                Button { model.openSettings(.sync) } label: {
+                    Label(L10n.text("本地保存或读取异常"), systemImage: "exclamationmark.triangle")
+                }.buttonStyle(.bordered).tint(.orange)
+            }
             HStack(spacing: 8) {
                 Text(L10n.text(model.preview ? "演示数据 · 用于功能展示" : model.healthStatus))
                     .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineLimit(1)
@@ -189,7 +194,12 @@ struct WatchPage: View {
             PairingGuide(model: model)
             PulseCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.status)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer(); WatchBatteryBadge(model: model) }
+                    HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.connectionStage(now: model.now).title)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer(); WatchBatteryBadge(model: model) }
+                    if bluetooth.isConnected && !bluetooth.protocolReady {
+                        Button(L10n.text("重新准备数据通道")) { bluetooth.retryProtocol() }.buttonStyle(.bordered)
+                    } else if !bluetooth.isConnected && !bluetooth.isConnecting && bluetooth.hasSavedWatch {
+                        Button(L10n.text("重新连接手表")) { bluetooth.reconnectSaved() }.buttonStyle(.bordered).disabled(model.preview)
+                    }
                     Text(L10n.text(bluetooth.bluetoothStatus)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                     HStack(spacing: 10) {
                         if bluetooth.isConnected || bluetooth.isConnecting { Button(L10n.text(bluetooth.isConnecting ? "取消连接" : "断开")) { bluetooth.disconnect() }.buttonStyle(.bordered) }
@@ -328,6 +338,7 @@ struct SyncPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 19) {
             SyncSetupGuide(model: model)
+            SyncProgressView(model: model)
             PulseCard {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(L10n.text("本地暂存")).font(PulseTheme.font(size: 17, weight: .semibold))
