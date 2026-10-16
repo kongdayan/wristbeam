@@ -4,12 +4,12 @@ import CoreFoundation
 enum ActivityQueries {
     static func query(_ route: String, arguments: [String: Any], index: GarminActivityIndex,
                       detail: (String) -> GarminActivityDetail?, formats: (String) -> [String]) throws -> [String: Any] {
-        let allowed: Set<String> = route == "activities" ? ["offset", "limit", "startDate", "endDate", "type"] : route == "activity" ? ["id"] : ["id", "metric", "offset", "limit"]
+        let allowed: Set<String> = route == "activities" ? ["offset", "limit", "startDate", "endDate", "type"] : route == "activity" ? ["id", "lapOffset", "lapLimit"] : ["id", "metric", "offset", "limit"]
         guard Set(arguments.keys).isSubset(of: allowed) else { throw DeveloperError.invalid("Unknown query parameter") }
         func integer(_ key: String, fallback: Int, maximum: Int) throws -> Int {
             guard let raw = arguments[key] else { return fallback }
             guard let number = GarminActivities.number(raw), number.rounded() == number,
-                  (Double(key == "limit" ? 1 : 0)...Double(maximum)).contains(number) else { throw DeveloperError.invalid("Invalid " + key) }
+                  (Double(key == "limit" || key == "lapLimit" ? 1 : 0)...Double(maximum)).contains(number) else { throw DeveloperError.invalid("Invalid " + key) }
             return Int(number)
         }
         func day(_ key: String) throws -> String? {
@@ -52,10 +52,21 @@ enum ActivityQueries {
         }
         let cached = detail(id)
         if route == "activity" {
+            let lapOffset = try integer("lapOffset", fallback: 0, maximum: 5000)
+            let lapLimit = try integer("lapLimit", fallback: 100, maximum: 100)
+            let laps = cached?.laps ?? []
+            let lapPage: [[String: Any]] = laps.dropFirst(lapOffset).prefix(lapLimit).map { ["index": $0.index, "statistics": $0.statistics] }
+            let zones: [[String: Any]] = (cached?.heartRateZones ?? []).map {
+                ["zone": $0.number, "seconds": $0.seconds, "lowerBPM": $0.lowerBPM as Any? ?? NSNull()]
+            }
             return ["schemaVersion": 1, "cached": true, "activity": row(cached?.summary ?? summary), "detailCached": cached != nil,
                     "detailFetchedAt": cached.map { stamp.string(from: $0.fetchedAt) } as Any? ?? NSNull(),
                     "chartAvailable": cached?.chartAvailable ?? false, "chartPointLimit": cached?.chartPointLimit as Any? ?? NSNull(),
-                    "seriesMetrics": cached?.series.map(\.key) ?? [], "downloadedFormats": formats(id), "completeRecording": false]
+                    "seriesMetrics": cached?.series.map(\.key) ?? [], "downloadedFormats": formats(id), "completeRecording": false,
+                    "heartRateZones": zones, "heartRateZonesCached": cached?.heartRateZones != nil,
+                    "laps": lapPage, "lapsCached": cached?.laps != nil, "lapCount": laps.count,
+                    "nextLapOffset": lapOffset + lapPage.count < laps.count ? lapOffset + lapPage.count as Any : NSNull(),
+                    "unavailableSections": cached?.unavailableSections ?? []]
         }
         guard route == "activity_series", let metric = arguments["metric"] as? String, GarminActivities.seriesKeys.contains(metric) else { throw DeveloperError.invalid("Invalid chart metric") }
         let offset = try integer("offset", fallback: 0, maximum: 100_000), limit = try integer("limit", fallback: 250, maximum: 500)

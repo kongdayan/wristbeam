@@ -571,7 +571,21 @@ final class GarminChinaCloud: ObservableObject {
         guard generation == authenticationGeneration, requestRegion == region else { throw CancellationError() }
         let chart = try await activityRequest(URL(string: base + "/details?maxChartSize=\(GarminActivities.chartLimit)&maxPolylineSize=0")!, limit: GarminActivities.maximumJSONBytes)
         guard generation == authenticationGeneration, requestRegion == region else { throw CancellationError() }
-        return try GarminActivities.detail(summary: summary, chart: chart, expectedID: id)
+        var result = try GarminActivities.detail(summary: summary, chart: chart, expectedID: id)
+        result.unavailableSections = []
+        for section in ["hrTimeInZones", "splits"] {
+            do {
+                let data = try await activityRequest(URL(string: base + "/" + section)!, limit: GarminActivities.maximumJSONBytes)
+                guard generation == authenticationGeneration, requestRegion == region, networkEnabled, !Task.isCancelled else { throw CancellationError() }
+                if section == "hrTimeInZones" { result.heartRateZones = try GarminActivities.zones(data) }
+                else { result.laps = try GarminActivities.laps(data, expectedID: id) }
+            } catch {
+                guard generation == authenticationGeneration, requestRegion == region, networkEnabled, !Task.isCancelled,
+                      !(error is CancellationError) else { throw CancellationError() }
+                result.unavailableSections?.append(section)
+            }
+        }
+        return result
     }
 
     func fetchActivityFile(id: String, format: GarminActivityFormat) async throws -> Data {

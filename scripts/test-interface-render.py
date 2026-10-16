@@ -51,13 +51,15 @@ import SwiftUI
         let activityStore = GarminActivityStore(root: AppPaths.directory("CloudActivities"), scope: activityScope)
         let activity = GarminActivity(id: "1001", name: "Synthetic morning run", type: "running",
             startTimeGMT: "2026-01-02 02:00:00", startTimeLocal: "2026-01-02 10:00:00",
-            statistics: ["duration":1800,"distance":5000,"averageHR":135,"maxHR":152,"calories":320,"aerobicTrainingEffect":2.8], fetchedAt:Date())
+            statistics: ["duration":1800,"distance":5000,"averageHR":135,"maxHR":152,"calories":320,"aerobicTrainingEffect":2.8,"averageSpeed":2.8,"elevationGain":40,"averageTemperature":20,"waterEstimated":450], fetchedAt:Date())
         var activityIndex = GarminActivityIndex(); activityIndex.activities = [activity]; activityIndex.refreshedAt = Date(); activityIndex.reachedEnd = true
         try activityStore.saveIndex(activityIndex)
         try activityStore.save(GarminActivityDetail(summary:activity, series:[
             GarminActivitySeries(key:"directHeartRate",unit:"bpm",factor:1,values:[100,110,120,nil,130,140,135,145]),
             GarminActivitySeries(key:"directTimestamp",unit:"gmt",factor:0,values:(0..<8).map { 1_767_319_200_000.0 + Double($0) * 60_000 })],
-            fetchedAt:Date(),chartPointLimit:1000,chartAvailable:true))
+            fetchedAt:Date(),chartPointLimit:1000,chartAvailable:true,
+            heartRateZones:[.init(number:1,seconds:300,lowerBPM:90),.init(number:2,seconds:600,lowerBPM:110),.init(number:3,seconds:900,lowerBPM:130)],
+            laps:[.init(index:1,statistics:["duration":600,"distance":1500,"averageHR":120]),.init(index:2,statistics:["duration":1200,"distance":3500,"averageHR":140])],unavailableSections:[]))
         AppPreferences.shared.set(GarminPrivateFile.digest(Data(activityScope.utf8)),forKey:"activities.scope.china")
         model.activities.attach(model.cloud)
         let workouts = try model.developerQuery("activities",arguments:[:]) as! [String:Any]
@@ -93,6 +95,10 @@ import SwiftUI
                 try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)
                 model.detailMetric = nil
                 try render(ActivityDetailSheet(library:model.activities,id:"1001"),name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
+                for section in [ActivityDetailTab.charts, .zones, .laps] {
+                    let key = section == .charts ? "charts" : section == .zones ? "zones" : "laps"
+                    try render(ActivityDetailSheet(library:model.activities,id:"1001",initialTab:section),name:"activity-\(key)-\(language)-\(theme)",dark:dark,output:output)
+                }
             }
         }
         print("PASS: production-view renders including cached activity detail; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font")

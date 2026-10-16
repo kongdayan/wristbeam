@@ -7,16 +7,17 @@ private final class ActivityHTTP: URLProtocol {
     private static var seen: [String] = []
     private static var stall = false
     private static var oversized = false
-    static func reset(stall: Bool = false, oversized: Bool = false) {
+    private static var failZones = false
+    static func reset(stall: Bool = false, oversized: Bool = false, failZones: Bool = false) {
         lock.lock(); defer { lock.unlock() }
-        seen = []; self.stall = stall; self.oversized = oversized
+        seen = []; self.stall = stall; self.oversized = oversized; self.failZones = failZones
     }
     static var requests: [String] { lock.lock(); defer { lock.unlock() }; return seen }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let url = request.url!, path = url.path
-        Self.lock.lock(); Self.seen.append(path); let stall = Self.stall, oversized = Self.oversized; Self.lock.unlock()
+        Self.lock.lock(); Self.seen.append(path); let stall = Self.stall, oversized = Self.oversized, failZones = Self.failZones; Self.lock.unlock()
         if stall && path.contains("activitylist-service") { return }
         let body: String
         if path.contains("socialProfile") { body = #"{"garminGUID":"activity-fixture","displayName":"Fixture"}"# }
@@ -28,18 +29,31 @@ private final class ActivityHTTP: URLProtocol {
             else { body = "[]" }
         } else if path.hasSuffix("/details") {
             body = #"{"activityId":1001,"metricDescriptors":[{"key":"directHeartRate","metricsIndex":0,"unit":{"key":"bpm","factor":1}}],"activityDetailMetrics":[{"metrics":[100]}]}"#
-        } else if path.contains("activity-service") { body = #"{"activityId":1001,"activityName":"Synthetic walk","summaryDTO":{"duration":600}}"# }
+        } else if path.hasSuffix("/hrTimeInZones") { body = #"[{"zoneNumber":1,"secsInZone":120,"zoneLowBoundary":90}]"# }
+        else if path.hasSuffix("/splits") { body = #"{"activityId":1001,"lapDTOs":[{"lapIndex":1,"duration":600,"averageHR":100}]}"# }
+        else if path.contains("activity-service") { body = #"{"activityId":1001,"activityName":"Synthetic walk","summaryDTO":{"duration":600}}"# }
         else if path.contains("/export/tcx/") { body = "<TrainingCenterDatabase/>" }
         else { body = "[]" }
         var headers = ["Content-Type": "application/json"]
         if oversized && path.contains("activitylist-service") { headers["Content-Length"] = String(GarminActivities.maximumJSONBytes + 1) }
-        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: headers)!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: failZones && path.hasSuffix("/hrTimeInZones") ? 503 : 200, httpVersion: nil, headerFields: headers)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(body.utf8)); client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
 }
 
 @MainActor final class ActivityCloudTests: XCTestCase {
+    func testFailedOptionalSectionKeepsOtherDetailSections() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString), domain = "wristbeam.activity-test.\(UUID().uuidString)"
+        ActivityHTTP.reset(failZones: true)
+        let (cloud, library, session) = try fixture(root, domain: domain)
+        defer { cloud.setNetworkEnabled(false); session.invalidateAndCancel(); try? FileManager.default.removeItem(at: root); UserDefaults.standard.removePersistentDomain(forName: domain) }
+        await cloud.refreshAccount(); await library.loadPage(older: false); await library.downloadDetail("1001")
+        XCTAssertEqual(library.detail("1001")?.summary.statistics["duration"], 600)
+        XCTAssertNil(library.detail("1001")?.heartRateZones)
+        XCTAssertEqual(library.detail("1001")?.unavailableSections, ["hrTimeInZones"])
+        XCTAssertEqual(library.detail("1001")?.laps?.count, 1)
+    }
     private func fixture(_ root: URL, domain: String) throws -> (GarminChinaCloud, ActivityLibrary, URLSession) {
         let auth = root.appendingPathComponent("session.json"), preferences = AppPreferences(domain: domain)
         let token = GarminOAuthToken(accessToken: "fixture-access", refreshToken: "fixture-refresh", clientID: "FIXTURE", expiresAt: Date().addingTimeInterval(3600), refreshExpiresAt: nil, scopes: [])
@@ -64,6 +78,8 @@ private final class ActivityHTTP: URLProtocol {
         await library.loadPage(older: true); XCTAssertTrue(library.index.reachedEnd)
         await library.loadPage(older: false); XCTAssertEqual(library.index.activities.count, 3)
         await library.downloadDetail("1001"); XCTAssertNotNil(library.detail("1001"))
+        XCTAssertEqual(library.detail("1001")?.heartRateZones?.count, 1)
+        XCTAssertEqual(library.detail("1001")?.laps?.first?.statistics["duration"], 600)
         let file = await library.exportFile("1001", format: .tcx); XCTAssertNotNil(file)
         cloud.setNetworkEnabled(false); library.reconcile()
         let requests = ActivityHTTP.requests.count

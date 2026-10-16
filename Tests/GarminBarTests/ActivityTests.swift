@@ -3,6 +3,55 @@ import XCTest
 @testable import GarminBar
 
 final class ActivityTests: XCTestCase {
+    func testExpandedMetricsKeepSIUnitsAndNullChartGaps() throws {
+        let summary: [String: Any] = ["activityId": 1001, "summaryDTO": ["averageTemperature": 20, "waterEstimated": 500, "avgElevation": 120, "trainingEffect": 2.1]]
+        let chart: [String: Any] = ["activityId": 1001, "metricDescriptors": [
+            ["key": "directTimestamp", "metricsIndex": 0, "unit": ["key": "gmt", "factor": 0]],
+            ["key": "directSpeed", "metricsIndex": 1, "unit": ["key": "mps", "factor": 0.1]],
+            ["key": "directAirTemperature", "metricsIndex": 2, "unit": ["key": "celcius", "factor": 1]]],
+            "activityDetailMetrics": [["metrics": [1000, 2.5, 20]], ["metrics": [2000, NSNull(), NSNull()]], ["metrics": [3000, 3, 22]]]]
+        let detail = try GarminActivities.detail(summary: data(summary), chart: data(chart), expectedID: "1001")
+        XCTAssertEqual(detail.summary.statistics["averageTemperature"], 20)
+        XCTAssertEqual(detail.summary.statistics["waterEstimated"], 500)
+        XCTAssertEqual(detail.series.first { $0.key == "directAirTemperature" }?.values, [20, nil, 22])
+        let points = ActivityChartPoint.points(detail, metric: "directSpeed")
+        XCTAssertEqual(points.map(\.value), [2.5, 3])
+        XCTAssertEqual(points.map(\.segment), [0, 1])
+        XCTAssertEqual(points.first?.time.timeIntervalSince1970, 1)
+        XCTAssertEqual(ActivityMetricCatalog.duration(3661), "1:01:01")
+        XCTAssertEqual(ActivityMetricCatalog.duration(.infinity), "—")
+        XCTAssertEqual(ActivityMetricCatalog.statistics.first { $0.key == "averageSpeed" }?.formatted(2.5), "9.0 km/h")
+    }
+    func testSupplementalSectionsValidateIdentityAndDoNotExposeCoordinates() throws {
+        let zones = try GarminActivities.zones(data([["zoneNumber": 1, "secsInZone": 120, "zoneLowBoundary": 90]]))
+        XCTAssertEqual(zones.first?.seconds, 120)
+        XCTAssertThrowsError(try GarminActivities.zones(data([["zoneNumber": 1, "secsInZone": -1]])))
+        XCTAssertThrowsError(try GarminActivities.zones(data([["zoneNumber": true, "secsInZone": 1]])))
+        let lap: [String: Any] = ["lapIndex": 1, "duration": 300, "distance": 500, "startLatitude": 12.3, "ownerId": "private-owner"]
+        let laps = try GarminActivities.laps(data(["activityId": 1001, "lapDTOs": [lap]]), expectedID: "1001")
+        XCTAssertEqual(laps.first?.statistics["duration"], 300)
+        let encoded = String(decoding: try JSONEncoder().encode(laps), as: UTF8.self)
+        XCTAssertFalse(encoded.contains("Latitude")); XCTAssertFalse(encoded.contains("ownerId"))
+        XCTAssertThrowsError(try GarminActivities.laps(data(["activityId": 1002, "lapDTOs": [lap]]), expectedID: "1001"))
+        XCTAssertThrowsError(try GarminActivities.laps(data(["activityId": 1001, "lapDTOs": [lap, lap]]), expectedID: "1001"))
+    }
+    func testOldDetailCacheRemainsReadableAndMCPPartitionsLaps() throws {
+        let summary = try GarminActivities.summary(activity())
+        var detail = GarminActivityDetail(summary: summary, series: [], fetchedAt: Date(), chartPointLimit: 1000, chartAvailable: false)
+        let old = try JSONEncoder().encode(detail)
+        XCTAssertNil(try JSONDecoder().decode(GarminActivityDetail.self, from: old).laps)
+        detail.laps = (1...105).map { .init(index: $0, statistics: ["duration": 60]) }
+        detail.heartRateZones = [.init(number: 1, seconds: 120, lowerBPM: 90)]
+        var index = GarminActivityIndex(); index.activities = [summary]
+        let result = try ActivityQueries.query("activity", arguments: ["id": "1001"], index: index, detail: { _ in detail }, formats: { _ in [] })
+        XCTAssertEqual((result["laps"] as? [[String: Any]])?.count, 100)
+        XCTAssertEqual(result["nextLapOffset"] as? Int, 100)
+        XCTAssertEqual(result["heartRateZonesCached"] as? Bool, true)
+        let next = try ActivityQueries.query("activity", arguments: ["id": "1001", "lapOffset": 100], index: index, detail: { _ in detail }, formats: { _ in [] })
+        XCTAssertEqual((next["laps"] as? [[String: Any]])?.count, 5)
+        XCTAssertTrue(next["nextLapOffset"] is NSNull)
+        XCTAssertThrowsError(try ActivityQueries.query("activity", arguments: ["id": "1001", "lapLimit": 0], index: index, detail: { _ in detail }, formats: { _ in [] }))
+    }
     private func data(_ object: Any) throws -> Data { try JSONSerialization.data(withJSONObject: object) }
     private func activity(_ id: Int = 1001) -> [String: Any] {
         ["activityId": id, "activityName": "Synthetic run", "activityType": ["typeKey": "running"],

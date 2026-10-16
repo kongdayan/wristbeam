@@ -66,8 +66,8 @@ class WristBeamClient:
                 query[key] = value
         return self._request('/api/v1/activities?' + urlencode(query))
 
-    def activity(self, activity_id):
-        return self._request('/api/v1/activity?' + urlencode(dict(id=str(activity_id))))
+    def activity(self, activity_id, *, lap_offset=0, lap_limit=100):
+        return self._request('/api/v1/activity?' + urlencode(dict(id=str(activity_id), lapOffset=lap_offset, lapLimit=lap_limit)))
 
     def activity_series(self, activity_id, metric, *, offset=0, limit=250):
         return self._request('/api/v1/activity-series?' + urlencode(dict(id=str(activity_id), metric=metric, offset=offset, limit=limit)))

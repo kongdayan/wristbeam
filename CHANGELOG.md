@@ -5,6 +5,7 @@
 - Browse cloud workout summaries with pagination; download detail charts and official TCX / GPX / original ZIP exports on demand. Empty GPS tracks are reported instead of exported.
 - Opt-in scheduled summary refresh, account-scoped private caches and offline JSON/file export.
 - Read-only activity list, detail and chart MCP/REST queries, with Python SDK methods and explicit cache/coverage metadata.
+- Expand activity detail into grouped statistics, selectable interactive charts, heart rate zones and expandable laps. Preserve source chart units, optional-section failure status and older caches; expose zones and paginated lap statistics to MCP/REST.
 
 
 ## 0.3.6

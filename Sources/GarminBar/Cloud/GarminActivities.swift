@@ -27,6 +27,22 @@ struct GarminActivityDetail: Codable, Equatable {
     /// This is the server's reduced chart, not the complete original recording.
     var chartPointLimit: Int
     var chartAvailable: Bool
+    var heartRateZones: [GarminActivityZone]? = nil
+    var laps: [GarminActivityLap]? = nil
+    var unavailableSections: [String]? = nil
+}
+
+struct GarminActivityZone: Codable, Equatable, Identifiable {
+    var number: Int
+    var seconds: Double
+    var lowerBPM: Double?
+    var id: Int { number }
+}
+
+struct GarminActivityLap: Codable, Equatable, Identifiable {
+    var index: Int
+    var statistics: [String: Double]
+    var id: Int { index }
 }
 
 enum GarminActivityFormat: String, CaseIterable, Identifiable, Codable {
@@ -56,15 +72,39 @@ enum GarminActivities {
     static let chartLimit = 1000
     static let maximumJSONBytes = 8 * 1024 * 1024
     static let maximumFileBytes = 64 * 1024 * 1024
-    static let statisticKeys: Set<String> = [
-        "duration", "movingDuration", "elapsedDuration", "distance", "calories", "bmrCalories",
-        "averageHR", "maxHR", "minHR", "averageSpeed", "maxSpeed", "averageMovingSpeed",
-        "elevationGain", "elevationLoss", "steps", "activityTrainingLoad", "aerobicTrainingEffect",
-        "anaerobicTrainingEffect", "moderateIntensityMinutes", "vigorousIntensityMinutes",
-        "totalReps", "totalSets", "activeSets", "averagePower", "maxPower", "normalizedPower",
-        "hrTimeInZone_1", "hrTimeInZone_2", "hrTimeInZone_3", "hrTimeInZone_4", "hrTimeInZone_5"
-    ]
-    static let seriesKeys: Set<String> = ["directTimestamp", "directHeartRate", "directSpeed", "directPower", "directCadence", "directElevation", "sumDistance", "sumDuration", "sumElapsedDuration", "sumMovingDuration"]
+    static let statisticKeys = Set(ActivityMetricCatalog.statistics.map(\.key))
+    static let seriesKeys = Set(ActivityMetricCatalog.charts.map(\.key)).union(["directTimestamp"])
+
+    static func statistics(_ values: [String: Any]) -> [String: Double] {
+        var result: [String: Double] = [:]
+        for key in statisticKeys { if let value = number(values[key]) { result[key] = value } }
+        if let value = number(values["trainingEffect"]) { result["aerobicTrainingEffect"] = value }
+        if let value = number(values["totalExerciseReps"]) { result["totalReps"] = value }
+        return result
+    }
+
+    static func zones(_ data: Data) throws -> [GarminActivityZone] {
+        guard let rows = try object(data) as? [[String: Any]], rows.count <= 20 else { throw GarminActivityError.invalidResponse }
+        let result = try rows.map { row -> GarminActivityZone in
+            guard let index = number(row["zoneNumber"]), index.rounded() == index, (0...20).contains(index),
+                  let seconds = number(row["secsInZone"]), seconds >= 0 else { throw GarminActivityError.invalidResponse }
+            return .init(number: Int(index), seconds: seconds, lowerBPM: number(row["zoneLowBoundary"]))
+        }.sorted { $0.number < $1.number }
+        guard Set(result.map(\.number)).count == result.count else { throw GarminActivityError.invalidResponse }
+        return result
+    }
+
+    static func laps(_ data: Data, expectedID: String) throws -> [GarminActivityLap] {
+        guard let json = try object(data) as? [String: Any], identifier(json["activityId"]) == expectedID,
+              let rows = json["lapDTOs"] as? [[String: Any]], rows.count <= 5000 else { throw GarminActivityError.invalidResponse }
+        let result = try rows.enumerated().map { offset, row -> GarminActivityLap in
+            let index = number(row["lapIndex"]) ?? Double(offset + 1)
+            guard index.rounded() == index, (0...100_000).contains(index) else { throw GarminActivityError.invalidResponse }
+            return .init(index: Int(index), statistics: statistics(row))
+        }
+        guard Set(result.map(\.index)).count == result.count else { throw GarminActivityError.invalidResponse }
+        return result
+    }
 
     static func validID(_ id: String) -> Bool {
         !id.isEmpty && id.count <= 19 && id.utf8.allSatisfy { (48...57).contains($0) } && id.first != "0" && (Int64(id) ?? 0) > 0
@@ -86,15 +126,11 @@ enum GarminActivities {
         guard let id = identifier(json["activityId"]) else { throw GarminActivityError.invalidResponse }
         let values = json["summaryDTO"] as? [String: Any] ?? json
         let type = (json["activityType"] ?? json["activityTypeDTO"]) as? [String: Any]
-        var statistics: [String: Double] = [:]
-        for key in statisticKeys { if let value = number(values[key]) { statistics[key] = value } }
-        if let value = number(values["trainingEffect"]) { statistics["aerobicTrainingEffect"] = value }
-        if let value = number(values["totalExerciseReps"]) { statistics["totalReps"] = value }
         return GarminActivity(id: id, name: String((json["activityName"] as? String ?? "").prefix(200)),
                               type: String((type?["typeKey"] as? String ?? "unknown").prefix(80)),
                               startTimeGMT: (values["startTimeGMT"] as? String).map { String($0.prefix(40)) },
                               startTimeLocal: (values["startTimeLocal"] as? String).map { String($0.prefix(40)) },
-                              statistics: statistics, fetchedAt: now)
+                              statistics: statistics(values), fetchedAt: now)
     }
     static func list(_ data: Data, now: Date = Date()) throws -> [GarminActivity] {
         guard let rows = try object(data) as? [[String: Any]], rows.count <= pageSize else { throw GarminActivityError.invalidResponse }

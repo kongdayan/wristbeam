@@ -55,7 +55,7 @@ struct ActivityLibraryCard: View {
                                     Text((activity.startTimeLocal ?? "—") + " · " + activity.type).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                                 }
                                 Spacer()
-                                if let duration = activity.statistics["duration"] { Text(String(format: "%.0f min", duration / 60)).monospacedDigit() }
+                                if let duration = activity.statistics["duration"] { Text(ActivityMetricCatalog.duration(duration)).monospacedDigit() }
                                 if library.hasDetail(activity.id) { Image(systemName: "arrow.down.circle.fill").foregroundStyle(PulseTheme.mint).help(L10n.text("详情已下载")) }
                                 Image(systemName: "chevron.right").foregroundStyle(PulseTheme.secondary)
                             }.padding(.vertical, 8).contentShape(Rectangle())
@@ -83,26 +83,11 @@ struct ActivityLibraryCard: View {
 struct ActivityDetailSheet: View {
     @ObservedObject var library: ActivityLibrary
     let id: String
+    var initialTab: ActivityDetailTab = .statistics
     @Environment(\.dismiss) private var dismiss
     @State private var exportStatus = ""
     private var summary: GarminActivity? { library.index.activities.first { $0.id == id } }
     private var detail: GarminActivityDetail? { library.detail(id) }
-    private var heartPoints: [ActivityHeartPoint] {
-        guard let detail, let values = detail.series.first(where: { $0.key == "directHeartRate" })?.values,
-              let timestamps = detail.series.first(where: { $0.key == "directTimestamp" })?.values else { return [] }
-        var segment = 0
-        return values.enumerated().compactMap { index, value in
-            guard let value, timestamps.indices.contains(index), let time = timestamps[index], time > 0 else { segment += 1; return nil }
-            return ActivityHeartPoint(id: index, time: Date(timeIntervalSince1970: time / 1000), value: value, segment: segment)
-        }
-    }
-    private let statLabels: [(String, String, String)] = [
-        ("duration", "时长", "s"), ("distance", "距离", "m"), ("calories", "热量", "kcal"),
-        ("averageHR", "平均心率", "bpm"), ("maxHR", "最高心率", "bpm"),
-        ("aerobicTrainingEffect", "有氧训练效果", ""), ("anaerobicTrainingEffect", "无氧训练效果", ""),
-        ("activityTrainingLoad", "训练负荷", ""), ("steps", "步数", ""), ("totalReps", "重复次数", ""),
-        ("activeSets", "训练组数", ""), ("elevationGain", "累计爬升", "m")
-    ]
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -115,31 +100,7 @@ struct ActivityDetailSheet: View {
                     VStack(alignment: .leading, spacing: 16) {
                         Text(summary.name.isEmpty ? summary.type : summary.name).font(PulseTheme.font(size: 20, weight: .medium)).textSelection(.enabled)
                         Text((summary.startTimeLocal ?? "—") + " · " + summary.type).foregroundStyle(PulseTheme.secondary)
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 16) {
-                            ForEach(statLabels, id: \.0) { key, label, unit in
-                                if let value = (detail?.summary ?? summary).statistics[key] {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(L10n.text(label)).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
-                                        Text(String(format: value.rounded() == value ? "%.0f %@" : "%.1f %@", value, unit)).font(PulseTheme.font(size: 18, weight: .medium)).monospacedDigit()
-                                    }
-                                }
-                            }
-                        }
-                        if detail != nil {
-                            Text(L10n.text("详情已下载")).foregroundStyle(PulseTheme.mint)
-                            if !heartPoints.isEmpty {
-                                Text(L10n.text("心率图表")).font(PulseTheme.font(size: 15, weight: .medium))
-                                Chart(heartPoints) { point in
-                                    LineMark(x: .value("Time", point.time), y: .value("bpm", point.value), series: .value("Segment", point.segment))
-                                        .foregroundStyle(PulseTheme.mint)
-                                }.frame(height: 180)
-                            }
-                            Text(L10n.text("图表为云端缩减采样；完整记录可导出 TCX 或原始文件。"))
-                                .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
-                        } else {
-                            Text(L10n.text("当前仅保存摘要。下载详情后可查看图表，AI 也能查询这些数据。"))
-                                .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary)
-                        }
+                        ActivityDetailContent(summary: detail?.summary ?? summary, detail: detail, initialTab: initialTab)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
                 HStack {
@@ -158,7 +119,7 @@ struct ActivityDetailSheet: View {
                 if !exportStatus.isEmpty { Text(L10n.text(exportStatus)).foregroundStyle(PulseTheme.secondary) }
 
             } else { Text(L10n.text("尚未下载这条运动的数据")) }
-        }.padding(24).frame(width: 660, height: 570)
+        }.padding(24).frame(width: 820, height: 680)
             .background(PulseTheme.background).foregroundStyle(.primary)
     }
     private func save(_ data: Data, extension ext: String) {
@@ -179,11 +140,4 @@ struct ActivityDetailSheet: View {
             catch { exportStatus = "无法保存运动数据，请检查可用空间" }
         }
     }
-}
-
-private struct ActivityHeartPoint: Identifiable {
-    let id: Int
-    let time: Date
-    let value: Double
-    let segment: Int
 }

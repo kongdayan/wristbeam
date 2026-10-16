@@ -74,7 +74,7 @@ enum DeveloperProtocol {
          tool("wristbeam_series", "Read one cached day of a metric, retaining gaps. No watch/cloud refresh is triggered.", properties: ["metric": ["type":"string"], "date":["type":"string","description":"Local calendar day YYYY-MM-DD"],"offset":["type":"integer","minimum":0],"limit":["type":"integer","minimum":1,"maximum":1440]], required:["metric","date"]),
          tool("wristbeam_hrv", "Read cloud overnight HRV history or a cached night. Separate from the provisional RR reading.", properties:["date":["type":"string","description":"Optional local night date YYYY-MM-DD"]]),
          tool("wristbeam_activities", "List cached workout summaries, newest first. History may be partial; never triggers cloud access or downloads.", properties: ["startDate":["type":"string"], "endDate":["type":"string"], "type":["type":"string"], "offset":["type":"integer","minimum":0], "limit":["type":"integer","minimum":1,"maximum":100]]),
-         tool("wristbeam_activity", "Read one cached workout and its detail/download availability. Download details in the app first. No coordinates or file paths.", properties: ["id":["type":"string","description":"Activity ID from wristbeam_activities"]], required:["id"]),
+         tool("wristbeam_activity", "Read one cached workout, heart rate zones and paginated laps. Download details in the app first. No coordinates or file paths.", properties: ["id":["type":"string","description":"Activity ID from wristbeam_activities"], "lapOffset":["type":"integer","minimum":0,"maximum":5000], "lapLimit":["type":"integer","minimum":1,"maximum":100]], required:["id"]),
          tool("wristbeam_activity_series", "Read a page of a downloaded reduced activity chart, not full original samples. Descriptor factor is metadata; values are unconverted. Aligned timestamp series is directTimestamp (epoch milliseconds).", properties: ["id":["type":"string"], "metric":["type":"string"], "offset":["type":"integer","minimum":0], "limit":["type":"integer","minimum":1,"maximum":500]], required:["id","metric"])]
     }
     private static func tool(_ name: String, _ description: String, properties: [String:Any] = [:], required: [String] = []) -> [String:Any] {
@@ -99,7 +99,7 @@ enum DeveloperProtocol {
         var arguments: [String:Any] = [:]
         for item in components.queryItems ?? [] {
             guard arguments[item.name] == nil, let value = item.value else { return .json(["error":"Duplicate or empty parameter"],status:400) }
-            if ["offset","limit"].contains(item.name) { guard let number = Int(value) else { return .json(["error":"Invalid pagination"],status:400) }; arguments[item.name] = number }
+            if ["offset","limit","lapOffset","lapLimit"].contains(item.name) { guard let number = Int(value) else { return .json(["error":"Invalid pagination"],status:400) }; arguments[item.name] = number }
             else { arguments[item.name] = value }
         }
         do { return .json(try query(route,arguments)) } catch { return .json(["error":error.localizedDescription],status:400) }
