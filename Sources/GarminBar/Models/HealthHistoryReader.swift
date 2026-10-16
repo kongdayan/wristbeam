@@ -90,12 +90,21 @@ struct HealthHistoryReader {
         guard file.standardizedFileURL == file.resolvingSymlinksInPath().standardizedFileURL else { throw CocoaError(.fileReadNoPermission) }
         let reader = try FileHandle(forReadingFrom: file)
         defer { try? reader.close() }
+        // One formatter pair per read: constructing/resetting ICU formatters for
+        // every journal row dominated cold queries. No shared mutable formatter.
+        let seconds = ISO8601DateFormatter()
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        func parseDate(_ stamp: String) -> Date? {
+            let formatter = stamp.contains(".") ? fractional : seconds
+            return formatter.date(from: stamp) ?? GarminHealthMetrics.gmtDate(stamp)
+        }
         func consume(_ line: Data) throws {
             guard !line.isEmpty else { return }
             guard let object = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any] else { onInvalid(); return }
             guard (object["origin"] as? String ?? "watch") == "watch" else { return }
             guard let raw = object["kind"] as? String, let kind = MetricKind(rawValue: raw),
-                  let stamp = object["timestamp"] as? String, let date = GarminHealthMetrics.gmtDate(stamp),
+                  let stamp = object["timestamp"] as? String, let date = parseDate(stamp),
                   let value = object["value"] as? NSNumber, CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue.isFinite else { onInvalid(); return }
             guard !kind.isDeviceStatus else { return }
             try body(.init(kind: kind, value: value.doubleValue, source: "watch", timestamp: date, origin: .watch))

@@ -106,6 +106,25 @@ import Security
         let bad = route(try request(["jsonrpc":"2.0","id":2,"method":"tools/call","params":["name":"delete_watch"]]))
         XCTAssertTrue(String(decoding:bad.data,as:UTF8.self).contains("-32602"))
     }
+    func testScopedMCPDiscoveryAndDirectCallsEnforceTheSameBoundary() throws {
+        var queries = 0
+        func scoped(_ method: String, _ params: [String: Any] = [:]) throws -> [String: Any] {
+            let response = DeveloperProtocol.route(try request(["jsonrpc": "2.0", "id": 1, "method": method, "params": params]),
+                token: "fixture", allowedHosts: ["127.0.0.1:17890"], origin: "http://127.0.0.1:17890", scopes: ["summary"]) { _, _ in
+                    queries += 1; return ["synthetic": true]
+                }
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: response.data) as? [String: Any])
+        }
+        let tools = try XCTUnwrap(scoped("tools/list")["result"] as? [String: Any])
+        XCTAssertEqual((tools["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }, ["wristbeam_summary"])
+        let resources = try XCTUnwrap(scoped("resources/list")["result"] as? [String: Any])
+        XCTAssertEqual((resources["resources"] as? [[String: Any]])?.count, 0)
+        XCTAssertNotNil(try scoped("resources/read", ["uri": "wristbeam://metrics"])["error"])
+        XCTAssertNotNil(try scoped("tools/call", ["name": "wristbeam_series"])["error"])
+        XCTAssertEqual(queries, 0)
+        XCTAssertNotNil(try scoped("tools/call", ["name": "wristbeam_summary"])["result"])
+        XCTAssertEqual(queries, 1)
+    }
     func testIncrementalHTTPAndRequestSmugglingRejection() throws {
         let head = "POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n"
         XCTAssertNil(try DeveloperRequest.parse(Data((head + "{").utf8)))
