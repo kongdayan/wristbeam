@@ -52,7 +52,7 @@ struct MetricCard: View {
                 Text(L10n.text(kind.title)).font(PulseTheme.font(size: compact ? 11 : 13, weight: .medium)).foregroundStyle(PulseTheme.secondary).lineLimit(2)
                 Spacer(minLength: 0)
                 if !compact, let sample = model.metrics[kind] {
-                    Text(sample.timestamp, format: kind.isOvernightHRV ? .dateTime.month().day() : .dateTime.hour().minute())
+                    Text(sample.timestamp, format: (kind.isOvernightHRV || sample.timestampIsMeasurement == false) ? .dateTime.month().day() : .dateTime.hour().minute())
                         .font(PulseTheme.font(size: 9)).monospacedDigit().foregroundStyle(PulseTheme.secondary)
                         .fixedSize().help(L10n.text("更新时间") + " · " + sample.timestamp.formatted())
                 }

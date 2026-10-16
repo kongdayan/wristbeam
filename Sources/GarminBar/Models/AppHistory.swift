@@ -18,7 +18,9 @@ import UniformTypeIdentifiers
         for (kind, series) in incoming where !kind.isDeviceStatus { collection[kind] = collection[kind].map { $0.merging(series) } ?? series }
         seriesDays[key] = collection
         // Bound memory without deleting stored history. Requested dates reload.
-        if seriesDays.count > 10, let oldest = seriesDays.keys.sorted().first, oldest != key { seriesDays.removeValue(forKey: oldest) }
+        if seriesDays.count > 10, let oldest = seriesDays.keys.sorted().first(where: { $0 != key }) {
+            seriesDays.removeValue(forKey: oldest); loadedHistoryDays.remove(oldest)
+        }
     }
     func restoreSeries(day: Date) {
         let store = seriesStore, reader = historyReader
@@ -26,7 +28,11 @@ import UniformTypeIdentifiers
             let result = await Task.detached(priority: .utility) { reader.read(day: day) }.value
             guard let self, self.seriesStore === store else { return }
             self.mergeSeries(result.series, day: day)
-            self.storageIssues.formUnion(result.issues)
+            let key = GarminHealthMetrics.calendarDate(day)
+            self.loadedHistoryDays.insert(key)
+            self.historyReadIssues[key] = result.issues
+            self.storageIssues.subtract(["chartReadFailed", "invalidTelemetryRecord", "telemetryReadFailed", "historyIndexWriteFailed"])
+            self.storageIssues.formUnion(self.historyReadIssues.values.flatMap { $0 })
         }
     }
     func saveSeries(_ collection: [MetricKind: MetricDaySeries], day: Date) async {
@@ -47,13 +53,27 @@ import UniformTypeIdentifiers
         journal.retry()
         Task {
             for (key, values) in pendingChartSaves { if let day = GarminHRV.date(key) { await saveSeries(values, day: day) } }
+            for key in historyReadIssues.keys { if let day = GarminHRV.date(key) { restoreSeries(day: day) } }
             restoreSeries(day: detailDay)
+            await retryReceivedFiles()
             refreshLocalDataSummary()
         }
     }
+    func retryReceivedFiles() async {
+        let region = cloud.region, owner = cloud.accountGUID
+        let root = region.receiveDirectory(root: AppPaths.directory("Received"))
+        do {
+            let files = try await Task.detached(priority: .utility) { try GFDIFileArchive.pendingFiles(root: root) }.value
+            guard cloud.region == region, cloud.accountGUID == owner else { return }
+            for (url, metadata) in files where metadata.dataType == 128 && metadata.deviceID > 0 {
+                try uploads.enqueue(fileURL: url, deviceID: String(metadata.deviceID), dataType: GarminDataType(fitSubtype: UInt8(clamping: metadata.subtype)))
+            }
+            storageIssues.remove("fileQueueWriteFailed")
+        } catch { storageIssues.insert("fileQueueWriteFailed") }
+    }
     func refreshSeries(day: Date, force: Bool = false) async {
         let key = GarminHealthMetrics.calendarDate(day)
-        if !preview, seriesDays[key] == nil { restoreSeries(day: day) }
+        if !preview, force || !loadedHistoryDays.contains(key) { restoreSeries(day: day) }
         guard !preview, cloudSyncEnabled, cloud.isAuthenticated, !loadingSeriesDays.contains(key),
               force || Date().timeIntervalSince(lastSeriesRefresh[key] ?? .distantPast) >= Double(max(1, metricRefreshInterval)) * 60 else { return }
         let device = watchUnitID.isEmpty ? cloud.deviceId : watchUnitID

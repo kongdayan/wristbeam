@@ -17,7 +17,7 @@ Example client configuration (field names vary by AI client):
 {"mcpServers":{"wristbeam":{"type":"http","url":"http://127.0.0.1:17890/mcp","headers":{"Authorization":"Bearer <WRISTBEAM_API_KEY>"}}}}
 ```
 
-Keep the key out of shared configuration, screenshots, issues and source control. Anybody holding it can read all health fields exposed by this app. Per-client scopes, OAuth and multiple independent keys are not implemented in v1. Use **Stop all interfaces** to immediately stop the listener and cancel pending webhook work.
+Keep the key out of shared configuration, screenshots, issues and source control. The default key retains full read access for existing clients. Prefer a named client key with only the scopes that client needs. OAuth is not implemented. Use **Stop all interfaces** to immediately stop the listener and cancel pending webhook work.
 
 ### User-managed keys
 
@@ -26,6 +26,12 @@ MCP/API and Webhook keys are independent. Generated keys contain 32 cryptographi
 Keys persist under the app's existing Application Support directory, `GarminPulse/Developer/Credentials/{api,webhook}.key`, with directory mode `0700` and file mode `0600`. The legacy directory name preserves existing data. The HTTPS certificate password uses the same local store. Files contain plaintext credentials and are readable by your macOS user. Key export writes a UTF-8 `.txt` file (mode `0600`); its contents can be pasted back into the import dialog. Keys stay masked until **Show key** is selected and are hidden again when leaving the page. Neither health exports nor API responses contain credentials.
 
 Normal startup never reads or writes Keychain. Existing users can explicitly choose **Manage key → Import from legacy Keychain** for each key; this one-time read may display macOS authorization and leaves the old item untouched. Without import, a new local key is created and clients must be configured with it. Re-import an existing HTTPS certificate with its password to move that configuration to local storage.
+
+### Named clients and scopes
+
+Settings → Developer integrations → Clients and permissions creates named, independently revocable keys. Select `status`, `metrics`, `history`, `activities` and/or `summary`. A summary-only client can read aggregate health summaries but cannot read raw timeline points or workout details. Tools and resources advertised to each client reflect its scopes; direct unauthorized REST routes return 403. No scope permits writes or cloud access.
+
+Named credentials persist in private `Developer/Credentials/clients.json` (0600), independent of Keychain. Each entry has creation/last-access timestamps. Access timestamps are coalesced to at most one write per minute. Keys support show, copy and text export. Revocation clears that key and invalidates in-flight responses; other clients remain available. Remove revoked entries to free one of the 32 slots. The default key can be disabled using **Enable default key**, then **Apply**. Existing clients keep working until you explicitly change their access.
 
 ## Transport and authentication
 
@@ -39,6 +45,7 @@ HTTP is limited to loopback. To expose the listener on `0.0.0.0`, enable HTTPS, 
 
 | Tool | Arguments | Result |
 | --- | --- | --- |
+| `wristbeam_summary` | `startDate`, `endDate`; optional `metrics` array | 1–31 days of local aggregate readings, observed-minute coverage, missing metrics, HRV and cached workout totals |
 | `wristbeam_status` | none | Watch/file-channel/cloud booleans, pending file count |
 | `wristbeam_metrics` | none | Current values, unit, origin, record time, staleness |
 | `wristbeam_catalog` | none | Stable IDs, names, units, availability and timeline support |
@@ -54,6 +61,7 @@ All tools advertise read-only/non-destructive/idempotent hints. `wristbeam://met
 
 | Method and path | Parameters |
 | --- | --- |
+| `GET /api/v1/summary` | `startDate`, `endDate`; optional comma-separated `metrics` |
 | `GET /api/v1/status` | none |
 | `GET /api/v1/metrics` | none |
 | `GET /api/v1/catalog` | none |
@@ -65,7 +73,7 @@ All tools advertise read-only/non-destructive/idempotent hints. `wristbeam://met
 
 JSON objects contain `schemaVersion: 1`. Metric IDs come from [the catalog](../METRICS.md); use IDs rather than localized names. Names/units follow the app language. `value` is numeric; HRV status also provides a named `status` field. Times are ISO-8601; query dates are local calendar dates and series return the local timezone ID. No future dates. Limit 1–1440, offset 0–100000. `nextOffset: null` ends pagination.
 
-Unavailable metrics are omitted from current readings and marked `available: false` in the catalog. Missing HRV fields and series values are `null`, never invented zeroes. A day with no cached series returns `cached: false` and empty points. Series are the app's minute-resolution display history, not full raw beat samples. Cloud/estimated/watch origins remain distinct. A cloud night card may describe an older day: use `recordDate` and `syncedAt`, not only `stale`. RR/service 12 is provisional and must not be used to calculate a claimed live RMSSD/SDNN. Queries never trigger network sync or fill missing days automatically; use the app to sync first.
+Unavailable metrics are omitted from current readings and marked `available: false` in the catalog. Missing HRV fields and series values are `null`, never invented zeroes. A day with no cached series returns `cached: false` and empty points. Series are the app's minute-resolution display history, not full raw beat samples. Cloud/estimated/watch origins remain distinct. Readings include `recordedAt`, `syncedAt`, `ageSeconds`, `temporalKind` and `suitableForCurrentState`. Freshness uses measurement time, not download time. A daily cloud summary without an actual measurement timestamp returns null `recordedAt`/`ageSeconds`, plus `recordDate` and `syncedAt`; it is never marked suitable for instantaneous state. Overnight HRV remains visible with its record date, becomes stale when more than one calendar day old, and is never marked suitable as an instantaneous reading. Daily totals are aggregates, not instantaneous measurements. Historical series use the same journal/cache reader as the dashboard and export; a cold-start query does not require opening a window first. `issues` distinguishes missing data from corrupt/unreadable local records. RR/service 12 is provisional and must not be used to calculate a claimed live RMSSD/SDNN. Queries never trigger network sync or fill missing days automatically; use the app to sync first.
 
 From 0.3.2, status includes `watchBattery`: `null` when unavailable, otherwise `{percent, recordedAt, stale, charging}`; unknown charging state is `null`. The legacy `watchBattery` ID remains in metrics/catalog for compatibility and has `deviceStatus: true`, `timeline: false`. It is excluded from health selections, exports and new history; series requests for it are rejected. Other fields have `deviceStatus: false`.
 
@@ -82,6 +90,7 @@ import os
 from wristbeam import WristBeamClient
 
 client = WristBeamClient(os.environ['WRISTBEAM_URL'], os.environ['WRISTBEAM_API_KEY'])
+summary = client.summary('2026-01-01', '2026-01-07')
 current = client.metrics()
 night = client.hrv()                     # real cloud summaries, possibly missing fields
 series = client.series('heartRate', '2026-10-14')
@@ -139,3 +148,7 @@ Caches are private files scoped by cloud region and account. Turning cloud sync 
 These are Connect client endpoints, not a published Garmin developer API contract. APK analysis confirms activity list, summary and chart interfaces. TCX/GPX/original download paths are independently visible in the [python-garminconnect implementation](https://github.com/cyberjunky/python-garminconnect/blob/master/garminconnect/__init__.py) and were read-only verified against a user-authorized China activity. That single live probe does not establish support for every activity type or Global account; errors remain explicit.
 
 The app groups all supported summary statistics and renders selectable heart rate, speed, elevation, cadence, temperature, power and accumulated-value charts when present. Summary durations are seconds, distances/elevations metres, speeds metres/second, temperatures Celsius and estimated sweat loss millilitres. The UI formats durations and converts horizontal speeds to km/h; API values retain their source units. Chart factor metadata is not blindly applied: speed, elevation and distance have been checked against TCX exports.
+
+## Summary interpretation
+
+Summary queries perform no network access. `days[].metrics` returns `minimum`, `maximum`, `sampleMean`, `sampleCount`, `observedMinuteCount`, first/last record times and sources. Missing statistics are null. `sampleMean` is not a time-weighted daily average; observed minutes do not imply uninterrupted monitoring. Interval-count metrics also expose `recordedIntervalTotal`. `missingMetrics`, storage `issues` and `activityHistoryComplete` describe coverage limits. Workout totals refer only to cached summaries; no coordinates, raw FIT or account identifiers are included.

@@ -17,7 +17,8 @@ import Foundation
         return DeveloperQuerySnapshot(metrics: metrics, freshness: metrics.mapValues { freshness($0) },
             hrvReport: hrvReport, history: seriesDays, reader: historyReader, activityIndex: activities.index,
             activityStore: activities.store, statusValue: status, observedAt: Date(),
-            metadata: Dictionary(uniqueKeysWithValues: MetricKind.allCases.map { ($0, (title: $0.title, unit: $0.unit)) }))
+            metadata: Dictionary(uniqueKeysWithValues: MetricKind.allCases.map { ($0, (title: $0.title, unit: $0.unit)) }),
+            loadedDays: loadedHistoryDays, historyIssues: historyReadIssues)
     }
     // Used only for lightweight in-memory webhook snapshots. HTTP queries run on a utility task.
     func developerQuery(_ route: String, arguments: [String: Any]) throws -> Any {

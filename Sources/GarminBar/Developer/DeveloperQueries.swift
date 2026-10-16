@@ -12,6 +12,16 @@ struct DeveloperQuerySnapshot {
     var statusValue: [String: Any]
     var observedAt: Date
     var metadata: [MetricKind: (title: String, unit: String)]
+    var loadedDays: Set<String> = []
+    var historyIssues: [String: [String]] = [:]
+
+    func cachedHistory(day: Date) -> HealthHistoryResult {
+        let key = GarminHealthMetrics.calendarDate(day)
+        if loadedDays.contains(key) { return HealthHistoryResult(series: history[key] ?? [:], issues: historyIssues[key] ?? []) }
+        var result = reader.read(day: day, now: observedAt)
+        for (kind, series) in history[key] ?? [:] { result.series[kind] = result.series[kind].map { $0.merging(series) } ?? series }
+        return result
+    }
 
     func query(_ route: String, arguments: [String:Any]) throws -> Any {
         if route == "summary" { return try healthSummary(arguments) }
@@ -46,7 +56,11 @@ struct DeveloperQuerySnapshot {
                 var row: [String:Any] = ["id":kind.rawValue,"name":metadata[kind]?.title ?? kind.rawValue,"value":sample.value,"unit":metadata[kind]?.unit ?? "","origin":sample.origin.rawValue,"recordedAt":stamp(sample.timestamp),"stale":freshness[kind]?.stale ?? true]
                 if let timing = freshness[kind] {
                     row["syncedAt"] = timing.syncedAt.map(stamp) as Any? ?? NSNull()
-                    row["ageSeconds"] = timing.ageSeconds
+                    row["ageSeconds"] = sample.timestampIsMeasurement == false ? NSNull() : timing.ageSeconds as Any
+                    if sample.timestampIsMeasurement == false {
+                        row["recordedAt"] = NSNull()
+                        row["recordDate"] = GarminHealthMetrics.calendarDate(sample.timestamp)
+                    }
                     row["suitableForCurrentState"] = timing.suitableForCurrentState
                     row["temporalKind"] = timing.temporalKind
                 }
@@ -65,10 +79,8 @@ struct DeveloperQuerySnapshot {
             guard let raw = arguments["metric"] as? String, let kind = MetricKind(rawValue:raw), !kind.isOvernightHRV else { throw DeveloperError.invalid("Use a valid time-series metric ID; use hrv for overnight HRV") }
             guard kind.timelineKind != nil else { throw DeveloperError.invalid("Metric is a daily scalar, not a time series") }
             let day = try dateArgument()!, offset = try integer("offset",fallback:0,range:0...100000), limit = try integer("limit",fallback:1440,range:1...1440)
-            let result = reader.read(day: day, now: observedAt)
-            let canonical = kind.timelineKind ?? kind
-            let disk = result.series[canonical], live = history[GarminHealthMetrics.calendarDate(day)]?[canonical]
-            let series = disk.flatMap { stored in live.map { stored.merging($0) } ?? stored } ?? live
+            let result = cachedHistory(day: day)
+            let series = result.series[kind.timelineKind ?? kind]
             let all = series?.points ?? []
             let slice = Array(all.dropFirst(offset).prefix(limit))
             return ["schemaVersion":1,"metric":raw,"timelineMetric":(kind.timelineKind ?? kind).rawValue,"date":GarminHealthMetrics.calendarDate(day),"timezone":TimeZone.current.identifier,"unit":metadata[kind.timelineKind ?? kind]?.unit ?? "","points":points(slice),"total":all.count,"nextOffset":offset + slice.count < all.count ? offset + slice.count as Any : NSNull(),"cached":series != nil,"issues":result.issues]

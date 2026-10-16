@@ -3,6 +3,30 @@ import XCTest
 @testable import GarminBar
 
 final class ReliabilityTests: XCTestCase {
+    func testHistoricalIndexInvalidatesAndMeasuresWarmQueries() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let day = GarminHRV.date("2026-01-02")!, now = day.addingTimeInterval(86400 * 2)
+        let file = root.appendingPathComponent("2026-01-02.jsonl"), encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        var bytes = Data()
+        for offset in 0..<10_000 {
+            bytes += try encoder.encode(MetricSample(kind: .heartRate, value: 70 + offset % 20,
+                source: "fixture", timestamp: day.addingTimeInterval(Double(offset)), origin: .watch)) + Data([10])
+        }
+        try GarminPrivateFile.write(bytes, to: file)
+        let reader = HealthHistoryReader(telemetry: root), start = Date()
+        let cold = reader.read(day: day, now: now), coldSeconds = Date().timeIntervalSince(start)
+        let warmStart = Date(), warm = reader.read(day: day, now: now)
+        let warmSeconds = Date().timeIntervalSince(warmStart)
+        XCTAssertFalse(cold.usedIndex); XCTAssertTrue(warm.usedIndex)
+        XCTAssertEqual(cold.series[.heartRate]?.points, warm.series[.heartRate]?.points)
+        bytes += try encoder.encode(MetricSample(kind: .heartRate, value: 100, source: "fixture", timestamp: day.addingTimeInterval(20_000))) + Data([10])
+        try GarminPrivateFile.write(bytes, to: file)
+        let changed = reader.read(day: day, now: now)
+        XCTAssertFalse(changed.usedIndex); XCTAssertEqual(changed.series[.heartRate]?.latest?.value, 100)
+        print("BENCH synthetic history: 10000 samples, coldSeconds=\(coldSeconds), warmSeconds=\(warmSeconds)")
+    }
     func testSummaryDatesMissingDataAndCoverageAreExplicit() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -58,7 +82,12 @@ final class ReliabilityTests: XCTestCase {
         points[12345].value = 199
         points[40000].value = nil
         let source = MetricDaySeries(kind: .heartRate, day: day, points: points, source: "fixture", refreshedAt: day)
+        let start = Date()
         let rendered = source.sampled(width: 300, domain: day...day.addingTimeInterval(86400))
+        let renderingSeconds = Date().timeIntervalSince(start)
+        let cursorStart = Date()
+        for index in 0..<1000 { _ = source.reading(at: day.addingTimeInterval(Double(index * 80))) }
+        print("BENCH synthetic chart: source=86400, rendered=\(rendered.points.count), samplingSeconds=\(renderingSeconds), cursor1000Seconds=\(Date().timeIntervalSince(cursorStart))")
         XCTAssertTrue(rendered.points.count < 4000)
         XCTAssertEqual(rendered.maximum, 199)
         XCTAssertEqual(rendered.minimum, 0)

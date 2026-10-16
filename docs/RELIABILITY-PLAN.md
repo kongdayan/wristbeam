@@ -27,3 +27,16 @@ PR and GitHub Actions. This work does not authorize a release or local upgrade.
 
 Implementation and validation evidence will be recorded here as each item lands.
 Unchecked items remain required; a passing subset does not complete this scope.
+
+### First implementation passes
+
+- `c150f2d`: shared local history, initial freshness/pagination/storage recovery.
+- `ec906cc`: scoped credentials, summaries, connection/sync presentation, chart sampling,
+  history extraction from AppModel. Actions run 38876299134 passed the macOS 14 and
+  macOS 15 ARM jobs (core, HTTP/MCP, rendering, XCTest, signed package lifecycle).
+  Intel, macOS 26 and Swift CodeQL were still running at this observation.
+- Reviewed synthetic Chinese/light developer and sync screens and English/dark device
+  screen from that run; client-management padding is improved in the next revision.
+- Subsequent work adds date-index invalidation, unknown measurement timestamps,
+  release reuse checks, scenario regression and API/storage documentation. These
+  revisions require a new complete Actions run; earlier green jobs do not validate them.

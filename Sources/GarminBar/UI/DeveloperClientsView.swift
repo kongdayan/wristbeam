@@ -47,7 +47,7 @@ struct DeveloperClientsView: View {
                     if revealed == client.id && client.enabled { Text(client.key).font(PulseTheme.font(size: 11, design: .monospaced)).textSelection(.enabled) }
                 }
                 if !access.clientStatus.isEmpty { Text(L10n.text(access.clientStatus)).font(PulseTheme.font(size: 11)) }
-            }
+            }.padding(14)
         }.onDisappear { revealed = nil }
     }
 }

@@ -4,6 +4,7 @@ import CoreFoundation
 struct HealthHistoryResult {
     var series: [MetricKind: MetricDaySeries] = [:]
     var issues: [String] = []
+    var usedIndex = false
 }
 
 /// The same local-only query is used by UI, export and developer clients.
@@ -22,24 +23,63 @@ struct HealthHistoryReader {
         catch { result.issues.append("chartReadFailed") }
         let file = telemetry.appendingPathComponent(GarminHealthMetrics.calendarDate(day) + ".jsonl")
         guard FileManager.default.fileExists(atPath: file.path) else { return result }
-        var minutes: [MetricKind: [Int: MetricSeriesPoint]] = [:]
-        do {
-            try Self.samples(file: file, onInvalid: { result.issues.append("invalidTelemetryRecord") }) { sample in
-                guard sample.kind.acceptsLiveTimeline, Calendar.current.isDate(sample.timestamp, inSameDayAs: day), sample.timestamp <= now else { return }
-                let key = Int(sample.timestamp.timeIntervalSince1970 / 60)
-                if minutes[sample.kind]?[key]?.timestamp ?? .distantPast <= sample.timestamp {
-                    minutes[sample.kind, default: [:]][key] = .init(timestamp: sample.timestamp, value: sample.value, origin: .watch)
+        let signature = try? Self.signature(file)
+        let indexURL = telemetry.appendingPathComponent("Index").appendingPathComponent(GarminHealthMetrics.calendarDate(day) + ".json")
+        let cached = (try? Data(contentsOf: indexURL)).flatMap { try? JSONDecoder().decode(DayIndex.self, from: $0) }
+        let localSeries: [MetricDaySeries]
+        if let cached, cached.schemaVersion == 1, cached.signature == signature {
+            localSeries = cached.series; result.issues += cached.issues; result.usedIndex = true
+        } else {
+            var minutes: [MetricKind: [Int: MetricSeriesPoint]] = [:]
+            var issues: [String] = []
+            do {
+                try Self.samples(file: file, onInvalid: { if !issues.contains("invalidTelemetryRecord") { issues.append("invalidTelemetryRecord") } }) { sample in
+                    guard sample.kind.acceptsLiveTimeline, Calendar.current.isDate(sample.timestamp, inSameDayAs: day) else { return }
+                    let key = Int(sample.timestamp.timeIntervalSince1970 / 60)
+                    if minutes[sample.kind]?[key]?.timestamp ?? .distantPast <= sample.timestamp {
+                        minutes[sample.kind, default: [:]][key] = .init(timestamp: sample.timestamp, value: sample.value, origin: .watch)
+                    }
                 }
+            } catch { issues.append("telemetryReadFailed") }
+            localSeries = minutes.map { kind, points in
+                MetricDaySeries(kind: kind, day: Calendar.current.startOfDay(for: day),
+                    points: points.values.sorted { $0.timestamp < $1.timestamp }, source: "Mac 接收的手表读数 · 每分钟最近一次",
+                    refreshedAt: points.values.map(\.timestamp).max() ?? day)
             }
-        } catch { result.issues.append("telemetryReadFailed") }
-        for (kind, points) in minutes {
-            let local = MetricDaySeries(kind: kind, day: Calendar.current.startOfDay(for: day),
-                points: points.values.sorted { $0.timestamp < $1.timestamp }, source: "Mac 接收的手表读数 · 每分钟最近一次",
-                refreshedAt: points.values.map(\.timestamp).max() ?? day)
-            result.series[kind] = result.series[kind].map { $0.merging(local) } ?? local
+            result.issues += issues
+            // Only completed historical days are indexed: the active journal changes
+            // every second and would otherwise create continuous index writes.
+            if !Calendar.current.isDate(day, inSameDayAs: now), let signature,
+               signature == (try? Self.signature(file)), !issues.contains("telemetryReadFailed") {
+                do { try GarminPrivateFile.write(JSONEncoder().encode(DayIndex(signature: signature, series: localSeries, issues: issues)), to: indexURL) }
+                catch { result.issues.append("historyIndexWriteFailed") }
+            }
+        }
+        for var local in localSeries {
+            local.points.removeAll { $0.timestamp > now }
+            result.series[local.kind] = result.series[local.kind].map { $0.merging(local) } ?? local
         }
         result.issues = Array(Set(result.issues)).sorted()
         return result
+    }
+
+    private struct FileSignature: Codable, Equatable {
+        var bytes: UInt64
+        var modified: Date
+        var inode: UInt64
+    }
+    private struct DayIndex: Codable {
+        var schemaVersion = 1
+        var signature: FileSignature
+        var series: [MetricDaySeries]
+        var issues: [String]
+    }
+    private static func signature(_ file: URL) throws -> FileSignature {
+        let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+        guard attributes[.type] as? FileAttributeType == .typeRegular,
+              let modified = attributes[.modificationDate] as? Date,
+              let bytes = attributes[.size] as? NSNumber, let inode = attributes[.systemFileNumber] as? NSNumber else { throw CocoaError(.fileReadCorruptFile) }
+        return FileSignature(bytes: bytes.uint64Value, modified: modified, inode: inode.uint64Value)
     }
 
     /// Streaming parser shared with original-resolution CSV export. A truncated last

@@ -26,9 +26,8 @@ extension DeveloperQuerySnapshot {
         var days: [[String: Any]] = []
         for offset in 0...span {
             let day = Calendar.current.date(byAdding: .day, value: offset, to: start)!, key = GarminHealthMetrics.calendarDate(day)
-            let loaded = reader.read(day: day, now: observedAt)
-            var collection = loaded.series
-            for (kind, series) in history[key] ?? [:] { collection[kind] = collection[kind].map { $0.merging(series) } ?? series }
+            let loaded = cachedHistory(day: day)
+            let collection = loaded.series
             let summaries: [[String: Any]] = kinds.map { kind in
                 let series = collection[kind], points = series?.values ?? []
                 let covered = Set(points.map { Int($0.timestamp.timeIntervalSince1970 / 60) }).count

@@ -15,7 +15,7 @@ struct MetricFreshness: Equatable {
         let future = sample.timestamp.timeIntervalSince(now) > 60
         let sameDay = Calendar.current.isDate(sample.timestamp, inSameDayAs: now)
         let overnight = sample.kind.isOvernightHRV
-        let daily = sample.kind.group == .daily || sample.kind.group == .solar && sample.kind != .solarIntensity ||
+        let daily = sample.timestampIsMeasurement == false || sample.kind.group == .daily || sample.kind.group == .solar && sample.kind != .solarIntensity ||
             ["steps", "calories", "floors", "intensityMinutes", "activeTime", "pushes"].contains(sample.kind.rawValue)
         let stale: Bool
         if overnight {

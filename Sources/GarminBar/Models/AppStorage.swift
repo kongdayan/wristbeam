@@ -104,7 +104,7 @@ final class TelemetryJournal {
         while let item = pending.first {
             let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.calendar = Calendar(identifier: .gregorian); formatter.dateFormat = "yyyy-MM-dd"
             let file = directory.appendingPathComponent(formatter.string(from: item.0.timestamp) + ".jsonl")
-            do { try write(item.1, file); pending.removeFirst(); attempts = 0; onEvent?(.saved(item.0.timestamp)) }
+            do { try write(item.1, file); pending.removeFirst(); attempts = 0; onEvent?(.saved(Date())) }
             catch {
                 attempts += 1; onEvent?(.failed(pending.count + dropped))
                 if attempts < 3 {

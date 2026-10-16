@@ -15,6 +15,8 @@ final class AppModel: ObservableObject {
     lazy var uploads = GarminUploadQueue(cloud: cloud, directory: AppPaths.directory("UploadQueue"))
     @Published var metrics: [MetricKind: MetricSample] = [:]
     @Published var history: [MetricKind: [MetricSample]] = [:]
+    var loadedHistoryDays: Set<String> = []
+    var historyReadIssues: [String: [String]] = [:]
     @Published var seriesDays: [String: [MetricKind: MetricDaySeries]] = [:]
     @Published var seriesStatus = "等待读取全天趋势"
     @Published var loadingSeriesDays: Set<String> = []
@@ -216,7 +218,7 @@ final class AppModel: ObservableObject {
             if self.seriesOwner != owner {
                 self.developer.accountChanged()
                 self.hrvReport = nil; self.hrvRequestID = UUID(); self.hrvLoading = false; self.hrvStatusMessage = ""; self.hrvMessageDay = nil; self.hrvStore = owner.isEmpty ? nil : GarminHRVStore(owner: owner)
-                self.seriesOwner = owner; self.seriesDays = [:]; self.pendingChartSaves = [:]; self.metricSyncedAt = [:]; self.seriesNotes = [:]; self.lastSeriesRefresh = [:]; self.lastHealthRefresh = .distantPast
+                self.seriesOwner = owner; self.seriesDays = [:]; self.loadedHistoryDays = []; self.historyReadIssues = [:]; self.pendingChartSaves = [:]; self.metricSyncedAt = [:]; self.seriesNotes = [:]; self.lastSeriesRefresh = [:]; self.lastHealthRefresh = .distantPast
                 self.metrics = self.metrics.filter { $0.value.origin == .watch }; self.metricNotes = [:]
                 self.seriesStore = guid.isEmpty ? nil : MetricSeriesStore(accountGUID: owner)
                 self.restoreSeries(day: Date())

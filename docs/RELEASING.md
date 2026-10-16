@@ -56,3 +56,11 @@ CodeQL uploads branch/PR analysis to the repository security dashboard. Tag vali
 WristBeam retains the previous application bundle identifier, executable identity, private data directory and preference domain so an existing account and original files stay available. The 0.3.1 updater migrates only the known old repository address to `kongdayan/wristbeam`; custom repositories are preserved. New releases use `WristBeam.app` and `WristBeam-macOS-*.zip`. The updater recognizes both the new and legacy archive roots, with exactly one application per package.
 
 The old 0.3.0 updater pins the former repository path and cannot interpret GitHub's renamed release URLs. For this transition, download WristBeam once from the new Release page, quit the old app and launch WristBeam. Your private data and preferences are retained. Subsequent releases use the normal confirmed update flow.
+
+## CI tiers and artifact reuse
+
+PR checks cover native Apple Silicon and Intel builds, tests, UI rendering on ARM and CodeQL. Main, merge-queue and full release fallback cover macOS 14/15/26 ARM plus Intel. Cancelled workflows skip the aggregate gate rather than reporting a secondary failure.
+
+Release first looks for a successful `ci.yml` main-push run for the exact tag commit. If that run is still active it waits up to 35 minutes; without a usable run/artifact it executes full release checks. Reuse verifies GitHub's artifact SHA-256, allowed archive members, embedded source commit/run ID/version/architecture, and package SHA-256. Existing native signature, architecture and version validation still runs before universal packaging and publication. PR artifacts and artifacts from another commit are never reusable. API contract: [GitHub artifact endpoints](https://docs.github.com/en/rest/actions/artifacts).
+
+A release is still an explicit operator action. These workflows do not create version tags automatically.

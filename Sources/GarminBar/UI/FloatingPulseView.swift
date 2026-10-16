@@ -72,7 +72,7 @@ private struct FloatingReading: View {
                 Text(L10n.text(kind.title)).font(PulseTheme.font(size:14,weight:.semibold)).lineLimit(1)
                 Spacer(minLength:2)
                 if let sample = model.metrics[kind] {
-                    Text(sample.timestamp,format:kind.isOvernightHRV ? .dateTime.month().day() : .dateTime.hour().minute())
+                    Text(sample.timestamp,format:(kind.isOvernightHRV || sample.timestampIsMeasurement == false) ? .dateTime.month().day() : .dateTime.hour().minute())
                         .font(PulseTheme.font(size:10)).foregroundStyle(PulseTheme.secondary)
                 }
             }

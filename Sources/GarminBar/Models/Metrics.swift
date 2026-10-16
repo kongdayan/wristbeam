@@ -123,7 +123,9 @@ struct MetricSample: Codable, Identifiable {
     let timestamp: Date
     let source: String
     let origin: MetricOrigin
-    init(kind: MetricKind, value: Double, source: String, timestamp: Date = Date(), origin: MetricOrigin = .watch) {
+    let timestampIsMeasurement: Bool?
+    init(kind: MetricKind, value: Double, source: String, timestamp: Date = Date(), origin: MetricOrigin = .watch, timestampIsMeasurement: Bool = true) {
+        self.timestampIsMeasurement = timestampIsMeasurement
         id = UUID(); self.kind = kind; self.value = value; self.source = source; self.timestamp = timestamp; self.origin = origin
     }
     init(kind: MetricKind, value: Int, source: String, timestamp: Date = Date(), origin: MetricOrigin = .watch) {
