@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Browse cloud workout summaries with pagination; download detail charts and official TCX / GPX / original ZIP exports on demand. Empty GPS tracks are reported instead of exported.
+- Opt-in scheduled summary refresh, account-scoped private caches and offline JSON/file export.
+- Read-only activity list, detail and chart MCP/REST queries, with Python SDK methods and explicit cache/coverage metadata.
+
+
 ## 0.3.6
 
 - Add opt-in watch weather with city search, on-demand Mac location, a 15-minute cache and manual resend. Choose Open-Meteo or the connected Garmin cloud account; sources never switch silently.

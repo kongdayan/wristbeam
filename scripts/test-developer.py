@@ -87,9 +87,12 @@ enum PulseRuntime { static let isPreview = true }
                 assert client.initialize()['result']['protocolVersion'] == '2025-06-18'; checks += 1
                 assert client.rpc({'jsonrpc': '2.0', 'method': 'notifications/initialized'}) is None; checks += 1
                 tools = client.rpc({'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list'})['result']['tools']
-                assert len(tools) == 5 and all(t['annotations']['readOnlyHint'] for t in tools); checks += 1
+                assert len(tools) == 8 and all(t['annotations']['readOnlyHint'] for t in tools); checks += 1
                 result = client.rpc({'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call', 'params': {'name': 'wristbeam_metrics', 'arguments': {}}})['result']
                 assert result['structuredContent']['synthetic'] and not result['isError']; checks += 1
+                assert client.activities(start_date='2026-01-01', activity_type='running')['query'] == 'activities'; checks += 1
+                assert client.activity('1001')['query'] == 'activity'; checks += 1
+                assert client.activity_series('1001', 'directHeartRate')['query'] == 'activity_series'; checks += 1
                 context = ssl.create_default_context(cafile=str(cert)) if secure else None
                 for headers, code in [({}, 401), ({'Authorization': 'Bearer fixture-only', 'Origin': 'https://evil.example'}, 403), ({'Authorization': 'Bearer fixture-only', 'Host': 'evil.example'}, 403)]:
                     try:
@@ -102,7 +105,7 @@ enum PulseRuntime { static let isPreview = true }
                 if secure:
                     env['WRISTBEAM_CA_FILE'] = str(cert)
                 bridge = subprocess.run([sys.executable, '-m', 'wristbeam'], input=json.dumps({'jsonrpc':'2.0','id':9,'method':'tools/list'})+'\n', text=True, capture_output=True, env=env, check=True)
-                assert len(json.loads(bridge.stdout)['result']['tools']) == 5; checks += 1
+                assert len(json.loads(bridge.stdout)['result']['tools']) == 8; checks += 1
                 print('PASS native', 'HTTPS (trusted certificate)' if secure else 'HTTP', 'REST / MCP / auth / Origin / Host / stdio bridge')
             finally:
                 process.terminate()

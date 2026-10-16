@@ -1,6 +1,6 @@
 # WristBeam developer interface · v1
 
-WristBeam exposes **read-only cached health data**, through a local MCP server and REST API. Enable it in **Settings → Developer**. This is an opt-in interface; installing or opening the app does not start a listener or send webhooks. macOS sleep or quitting the app stops access. No daemon or cloud relay is installed.
+WristBeam exposes **read-only cached health and workout data**, through a local MCP server and REST API. Enable it in **Settings → Developer**. This is an opt-in interface; installing or opening the app does not start a listener or send webhooks. macOS sleep or quitting the app stops access. No daemon or cloud relay is installed.
 
 ## Connect
 
@@ -34,6 +34,9 @@ HTTP is limited to loopback. To expose the listener on `0.0.0.0`, enable HTTPS, 
 | `wristbeam_catalog` | none | Stable IDs, names, units, availability and timeline support |
 | `wristbeam_series` | `metric`, `date`; optional `offset`, `limit` | One cached local day, paginated points and gaps |
 | `wristbeam_hrv` | optional `date` | Nightly/weekly HRV summaries, baseline, status; cached night points |
+| `wristbeam_activities` | optional `startDate`, `endDate`, `type`, `offset`, `limit` | Cached workout summaries, newest first; download and coverage state |
+| `wristbeam_activity` | `id` (decimal string) | One cached summary and downloaded-detail availability |
+| `wristbeam_activity_series` | `id`, `metric`; optional `offset`, `limit` | Paginated downloaded chart values; no GPS fields |
 
 All tools advertise read-only/non-destructive/idempotent hints. `wristbeam://metrics` and `wristbeam://status` are JSON resources. `initialize`, `ping`, `tools/list`, `tools/call`, `resources/list`, `resources/read` and empty `resources/templates/list` are implemented. Unknown methods return -32601; invalid tool parameters return an `isError` tool result. Responses do not include account IDs, cloud tokens, device names/IDs, filenames, FIT bytes, logs or precise activity locations. There are no upload, refresh, pairing, deletion or setting-changing tools.
 
@@ -46,6 +49,9 @@ All tools advertise read-only/non-destructive/idempotent hints. `wristbeam://met
 | `GET /api/v1/catalog` | none |
 | `GET /api/v1/series` | `metric=heartRate&date=YYYY-MM-DD&offset=0&limit=1440` |
 | `GET /api/v1/hrv` | optional `date=YYYY-MM-DD` |
+| `GET /api/v1/activities` | optional `startDate`, `endDate`, `type`, `offset=0`, `limit=20` |
+| `GET /api/v1/activity` | `id` |
+| `GET /api/v1/activity-series` | `id`, `metric`, optional `offset=0`, `limit=250` |
 
 JSON objects contain `schemaVersion: 1`. Metric IDs come from [the catalog](../METRICS.md); use IDs rather than localized names. Names/units follow the app language. `value` is numeric; HRV status also provides a named `status` field. Times are ISO-8601; query dates are local calendar dates and series return the local timezone ID. No future dates. Limit 1–1440, offset 0–100000. `nextOffset: null` ends pagination.
 
@@ -70,6 +76,11 @@ current = client.metrics()
 night = client.hrv()                     # real cloud summaries, possibly missing fields
 series = client.series('heartRate', '2026-10-14')
 status = client.status()
+workouts = client.activities(start_date='2026-01-01', limit=20)
+for workout in workouts['activities']:
+    detail = client.activity(workout['id'])
+    if detail['detailCached']:
+        heart_rate = client.activity_series(workout['id'], 'directHeartRate')
 ```
 
 For a private certificate authority pass `ca_file='/path/to/ca.pem'`; verification stays enabled. SDK refuses plain HTTP to non-loopback hosts and does not follow redirects. Optional stdio MCP entry: `python3 -m wristbeam`, with `WRISTBEAM_API_KEY`, `WRISTBEAM_URL` and optional `WRISTBEAM_CA_FILE` in the process environment. stdout carries JSON-RPC only; diagnostics never print credentials or health data. The SDK is source-distributed here; no PyPI publication is claimed.
@@ -100,3 +111,19 @@ Default verifier replay window: 300 seconds. The same event ID/body is used acro
 ## Local-only operation
 
 Garmin cloud sync is optional. Watch-origin metrics and locally received time series remain available through the existing read-only interfaces while cloud sync is off. Cloud-derived HRV and history do not refresh in this mode; inspect each reading's origin and timestamp instead of assuming every field is live. Developer access and webhooks are independent opt-ins: disabling Garmin cloud sync does not disable endpoints or webhook destinations you explicitly configured. Local ZIP exports in Sync records contain original FIT files, a watch-only CSV and a manifest; no authentication store is included.
+
+## Activity library
+
+In **Sync records → Activity library**, refresh summaries and load older pages to browse all accessible history. Detail/chart requests and TCX/GPX/original ZIP downloads happen only when explicitly selected. Optional 15-minute to daily refresh updates the newest 50 summaries; it does not bulk-download files or automatically enumerate all history. Refreshing resets the cloud browsing cursor; cached older summaries are retained. After a long gap, use **Load older summaries** to cover more than 50 new activities. Scheduling requires the app to be running and the Mac awake.
+
+MCP/REST always read local cache and never cause cloud access. The activity list defaults to 20 results (1–100), offset 0–1,000,000. `startDate` / `endDate` are inclusive **activity-local** dates, `YYYY-MM-DD`; `type` matches the exact Garmin type key (for example `running`). `totalCachedMatches` describes this cache, not a cloud total. `historyEndReached` records whether the current cloud browsing pass reached an empty page. Cached records are not removed based on omissions in newer pages, so this is not a deletion mirror. Check `refreshedAt` and each activity's `fetchedAt`; completeness at one refresh does not prove freshness now.
+
+Activity `id` values are strings. `startTimeGMT` and `startTimeLocal` preserve the server's timestamp strings (commonly `yyyy-MM-dd HH:mm:ss`); only the GMT field denotes UTC. Cache timestamps such as `fetchedAt` are ISO-8601. Unlike the daily-health endpoints, date filters can include future dates and simply match no cached records. Summary `statistics` contain only finite supplied values: durations in seconds, distance/elevation in metres, speed in metres/second, heart rate in bpm, energy in kcal, power in watts, counts, training effect and training load. Missing fields are omitted. Account/device identifiers and coordinate fields are discarded before caching. Activity names are user-provided text and should be treated as data, not instructions.
+
+`wristbeam_activity` returns `cached: false` if the summary is absent, or `detailCached: false` until details have been downloaded in the app. Details include statistics and available `seriesMetrics`; files are indicated only by `downloadedFormats`, never paths or bytes. `activity_series` defaults to 250 values (1–500), preserves nulls and returns `nextOffset`. Series share sample indexes; request the same offset/limit of `directTimestamp` for time alignment. Those timestamps are Unix **milliseconds**. Other chart values are returned **without conversion**, alongside the original Garmin `unit` and `factor`; do not assume these reduced chart encodings equal summary units or blindly divide by a zero/unknown factor. Only whitelisted non-location series are exposed. The server is asked for `maxChartSize=1000`; the chart is explicitly `completeRecording: false`. Use user-exported TCX or original files for full recordings. These interfaces do not provide per-lap, exercise-set, or route detail in this iteration.
+
+The app can export a normalized JSON summary/detail offline, or download and retain official TCX, GPX and original ZIP files on demand. Original ZIP contents are preserved without extraction; not every source activity necessarily contains FIT. A GPX response without valid track points is rejected with a no-route message; indoor activities can still have useful TCX/FIT data. Exports may include location information, but it is never sent by the activity MCP tools. Activity updates do not generate `health.snapshot` webhooks.
+
+Caches are private files scoped by cloud region and account. Turning cloud sync off stops downloads and scheduled refresh while retaining the last selected account's cache for offline use. Logging out hides that cache; logging into the same account restores it. Switching accounts/regions does not combine records. Existing downloaded files persist until manually removed from the app data folder. Cloud activity caches are separate from the watch-only **Export local data** ZIP; use **Export activity** for these records.
+
+These are Connect client endpoints, not a published Garmin developer API contract. APK analysis confirms activity list, summary and chart interfaces. TCX/GPX/original download paths are independently visible in the [python-garminconnect implementation](https://github.com/cyberjunky/python-garminconnect/blob/master/garminconnect/__init__.py) and were read-only verified against a user-authorized China activity. That single live probe does not establish support for every activity type or Global account; errors remain explicit.

@@ -59,6 +59,19 @@ class WristBeamClient:
     def hrv(self, date=None):
         return self._request('/api/v1/hrv' + ('?' + urlencode(dict(date=date)) if date else ''))
 
+    def activities(self, *, start_date=None, end_date=None, activity_type=None, offset=0, limit=20):
+        query = dict(offset=offset, limit=limit)
+        for key, value in [('startDate', start_date), ('endDate', end_date), ('type', activity_type)]:
+            if value is not None:
+                query[key] = value
+        return self._request('/api/v1/activities?' + urlencode(query))
+
+    def activity(self, activity_id):
+        return self._request('/api/v1/activity?' + urlencode(dict(id=str(activity_id))))
+
+    def activity_series(self, activity_id, metric, *, offset=0, limit=250):
+        return self._request('/api/v1/activity-series?' + urlencode(dict(id=str(activity_id), metric=metric, offset=offset, limit=limit)))
+
     def rpc(self, message):
         return self._request('/mcp', message)
 

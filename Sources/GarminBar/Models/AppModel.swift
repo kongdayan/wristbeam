@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     let updater = PulseUpdater()
     let developer = DeveloperAccess()
     let weather = WatchWeatherController()
+    let activities = ActivityLibrary()
     lazy var uploads = GarminUploadQueue(cloud: cloud, directory: AppPaths.directory("UploadQueue"))
     @Published var metrics: [MetricKind: MetricSample] = [:]
     @Published var history: [MetricKind: [MetricSample]] = [:]
@@ -223,11 +224,14 @@ final class AppModel: ObservableObject {
                 if self.cloudSyncEnabled && self.autoUpload && !self.preview { Task { await self.uploads.syncNow(force: false) } }
             }
         }.store(in: &subscriptions)
+        if !preview { activities.attach(cloud) }
+        activities.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
         developer.attach(self)
         weather.attach(cloud: cloud, bluetooth: bluetooth)
         Timer.publish(every: 1, on: .main, in: .common).autoconnect().sink { [weak self] date in
             guard let self else { return }; self.now = date
             self.developer.tick()
+            if !self.preview { self.activities.tick(now: date) }
             if date.timeIntervalSince(self.lastStatusWrite) >= 5 { self.writeRuntimeState() }
             if self.autoRefreshMetrics && date.timeIntervalSince(self.lastHealthRefresh) >= Double(max(1, self.metricRefreshInterval)) * 60 { Task { await self.refreshHealthMetrics() } }
             if self.autoSync && !self.preview && date.timeIntervalSince(self.lastAutoSync) >= Double(max(1, self.syncInterval)) * 60 {

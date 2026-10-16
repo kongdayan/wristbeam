@@ -3,6 +3,11 @@ import CoreFoundation
 
 @MainActor extension AppModel {
     func developerQuery(_ route: String, arguments: [String:Any]) throws -> Any {
+        if ["activities", "activity", "activity_series"].contains(route) {
+            activities.reconcile()
+            return try ActivityQueries.query(route, arguments: arguments, index: activities.index,
+                detail: { activities.detail($0) }, formats: { activities.formats($0) })
+        }
         let allowed: Set<String> = route == "series" ? ["metric","date","offset","limit"] : route == "hrv" ? ["date"] : []
         guard Set(arguments.keys).isSubset(of:allowed) else { throw DeveloperError.invalid("Unknown query parameter") }
         let formatter = ISO8601DateFormatter()

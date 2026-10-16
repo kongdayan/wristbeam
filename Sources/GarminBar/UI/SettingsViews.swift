@@ -322,6 +322,7 @@ struct SyncPage: View {
     @ObservedObject var model: AppModel
     var body: some View {
         VStack(alignment: .leading, spacing: 19) {
+            ActivityLibraryCard(library: model.activities)
             SyncSetupGuide(model: model)
             PulseCard {
                 VStack(alignment: .leading, spacing: 12) {

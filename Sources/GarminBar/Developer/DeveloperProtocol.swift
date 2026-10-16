@@ -72,7 +72,10 @@ enum DeveloperProtocol {
          tool("wristbeam_metrics", "Read current cached health readings with units, source, record time and staleness. Not medical advice."),
          tool("wristbeam_catalog", "List available metric IDs and supported fields; definitions do not guarantee watch support."),
          tool("wristbeam_series", "Read one cached day of a metric, retaining gaps. No watch/cloud refresh is triggered.", properties: ["metric": ["type":"string"], "date":["type":"string","description":"Local calendar day YYYY-MM-DD"],"offset":["type":"integer","minimum":0],"limit":["type":"integer","minimum":1,"maximum":1440]], required:["metric","date"]),
-         tool("wristbeam_hrv", "Read cloud overnight HRV history or a cached night. Separate from the provisional RR reading.", properties:["date":["type":"string","description":"Optional local night date YYYY-MM-DD"]])]
+         tool("wristbeam_hrv", "Read cloud overnight HRV history or a cached night. Separate from the provisional RR reading.", properties:["date":["type":"string","description":"Optional local night date YYYY-MM-DD"]]),
+         tool("wristbeam_activities", "List cached workout summaries, newest first. History may be partial; never triggers cloud access or downloads.", properties: ["startDate":["type":"string"], "endDate":["type":"string"], "type":["type":"string"], "offset":["type":"integer","minimum":0], "limit":["type":"integer","minimum":1,"maximum":100]]),
+         tool("wristbeam_activity", "Read one cached workout and its detail/download availability. Download details in the app first. No coordinates or file paths.", properties: ["id":["type":"string","description":"Activity ID from wristbeam_activities"]], required:["id"]),
+         tool("wristbeam_activity_series", "Read a page of a downloaded reduced activity chart, not full original samples. Descriptor factor is metadata; values are unconverted. Aligned timestamp series is directTimestamp (epoch milliseconds).", properties: ["id":["type":"string"], "metric":["type":"string"], "offset":["type":"integer","minimum":0], "limit":["type":"integer","minimum":1,"maximum":500]], required:["id","metric"])]
     }
     private static func tool(_ name: String, _ description: String, properties: [String:Any] = [:], required: [String] = []) -> [String:Any] {
         ["name":name,"description":description,"inputSchema":["type":"object","properties":properties,"required":required,"additionalProperties":false],"annotations":["readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false]]
@@ -91,7 +94,7 @@ enum DeveloperProtocol {
             return rpc(request.body, query:query)
         }
         guard request.method == "GET" else { return .json(["error":"Read-only API"],status:405) }
-        let routes = ["/api/v1/status":"status","/api/v1/metrics":"metrics","/api/v1/catalog":"catalog","/api/v1/series":"series","/api/v1/hrv":"hrv"]
+        let routes = ["/api/v1/status":"status","/api/v1/metrics":"metrics","/api/v1/catalog":"catalog","/api/v1/series":"series","/api/v1/hrv":"hrv","/api/v1/activities":"activities","/api/v1/activity":"activity","/api/v1/activity-series":"activity_series"]
         guard let route = routes[components.path] else { return .json(["error":"Not found"],status:404) }
         var arguments: [String:Any] = [:]
         for item in components.queryItems ?? [] {
