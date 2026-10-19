@@ -23,7 +23,9 @@ import Security
     }
     func testClientExamplesMatchAuthenticationMode() throws {
         for required in [true, false] {
-            let data = Data(DeveloperAccess.clientExample(baseURL: "http://127.0.0.1:17890", requireAPIKey: required).utf8)
+            var configuration = DeveloperConfiguration()
+            configuration.requireAPIKey = required
+            let data = Data(configuration.clientExample(baseURL: "http://127.0.0.1:17890").utf8)
             let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
             let servers = try XCTUnwrap(object["mcpServers"] as? [String: [String: Any]])
             let server = try XCTUnwrap(servers["wristbeam"])

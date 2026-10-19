@@ -3,22 +3,6 @@ import Combine
 import CryptoKit
 import Security
 
-struct DeveloperConfiguration: Codable, Equatable {
-    // Missing or null in older preferences must keep authentication enabled.
-    var requireAPIKey: Bool? = true
-    var requiresAPIKey: Bool { requireAPIKey != false }
-    var primaryKeyEnabled: Bool? = true
-    var enabled = false
-    var host = "127.0.0.1"
-    var port = 17890
-    var https = false
-    var publicHost = "localhost"
-    var webhookEnabled = false
-    var webhookURL = ""
-    var webhookInterval = 60
-    var webhookMetrics: Set<String> = []
-}
-
 @MainActor final class DeveloperAccess: ObservableObject {
     @Published var configuration: DeveloperConfiguration
     @Published private(set) var running = false
@@ -106,13 +90,7 @@ struct DeveloperConfiguration: Codable, Equatable {
     var baseURL: String { baseURL(config:configuration) }
     private func baseURL(config: DeveloperConfiguration) -> String { "\(config.https ? "https" : "http")://\(config.host == "127.0.0.1" ? "127.0.0.1" : config.publicHost):\(config.port)" }
     var authenticationStatus: String { active.requiresAPIKey ? "访问需要密钥" : "无密钥访问已开启" }
-    var clientExample: String { Self.clientExample(baseURL: baseURL, requireAPIKey: configuration.requiresAPIKey) }
-    static func clientExample(baseURL: String, requireAPIKey: Bool) -> String {
-        var server = ["type": "http", "url": baseURL + "/mcp"] as [String: Any]
-        if requireAPIKey { server["headers"] = ["Authorization": "Bearer <WRISTBEAM_API_KEY>"] }
-        guard let data = try? JSONSerialization.data(withJSONObject: ["mcpServers": ["wristbeam": server]], options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) else { return "" }
-        return String(decoding: data, as: UTF8.self)
-    }
+    var clientExample: String { configuration.clientExample(baseURL: baseURL) }
     func apply() {
         guard model?.preview != true else { status = "演示模式不启动接口或 Webhook"; return }
         guard !isApplying, !isManagingKey else { return }
