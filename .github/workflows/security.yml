@@ -37,9 +37,11 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           queries: security-extended
+      # CodeQL needs source extraction, not an optimized application binary.
+      # Keep Release packaging and both architecture test jobs in build.yml.
       - name: Compile Swift for analysis
         if: matrix.language == 'swift'
-        run: python3 scripts/ci-metrics.py measure --name codeql-swift-compile --output codeql-compile-timing.json -- swift build -c release
+        run: python3 scripts/ci-metrics.py measure --name codeql-swift-compile --output codeql-compile-timing.json -- swift build -c debug --disable-index-store
       - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           category: /language:${{ matrix.language }}
