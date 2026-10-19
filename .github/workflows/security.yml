@@ -39,8 +39,16 @@ jobs:
           queries: security-extended
       - name: Compile Swift for analysis
         if: matrix.language == 'swift'
-        run: swift build -c release
+        run: python3 scripts/ci-metrics.py measure --name codeql-swift-compile --output codeql-compile-timing.json -- swift build -c release
       - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           category: /language:${{ matrix.language }}
           upload: ${{ startsWith(github.ref, 'refs/tags/') && 'never' || 'always' }}
+      - name: Preserve Swift compile timing
+        if: ${{ always() && matrix.language == 'swift' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: codeql-swift-timing
+          path: codeql-compile-timing.json
+          if-no-files-found: warn
+          retention-days: 30

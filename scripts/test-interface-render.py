@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import argparse
+import sys
 
 root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
@@ -135,8 +136,11 @@ import SwiftUI
 }
 ''')
     binary = stage / 'render-interface'
-    subprocess.run(['swiftc', '-swift-version', '5', '-o', str(binary), *map(str, sources), str(runner)], check=True, cwd=root)
+    command = ['swiftc', '-swift-version', '5', '-o', str(binary), *map(str, sources), str(runner)]
+    subprocess.run([sys.executable, str(root / 'scripts/ci-metrics.py'), 'measure', '--name', 'interface-compile',
+                    '--output', str(output / 'interface-compile-timing.json'), '--', *command], check=True, cwd=root)
     if args.compile_only:
         print('PASS: native views compiled; GPU rendering explicitly not executed')
     else:
-        subprocess.run([str(binary), str(output), '--preview'], check=True, cwd=root)
+        subprocess.run([sys.executable, str(root / 'scripts/ci-metrics.py'), 'measure', '--name', 'interface-render',
+                        '--output', str(output / 'interface-render-timing.json'), '--', str(binary), str(output), '--preview'], check=True, cwd=root)
