@@ -15,6 +15,7 @@ struct DeveloperSettingsPage: View {
                     Button(L10n.text("应用接口配置")) { access.apply() }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).disabled(access.isApplying || access.isManagingKey)
                     Button(L10n.text("立即停止全部接口")) { access.stopAll() }
                 }
+                if access.running { Text(L10n.text(access.authenticationStatus)).foregroundStyle(PulseTheme.secondary) }
                 if access.isApplying {
                     Text(L10n.text("正在启动接口…")).foregroundStyle(PulseTheme.secondary)
                 }
@@ -26,8 +27,15 @@ struct DeveloperSettingsPage: View {
                 }
             }.font(PulseTheme.font(size:12))
             PreferenceBlock(title:"MCP 与只读 API") {
-                PreferenceLine(title:"启用 MCP / HTTP API",note:"允许持有密钥的客户端读取已缓存的健康指标、时间序列和同步状态。不会提供账号凭据、设备标识、原始 FIT 或手表控制能力。") {
+                PreferenceLine(title:"启用 MCP / HTTP API",note:"读取已缓存的健康指标、时间序列、运动记录和同步状态。") {
                     Toggle("",isOn:$access.configuration.enabled).labelsHidden().toggleStyle(.switch)
+                }
+                PreferenceLine(title:"访问需要密钥",note:"默认开启。关闭并应用后，可访问此服务的客户端无需密钥即可读取全部只读数据。") {
+                    Toggle("",isOn:Binding(get:{ access.configuration.requiresAPIKey },set:{ access.configuration.requireAPIKey = $0 })).labelsHidden().toggleStyle(.switch)
+                }
+                if !access.configuration.requiresAPIKey {
+                    Text(L10n.text("无密钥访问包含健康历史和运动记录，客户端权限不能限制匿名访问。"))
+                        .font(PulseTheme.font(size:12)).foregroundStyle(.orange).padding(15)
                 }
                 PreferenceLine(title:"监听范围") {
                     Picker("",selection:$access.configuration.host) { Text(L10n.text("仅本机")).tag("127.0.0.1"); Text(L10n.text("局域网（要求 HTTPS）")).tag("0.0.0.0") }.labelsHidden()
@@ -52,7 +60,7 @@ struct DeveloperSettingsPage: View {
                     HStack { StatusDot(active:access.running); Text(L10n.text(access.status)); Spacer(); Text(L10n.format("已处理 {0} 次请求",String(access.requestCount))) }.font(PulseTheme.font(size:11))
                     Text(access.baseURL + "/mcp").font(PulseTheme.font(size:12,design:.monospaced)).textSelection(.enabled)
                     DisclosureGroup(L10n.text("客户端配置示例")) {
-                        Text(L10n.text("支持手动 Bearer 密钥的 Streamable HTTP 客户端；不提供 OAuth 登录。配置格式因 AI 客户端而异。"))
+                        Text(L10n.text(access.configuration.requiresAPIKey ? "支持手动 Bearer 密钥的 Streamable HTTP 客户端；不提供 OAuth 登录。配置格式因 AI 客户端而异。" : "在客户端选择无认证。服务地址需可被客户端访问；不提供 OAuth 登录。"))
                             .font(PulseTheme.font(size:11)).foregroundStyle(PulseTheme.secondary).padding(.vertical,8)
                         Text(access.clientExample).font(PulseTheme.font(size:11,design:.monospaced)).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
                     }

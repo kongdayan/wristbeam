@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a “Require access key” switch for MCP and the read-only HTTP API, enabled by default for new and existing configurations. Explicit keyless mode accepts requests without an Authorization header; supplied credentials still enforce validity and client scopes. Show active authentication status and matching client configuration examples.
+
 ## 0.3.7
 
 - Manage MCP/API and Webhook keys locally: show, copy, paste/import, export and regenerate keys without Keychain authorization. Offer explicit legacy key import, verify clipboard writes, and surface pending settings and listener errors. Add signed-package credential, clipboard and MCP checks.

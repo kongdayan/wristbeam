@@ -45,11 +45,12 @@ enum PulseRuntime { static let isPreview = true }
    print(success ? "delivered" : "rejected"); return
   }
   let port = UInt16(args[1])!
+  let requireAPIKey = ProcessInfo.processInfo.environment["WRISTBEAM_TEST_KEYLESS"] != "1"
   let secure = args.count > 2
   let identity = secure ? try DeveloperServer.identity(data:Data(contentsOf:URL(fileURLWithPath:args[2])),password:"fixture-only") : nil
   let server = DeveloperServer()
   server.handle = { request, finish in Task { @MainActor in
-   finish(DeveloperProtocol.route(request,token:"fixture-only",allowedHosts:["127.0.0.1:\(port)"],origin:"\(secure ? "https" : "http")://127.0.0.1:\(port)") { name,arguments in ["schemaVersion":1,"synthetic":true,"query":name,"arguments":arguments] })
+   finish(DeveloperProtocol.route(request,token:"fixture-only",allowedHosts:["127.0.0.1:\(port)"],origin:"\(secure ? "https" : "http")://127.0.0.1:\(port)",requireAPIKey:requireAPIKey) { name,arguments in ["schemaVersion":1,"synthetic":true,"query":name,"arguments":arguments] })
   } }
   try server.start(host:"127.0.0.1",port:port,identity:identity)
   while true { try await Task.sleep(nanoseconds:1_000_000_000) }
@@ -70,7 +71,7 @@ enum PulseRuntime { static let isPreview = true }
         listen = port()
         base = ('https' if secure else 'http') + '://127.0.0.1:' + str(listen)
         with (stage / 'server.log').open('w') as log:
-            process = subprocess.Popen([str(binary), str(listen)] + ([str(identity)] if secure else []), stdout=log, stderr=log)
+            process = subprocess.Popen([str(binary), str(listen)] + ([str(identity)] if secure else []), stdout=log, stderr=log, env=dict(os.environ, WRISTBEAM_TEST_KEYLESS="0"))
             try:
                 client = WristBeamClient(base, 'fixture-only', ca_file=str(cert) if secure else None)
                 for _ in range(60):
@@ -111,6 +112,57 @@ enum PulseRuntime { static let isPreview = true }
                 bridge = subprocess.run([sys.executable, '-m', 'wristbeam'], input=json.dumps({'jsonrpc':'2.0','id':9,'method':'tools/list'})+'\n', text=True, capture_output=True, env=env, check=True)
                 assert len(json.loads(bridge.stdout)['result']['tools']) == 9; checks += 1
                 print('PASS native', 'HTTPS (trusted certificate)' if secure else 'HTTP', 'REST / MCP / auth / Origin / Host / stdio bridge')
+            finally:
+                process.terminate()
+                process.wait(timeout=5)
+    for secure in (False, True):
+        listen = port()
+        base = ('https' if secure else 'http') + '://127.0.0.1:' + str(listen)
+        context = ssl.create_default_context(cafile=str(cert)) if secure else None
+        with (stage / 'keyless-server.log').open('w') as log:
+            process = subprocess.Popen([str(binary), str(listen)] + ([str(identity)] if secure else []),
+                                       stdout=log, stderr=log, env=dict(os.environ, WRISTBEAM_TEST_KEYLESS='1'))
+            try:
+                for _ in range(60):
+                    try:
+                        with urlopen(base + '/api/v1/status', context=context, timeout=3) as response:
+                            assert json.load(response)['synthetic'] is True
+                        break
+                    except Exception:
+                        if process.poll() is not None:
+                            raise RuntimeError('Native keyless server exited')
+                        time.sleep(.1)
+                else:
+                    raise RuntimeError('Native keyless server did not become ready')
+                checks += 1
+                messages = [
+                    {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {'protocolVersion': '2025-06-18'}},
+                    {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list'},
+                    {'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call', 'params': {'name': 'wristbeam_metrics', 'arguments': {}}},
+                ]
+                for message in messages:
+                    request = Request(base + '/mcp', data=json.dumps(message).encode(),
+                                      headers={'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'})
+                    with urlopen(request, context=context, timeout=3) as response:
+                        result = json.load(response)['result']
+                        assert result.get('isError') is not True
+                        if message['method'] == 'initialize':
+                            assert result['protocolVersion'] == '2025-06-18'
+                        elif message['method'] == 'tools/list':
+                            assert len(result['tools']) == 9
+                        else:
+                            assert result['structuredContent']['synthetic'] is True
+                    checks += 1
+                for headers, code in [({'Origin': 'https://evil.example'}, 403), ({'Host': 'evil.example'}, 403),
+                                      ({'Authorization': 'Bearer invalid-fixture'}, 401), ({'Authorization': ''}, 401)]:
+                    try:
+                        urlopen(Request(base + '/api/v1/status', headers=headers), context=context, timeout=3)
+                        raise AssertionError('Expected keyless-mode rejection')
+                    except HTTPError as error:
+                        assert error.code == code
+                    checks += 1
+                assert WristBeamClient(base, 'fixture-only', ca_file=str(cert) if secure else None).status()['synthetic']; checks += 1
+                print('PASS native keyless', 'HTTPS' if secure else 'HTTP', 'REST / MCP / Host / Origin / invalid credentials')
             finally:
                 process.terminate()
                 process.wait(timeout=5)

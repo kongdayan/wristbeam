@@ -3,6 +3,70 @@ import Security
 @testable import GarminBar
 
 @MainActor final class DeveloperProtocolTests: XCTestCase {
+    func testAuthenticationDefaultsAndPreferenceMigration() throws {
+        XCTAssertTrue(DeveloperConfiguration().requiresAPIKey)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(DeveloperConfiguration())) as? [String: Any])
+        object.removeValue(forKey: "requireAPIKey")
+        func decode() throws -> DeveloperConfiguration {
+            try JSONDecoder().decode(DeveloperConfiguration.self, from: JSONSerialization.data(withJSONObject: object))
+        }
+        XCTAssertTrue(try decode().requiresAPIKey)
+        object["requireAPIKey"] = NSNull()
+        XCTAssertTrue(try decode().requiresAPIKey)
+        object["requireAPIKey"] = false
+        let anonymous = try decode()
+        XCTAssertFalse(try JSONDecoder().decode(DeveloperConfiguration.self, from: JSONEncoder().encode(anonymous)).requiresAPIKey)
+        object["requireAPIKey"] = true
+        XCTAssertTrue(try decode().requiresAPIKey)
+        object["requireAPIKey"] = "false"
+        XCTAssertThrowsError(try decode())
+    }
+    func testClientExamplesMatchAuthenticationMode() throws {
+        for required in [true, false] {
+            let data = Data(DeveloperAccess.clientExample(baseURL: "http://127.0.0.1:17890", requireAPIKey: required).utf8)
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let servers = try XCTUnwrap(object["mcpServers"] as? [String: [String: Any]])
+            let server = try XCTUnwrap(servers["wristbeam"])
+            XCTAssertEqual(server["url"] as? String, "http://127.0.0.1:17890/mcp")
+            XCTAssertEqual(server["headers"] != nil, required)
+        }
+    }
+    func testKeylessAccessRequiresExplicitOptOutAndCanBeDisabledAgain() throws {
+        var queries = 0
+        let headers = ["host": "127.0.0.1:17890"]
+        let anonymous = DeveloperRequest(method: "GET", target: "/api/v1/metrics", headers: headers, body: Data())
+        for (required, expected) in [(true, 401), (false, 200), (true, 401)] {
+            let response = DeveloperProtocol.route(anonymous, token: "", allowedHosts: ["127.0.0.1:17890"], origin: "http://127.0.0.1:17890", requireAPIKey: required) { _, _ in
+                queries += 1; return ["synthetic": true]
+            }
+            XCTAssertEqual(response.status, expected)
+        }
+        XCTAssertEqual(queries, 1)
+        // The primary-key toggle does not determine whether missing credentials are accepted.
+        let defaultResponse = DeveloperProtocol.route(anonymous, token: "", allowedHosts: ["127.0.0.1:17890"], origin: "http://127.0.0.1:17890") { _, _ in
+            XCTFail("Default mode queried private data"); return [:]
+        }
+        XCTAssertEqual(defaultResponse.status, 401)
+    }
+    func testKeylessModePreservesHostOriginCredentialsAndScopes() throws {
+        func call(headers: [String: String], scopes: Set<String>? = nil, expected: Int) {
+            var values = ["host": "127.0.0.1:17890"]
+            values.merge(headers) { _, new in new }
+            let request = DeveloperRequest(method: "GET", target: "/api/v1/metrics", headers: values, body: Data())
+            let response = DeveloperProtocol.route(request, token: "fixture", allowedHosts: ["127.0.0.1:17890"], origin: "http://127.0.0.1:17890", scopes: scopes, requireAPIKey: false) { _, _ in
+                XCTAssertEqual(expected, 200); return ["synthetic": true]
+            }
+            XCTAssertEqual(response.status, expected)
+        }
+        call(headers: [:], expected: 200)
+        call(headers: ["host": "evil.example"], expected: 403)
+        call(headers: ["origin": "https://evil.example"], expected: 403)
+        for credential in ["", "Bearer wrong", "Basic fixture"] {
+            call(headers: ["authorization": credential], expected: 401)
+        }
+        call(headers: ["authorization": "Bearer fixture"], scopes: ["status"], expected: 403)
+        call(headers: ["authorization": "Bearer fixture"], scopes: ["metrics"], expected: 200)
+    }
     func testKeychainFailuresAreNotMissingKeys() throws {
         XCTAssertNil(try DeveloperSecrets.decoded(status: errSecItemNotFound, data: nil))
         for status in [errSecAuthFailed, errSecInteractionNotAllowed, errSecUserCanceled, errSecMissingEntitlement] {
