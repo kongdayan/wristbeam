@@ -26,8 +26,9 @@ enum DeveloperSelfTest {
         let server = DeveloperServer()
         let port = UInt16.random(in: 49152...64000)
         let origin = "http://127.0.0.1:\(port)"
+        var requireAPIKey = true
         server.handle = { request, complete in Task { @MainActor in
-            complete(DeveloperProtocol.route(request, token: token, allowedHosts: ["127.0.0.1:\(port)"], origin: origin) { _,_ in ["synthetic":true] })
+            complete(DeveloperProtocol.route(request, token: token, allowedHosts: ["127.0.0.1:\(port)"], origin: origin, requireAPIKey: requireAPIKey) { _,_ in ["synthetic":true] })
         } }
         defer { server.stop() }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -59,5 +60,16 @@ enum DeveloperSelfTest {
               (json?["result"] as? [String:Any])?["protocolVersion"] as? String == "2025-06-18" else {
             throw DeveloperError.invalid("Packaged MCP handshake failed")
         }
+        requireAPIKey = false
+        request.setValue(nil, forHTTPHeaderField: "Authorization")
+        let (_, anonymous) = try await session.data(for: request)
+        guard (anonymous as? HTTPURLResponse)?.statusCode == 200 else { throw DeveloperError.invalid("Packaged keyless handshake failed") }
+        request.setValue("Bearer invalid-fixture", forHTTPHeaderField: "Authorization")
+        let (_, invalid) = try await session.data(for: request)
+        guard (invalid as? HTTPURLResponse)?.statusCode == 401 else { throw DeveloperError.invalid("Packaged invalid credential rejection failed") }
+        requireAPIKey = true
+        request.setValue(nil, forHTTPHeaderField: "Authorization")
+        let (_, restoredGate) = try await session.data(for: request)
+        guard (restoredGate as? HTTPURLResponse)?.statusCode == 401 else { throw DeveloperError.invalid("Packaged authentication restore failed") }
     }
 }

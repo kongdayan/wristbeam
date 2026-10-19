@@ -80,7 +80,9 @@ jobs:
         if: matrix.runner == 'macos-15'
         with:
           name: native-interface-macos15
-          path: dist/interface-renders/*.png
+          path: |
+            dist/interface-renders/*.png
+            dist/interface-renders/*-timing.json
           if-no-files-found: error
           retention-days: 14
       - name: Native XCTest suite

@@ -64,3 +64,5 @@ PR checks cover native Apple Silicon and Intel builds, tests, UI rendering on AR
 Release first looks for a successful `ci.yml` main-push run for the exact tag commit. If that run is still active it waits up to 35 minutes; without a usable run/artifact it executes full release checks. Reuse verifies GitHub's artifact SHA-256, allowed archive members, embedded source commit/run ID/version/architecture, and package SHA-256. Existing native signature, architecture and version validation still runs before universal packaging and publication. PR artifacts and artifacts from another commit are never reusable. API contract: [GitHub artifact endpoints](https://docs.github.com/en/rest/actions/artifacts).
 
 A release is still an explicit operator action. These workflows do not create version tags automatically.
+
+CI job/step trends and compiler/render resource measurements are described in [CI performance](CI-PERFORMANCE.md).

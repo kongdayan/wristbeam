@@ -87,10 +87,13 @@ enum DeveloperProtocol {
     private static func tool(_ name: String, _ description: String, properties: [String:Any] = [:], required: [String] = []) -> [String:Any] {
         ["name":name,"description":description,"inputSchema":["type":"object","properties":properties,"required":required,"additionalProperties":false],"annotations":["readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false]]
     }
-    static func route(_ request: DeveloperRequest, token: String, allowedHosts: Set<String>, origin: String, scopes: Set<String>? = nil, query: (String, [String:Any]) throws -> Any) -> DeveloperResponse {
+    static func route(_ request: DeveloperRequest, token: String, allowedHosts: Set<String>, origin: String, scopes: Set<String>? = nil, requireAPIKey: Bool = true, query: (String, [String:Any]) throws -> Any) -> DeveloperResponse {
         guard let host = request.headers["host"], allowedHosts.contains(host.lowercased()) else { return .json(["error":"Host rejected"],status:403) }
         if let incoming = request.headers["origin"], incoming != origin { return .json(["error":"Origin rejected"],status:403) }
-        guard !token.isEmpty, equalSecret(request.headers["authorization"] ?? "", "Bearer " + token) else { return .json(["error":"Bearer token required"],status:401) }
+        // Anonymous access is explicit. Supplied invalid/revoked credentials never fall back to it.
+        if requireAPIKey || request.headers["authorization"] != nil {
+            guard !token.isEmpty, equalSecret(request.headers["authorization"] ?? "", "Bearer " + token) else { return .json(["error":"Bearer token required"],status:401) }
+        }
         guard let components = URLComponents(string:"http://localhost" + request.target), components.fragment == nil else { return .json(["error":"Invalid path"],status:400) }
         if components.path == "/mcp" {
             guard request.method == "POST" else { return .json(["error":"Use POST; this server does not open SSE streams"],status:405) }

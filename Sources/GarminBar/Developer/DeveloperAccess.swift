@@ -3,19 +3,6 @@ import Combine
 import CryptoKit
 import Security
 
-struct DeveloperConfiguration: Codable, Equatable {
-    var primaryKeyEnabled: Bool? = true
-    var enabled = false
-    var host = "127.0.0.1"
-    var port = 17890
-    var https = false
-    var publicHost = "localhost"
-    var webhookEnabled = false
-    var webhookURL = ""
-    var webhookInterval = 60
-    var webhookMetrics: Set<String> = []
-}
-
 @MainActor final class DeveloperAccess: ObservableObject {
     @Published var configuration: DeveloperConfiguration
     @Published private(set) var running = false
@@ -75,13 +62,14 @@ struct DeveloperConfiguration: Codable, Equatable {
             let allowed: Set<String> = ["\(host):\(self.active.port)","localhost:\(self.active.port)","127.0.0.1:\(self.active.port)"]
             let incoming = request.headers["authorization"] ?? ""
             let client = self.clients.first { $0.enabled && DeveloperProtocol.equalSecret(incoming, "Bearer " + $0.key) }
+            let requireAPIKey = self.active.requiresAPIKey
             let primary = self.active.primaryKeyEnabled != false
             let token = client?.key ?? (primary ? self.token : "")
             let scopes = client.map { Set($0.scopes.map(\.rawValue)) }
             let snapshot = model.developerSnapshot(), scope = self.generation
             let origin = self.baseURL(config: self.active)
             let response = await Task.detached(priority: .utility) {
-                DeveloperProtocol.route(request, token: token, allowedHosts: allowed, origin: origin, scopes: scopes) { route, args in
+                DeveloperProtocol.route(request, token: token, allowedHosts: allowed, origin: origin, scopes: scopes, requireAPIKey: requireAPIKey) { route, args in
                     try snapshot.query(route, arguments: args)
                 }
             }.value
@@ -101,7 +89,8 @@ struct DeveloperConfiguration: Codable, Equatable {
     var hasUnappliedChanges: Bool { configuration != active }
     var baseURL: String { baseURL(config:configuration) }
     private func baseURL(config: DeveloperConfiguration) -> String { "\(config.https ? "https" : "http")://\(config.host == "127.0.0.1" ? "127.0.0.1" : config.publicHost):\(config.port)" }
-    var clientExample: String { "{\n  \"mcpServers\": {\n    \"wristbeam\": {\n      \"type\": \"http\",\n      \"url\": \"\(baseURL)/mcp\",\n      \"headers\": {\"Authorization\": \"Bearer <WRISTBEAM_API_KEY>\"}\n    }\n  }\n}" }
+    var authenticationStatus: String { active.requiresAPIKey ? "访问需要密钥" : "无密钥访问已开启" }
+    var clientExample: String { configuration.clientExample(baseURL: baseURL) }
     func apply() {
         guard model?.preview != true else { status = "演示模式不启动接口或 Webhook"; return }
         guard !isApplying, !isManagingKey else { return }

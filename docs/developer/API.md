@@ -9,7 +9,7 @@ WristBeam exposes **read-only cached health and workout data**, through a local 
 
    The switch edits a pending configuration; it does not start a listener until applied. File errors are reported rather than treated as missing credentials. Copy success appears beside the key buttons only after a clipboard roundtrip. Port and startup errors appear at the top; the previous active configuration remains active if new settings fail validation.
 3. Set the client's Streamable HTTP endpoint to `http://127.0.0.1:17890/mcp`, with `Authorization: Bearer <key>`.
-4. Only clients supporting manually supplied authorization headers work directly. This server does **not** implement OAuth discovery/login. Use the included stdio bridge for clients requiring stdio.
+4. Key authentication is enabled by default, including when upgrading existing preferences. Clients can supply the Bearer header directly or use the included stdio bridge. For a client without key support, explicitly turn off **Require access key** and click **Apply interface settings**. This server does **not** implement OAuth discovery/login.
 
 Example client configuration (field names vary by AI client):
 
@@ -19,7 +19,17 @@ Example client configuration (field names vary by AI client):
 
 Keep the key out of shared configuration, screenshots, issues and source control. The default key retains full read access for existing clients. Prefer a named client key with only the scopes that client needs. OAuth is not implemented. Use **Stop all interfaces** to immediately stop the listener and cancel pending webhook work.
 
-### User-managed keys
+### Optional keyless access
+
+In **Settings → Developer integrations → MCP and read-only API**, **Require access key** defaults to on. Turning it off takes effect only after **Apply interface settings**; the running status shows the active authentication mode. Re-enable and apply to reject anonymous requests again. The setting persists across restarts, while older settings with a missing/null field keep authentication required.
+
+With keyless access enabled, omit the `Authorization` header and select **No authentication** in the MCP client. Anyone who can reach the listener can read every exposed read-only route, including health history and activities. Named-client scopes do not restrict anonymous access. Supplied credentials are still validated: invalid, revoked or disabled keys return 401, and a valid named key retains its scopes. Revoking a key does not prevent its former holder from making anonymous requests while keyless access is enabled.
+
+The generated client example omits `headers` in this mode. Existing SDK/stdio clients may continue using their keys. The default-key toggle is separate: disabling that key does not enable anonymous access. Webhook signing is unchanged. Host/Origin validation, HTTPS requirements outside loopback, rate limits and read-only query behavior remain enforced.
+
+A remote ChatGPT connector still needs a reachable endpoint; selecting no authentication does not make `127.0.0.1` reachable from ChatGPT. A reverse proxy must forward the Host accepted by the listener. Publicly exposing a keyless endpoint grants access to everyone who can reach it; use an access-controlled transport for private data.
+
+## User-managed keys
 
 MCP/API and Webhook keys are independent. Generated keys contain 32 cryptographically random bytes (64 hex characters). Imported keys accept 32–512 ASCII letters, digits or `-._~+/=`; surrounding whitespace is trimmed. Use **Manage key → Import key… → Paste**, or type a key and save. Invalid input does not overwrite the current key.
 
@@ -37,7 +47,7 @@ Named credentials persist in private `Developer/Credentials/clients.json` (0600)
 
 Stateless [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports), protocol `2025-06-18` or `2025-03-26`. JSON-RPC uses one JSON message per POST, JSON responses, and HTTP 202 without a body for accepted notifications. No session ID is issued. GET/DELETE `/mcp` return 405; SSE, subscriptions, resumability and legacy SSE transport are not implemented. Unsupported protocol-version headers return 400. `Accept` must list both `application/json` and `text/event-stream`.
 
-All routes require the Bearer key. Unknown Host and unapproved Origin headers return 403, before processing data. Browser Origin is allowed only when it exactly equals the configured base URL; no cross-origin browser API is provided. Use native clients or a same-origin backend. Rate limit: 240 requests/minute, max 32 connections, 10-second connection timeout. Requests are limited to 64 KiB including headers (16 KiB header cap); chunked requests, duplicate headers and pipelining are rejected. The server closes each HTTP connection after its response.
+All routes require the Bearer key by default. Unknown Host and unapproved Origin headers return 403, before processing data. Browser Origin is allowed only when it exactly equals the configured base URL; no cross-origin browser API is provided. Use native clients or a same-origin backend. Rate limit: 240 requests/minute, max 32 connections, 10-second connection timeout. Requests are limited to 64 KiB including headers (16 KiB header cap); chunked requests, duplicate headers and pipelining are rejected. The server closes each HTTP connection after its response.
 
 HTTP is limited to loopback. To expose the listener on `0.0.0.0`, enable HTTPS, enter the hostname/IPv4 used by clients, and import a PKCS#12 (`.p12`/`.pfx`) containing the certificate and private key. The certificate must cover that address and clients must trust its issuer. TLS 1.2+ is required. Certificate bytes are copied into the private app directory (0600); the import password is in a private local credential file. There is no automatic certificate issuance/renewal, public tunnel, firewall modification or TLS-verification bypass. Bind only where you intend to grant access. IPv6 listener configuration is not implemented in v1.
 

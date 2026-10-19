@@ -1182,5 +1182,11 @@
   "撤销访问": "Revoke access",
   "已撤销": "Revoked",
   "移除": "Remove",
-  "启用默认密钥": "Enable default key"
+  "启用默认密钥": "Enable default key",
+  "访问需要密钥": "Require access key",
+  "无密钥访问已开启": "Keyless access is on",
+  "读取已缓存的健康指标、时间序列、运动记录和同步状态。": "Read cached health metrics, time series, activities and sync status.",
+  "默认开启。关闭并应用后，可访问此服务的客户端无需密钥即可读取全部只读数据。": "On by default. Turn off and apply to let clients that can reach this service read all read-only data without a key.",
+  "无密钥访问包含健康历史和运动记录，客户端权限不能限制匿名访问。": "Keyless access includes health history and activities. Client scopes do not restrict anonymous access.",
+  "在客户端选择无认证。服务地址需可被客户端访问；不提供 OAuth 登录。": "Select no authentication in your client. The service address must be reachable by the client; OAuth is not available."
 }
