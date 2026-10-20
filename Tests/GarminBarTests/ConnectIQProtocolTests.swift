@@ -226,7 +226,7 @@ extension ConnectIQProtocolTests {
             let current = try GFDIMonkeyCodec.encode(.dictionary(["x": .int32(1)]))
             let desired = try GFDIMonkeyCodec.encode(.dictionary(["x": .int32(2)]))
             func response(_ saving: Bool) -> Data { bytes(4, bytes(saving ? 4 : 2, bytes(1, uuid) + integer(2, 1))) }
-            func push(_ data: Data, _ requestID: UInt16) throws {
+            @MainActor func push(_ data: Data, _ requestID: UInt16) throws {
                 let body = bytes(4, bytes(5, bytes(1, uuid) + bytes(2, data)))
                 fixture.session.receive(try GFDIMessage(number: 5043, payload: fragment(id: requestID, offset: 0, total: UInt32(body.count), data: body)).framed())
             }
