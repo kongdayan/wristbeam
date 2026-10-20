@@ -2,6 +2,12 @@
 
 The Connect IQ page separates store listings, local packages, installed watch faces and device-confirmed controls.
 
+## Interface language
+
+Connect IQ follows the app language setting: Chinese system languages use Simplified Chinese, and every other system language uses English. Users can also select Chinese or English explicitly. Account region selects the cloud host independently of interface language; search requests and newly opened hosted settings editors use `zh-CN` or `en-US` accordingly.
+
+Store titles and descriptions retain their supplied translations and switch language without another download. Chinese prefers Chinese, then English; English prefers English. If the author supplies neither requested translation nor an English fallback, the available original is preserved. Device-reported names and author-controlled settings content may likewise lack translations. Dates and file sizes follow the app locale. README translations are independent of the app's two UI languages.
+
 ## Store and local library
 
 Sign in and select a registered watch. Search by name or keyword, browse download history or popular faces, or paste an official store URL/application UUID to open a specific listing. Keyword results use relevance ordering, the selected watch's device/part-number filters, and paginated cards. New queries and account/device changes invalidate older requests; duplicate results are removed. Icons and screenshots use Garmin's public regional media endpoints without account credentials. A listing's latest version and download history do not prove installation or current use.

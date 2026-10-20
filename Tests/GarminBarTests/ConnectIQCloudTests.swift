@@ -89,6 +89,22 @@ private final class ConnectIQHTTP: URLProtocol {
 }
 
 @MainActor final class ConnectIQCloudTests: XCTestCase {
+    func testChinaAccountSearchAndSettingsFollowInterfaceLanguage() async throws {
+        let original = L10n.language; defer { L10n.language = original }
+        try await withFixture { cloud in
+            let face = GFDIInstalledWatchFace(unitID: 101, id: ConnectIQHTTP.appID, name: "Fixture", version: 7,
+                filename: nil, fileSize: nil, disabled: false, favorite: nil, nativeAppID: nil)
+            for language in [PulseLanguage.zhHans, .en] {
+                L10n.language = language
+                let tag = language == .en ? "en-US" : "zh-CN"
+                _ = try await cloud.searchConnectIQApps(keywords: "Digital", deviceID: "101")
+                XCTAssertEqual(query(try XCTUnwrap(ConnectIQHTTP.requests.last))["locale"], tag)
+                XCTAssertEqual(try cloud.connectIQSettingsContext(for: face).locale, tag)
+                XCTAssertEqual(cloud.region, .china)
+            }
+        }
+    }
+
     func testKeywordSearchEncodesTextAndKeepsDeviceAndWatchFaceFilters() async throws {
         try await withFixture { cloud in
             let rows = try await cloud.searchConnectIQApps(keywords: "  山水 + Digital&A  ", deviceID: "101", page: 2)

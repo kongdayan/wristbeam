@@ -25,7 +25,7 @@ struct ConnectIQSettingsSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             if let request = controller.editorRequest {
                 ConnectIQSettingsView(
-                    context: .init(identity: controller.identity, request: request, appName: controller.appName),
+                    context: .init(identity: controller.identity, request: request, appName: model.connectIQ.apps[face.id]?.localizedName ?? controller.appName),
                     onSubmit: {
                         try await controller.save(jsonData: $0)
                         onSaved()
@@ -34,7 +34,7 @@ struct ConnectIQSettingsSheet: View {
                     .id(controller.identity)
             } else {
                 HStack {
-                    Text(face.name).font(.headline)
+                    Text(model.connectIQ.apps[face.id]?.localizedName ?? face.name).font(.headline)
                     Spacer()
                     Button(L10n.text("关闭")) { controller.cancel(); dismiss() }
                 }

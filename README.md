@@ -51,7 +51,7 @@ Real app UI with isolated demo data. [Original captures and artwork notes](docs/
 - Independent menu bar, panel and dashboard selections, group toggles, search, drag ordering, adjustable text and layout.
 - Daily curves, interval bars, date/time ranges, cursor readings and original records. Gaps remain empty.
 - Garmin Bluetooth pairing guide, persistent original-FIT queue, deduplication and cloud sync.
-- Light/dark/system themes, Chinese/English app UI, and updates that require confirmation.
+- Light/dark/system themes and updates that require confirmation. The app uses Chinese for Chinese system languages and English for all others, with a manual language override. README translations are maintained separately.
 
 Opt-in read-only MCP, HTTP/HTTPS API, Python SDK and signed webhooks in Settings → Developer integrations. [Developer API](docs/developer/API.md).
 

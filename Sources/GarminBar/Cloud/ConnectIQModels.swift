@@ -1,5 +1,11 @@
 import Foundation
 
+struct ConnectIQAppText: Codable, Equatable {
+    let locale: String
+    let name: String
+    let description: String
+}
+
 struct ConnectIQApp: Identifiable, Codable, Equatable {
     let id: String
     let name: String
@@ -14,6 +20,19 @@ struct ConnectIQApp: Identifiable, Codable, Equatable {
     let iconFileID: String?
     var iconURL: URL? = nil
     var screenshotURLs: [URL] = []
+    var localizations: [ConnectIQAppText]? = nil
+
+    var localizedName: String { localizedText?.name ?? name }
+    var localizedDescription: String { localizedText?.description ?? description }
+    private var localizedText: ConnectIQAppText? { Self.preferredText(localizations ?? []) }
+
+    private static func preferredText(_ texts: [ConnectIQAppText]) -> ConnectIQAppText? {
+        func match(_ tag: String) -> ConnectIQAppText? { texts.first { $0.locale == tag } }
+        if !L10n.isEnglish, let chinese = match("zh-cn") ?? texts.first(where: { $0.locale == "zh" || $0.locale.hasPrefix("zh-") }) {
+            return chinese
+        }
+        return match("en-us") ?? texts.first(where: { $0.locale == "en" || $0.locale.hasPrefix("en-") }) ?? texts.first
+    }
 
     static func parse(_ data: Data, region: GarminRegion = .china) throws -> Self {
         guard let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ConnectIQError.invalidData }
@@ -23,9 +42,13 @@ struct ConnectIQApp: Identifiable, Codable, Equatable {
         guard let raw = value["id"] as? String, let id = UUID(uuidString: raw),
               let version = value["latestInternalVersion"] as? Int, version > 0,
               let names = value["appLocalizations"] as? [[String: Any]], !names.isEmpty else { throw ConnectIQError.invalidData }
-        let localized = names.first { ($0["locale"] as? String)?.lowercased().replacingOccurrences(of: "_", with: "-") == "zh-cn" } ?? names[0]
-        guard let name = localized["name"] as? String, !name.isEmpty else { throw ConnectIQError.invalidData }
-        return Self(id: id.uuidString.lowercased(), name: name, description: localized["description"] as? String ?? "",
+        let texts: [ConnectIQAppText] = names.compactMap { row in
+            guard let name = row["name"] as? String, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return ConnectIQAppText(locale: (row["locale"] as? String ?? "").lowercased().replacingOccurrences(of: "_", with: "-"),
+                                    name: name, description: row["description"] as? String ?? "")
+        }
+        guard let localized = preferredText(texts) else { throw ConnectIQError.invalidData }
+        return Self(id: id.uuidString.lowercased(), name: localized.name, description: localized.description,
                     version: value["latestExternalVersion"] as? String ?? String(version), internalVersion: version,
                     isWatchFace: stringValue(value["typeId"]) == "1", compatiblePartNumbers: value["compatibleDevicePartNumbers"] as? [String] ?? [],
                     permissions: value["permissions"] as? [String] ?? [], paymentModel: value["paymentModel"] as? Int,
@@ -33,7 +56,7 @@ struct ConnectIQApp: Identifiable, Codable, Equatable {
                     iconURL: ConnectIQService.imageURL(fileID: value["iconFileId"] as? String, kind: "icons", region: region),
                     screenshotURLs: (value["screenshotFileIds"] as? [String] ?? []).prefix(12).compactMap {
                         ConnectIQService.imageURL(fileID: $0, kind: "screenshots", region: region)
-                    })
+                    }, localizations: texts)
     }
 }
 

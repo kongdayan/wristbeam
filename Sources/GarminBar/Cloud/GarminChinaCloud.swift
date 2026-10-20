@@ -770,7 +770,7 @@ extension GarminChinaCloud {
         let data = try await connectIQRequest(path: "apps/keywords", deviceID: deviceID, query: connectIQQuery(deviceID) + [
             URLQueryItem(name: "keywords", value: keywords), URLQueryItem(name: "sortType", value: "mostRelevant"),
             URLQueryItem(name: "filterType", value: "ALL"), URLQueryItem(name: "appType", value: "watchface"),
-            URLQueryItem(name: "locale", value: L10n.isEnglish ? "en-US" : "zh-CN"),
+            URLQueryItem(name: "locale", value: L10n.languageTag),
             URLQueryItem(name: "pageSize", value: String(ConnectIQService.pageSize)), URLQueryItem(name: "startPageIndex", value: String(page)),
             URLQueryItem(name: "companionAppPlatform", value: "android")])
         guard let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
@@ -782,7 +782,7 @@ extension GarminChinaCloud {
         let device = try connectIQDevice(String(face.unitID))
         guard let version = face.version, version > 0 else { throw ConnectIQSettingsCloudError.invalidContext }
         return try ConnectIQSettingsContext(appID: face.id, version: version, partNumber: device.partNumber!,
-                                            region: region, locale: L10n.isEnglish ? "en-US" : "zh-CN")
+                                            region: region, locale: L10n.languageTag)
     }
 
     /// APK x60/a10 uses HTTP_CLIENT_NO_AUTH. Never attach account tokens to the editor/serializer.

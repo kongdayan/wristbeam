@@ -5,6 +5,21 @@ import XCTest
 final class ConnectIQSettingsCloudTests: XCTestCase {
     private let appID = "00112233-4455-6677-8899-aabbccddeeff"
 
+    func testEditorLanguageIsIndependentOfAccountRegion() throws {
+        let original = L10n.language; defer { L10n.language = original }
+        for region in [GarminRegion.china, .global] {
+            for language in [PulseLanguage.zhHans, .en] {
+                L10n.language = language
+                let tag = language == .en ? "en-US" : "zh-CN"
+                let context = try ConnectIQSettingsContext(appID: appID, version: 1, partNumber: "006-B9999-00", region: region, locale: L10n.languageTag)
+                let request = try context.editorRequest(settingsJSON: Data("{}".utf8), dark: false)
+                XCTAssertEqual(request.url?.host, "apps.\(region.domain)")
+                XCTAssertTrue(request.url!.path.hasPrefix("/\(tag)/"))
+                XCTAssertTrue(context.binaryURL.path.hasPrefix("/\(tag)/"))
+            }
+        }
+    }
+
     func testEditorPreservesUnicodePlusAndUnknownNestedPropertiesWithoutAuth() throws {
         let context = try ConnectIQSettingsContext(appID: appID, version: 7, partNumber: "006-B9999-00", region: .china, locale: "zh-CN")
         let original: [String: Any] = ["text": "中文 + & = % ? #", "nested": ["keep": [1, true, "a+b"]]]

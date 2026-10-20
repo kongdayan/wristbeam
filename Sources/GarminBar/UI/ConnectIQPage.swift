@@ -301,7 +301,7 @@ struct ConnectIQPage: View {
     private var installedFaces: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let bytes = model.bluetooth.installedWatchFaceAvailableSpace {
-                Text(L10n.text("可用空间") + ": " + ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .file))
+                Text(L10n.text("可用空间") + ": " + ByteCountFormatStyle(style: .file, locale: L10n.locale).format(Int64(clamping: bytes)))
                     .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
             }
             ForEach(model.bluetooth.installedWatchFaces) { face in
@@ -309,12 +309,12 @@ struct ConnectIQPage: View {
                     HStack(spacing: 12) {
                     ConnectIQArtwork(url: model.preview ? nil : library.apps[face.id]?.iconURL, width: 56, height: 56)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(face.name).font(PulseTheme.font(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                        Text(library.apps[face.id]?.localizedName ?? face.name).font(PulseTheme.font(size: 14, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                         if library.runtimeAppIDs[face.id] == nil {
                             Text(L10n.text("下载后可从 Mac 打开")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                         }
                         if let bytes = face.fileSize {
-                            Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .file))
+                            Text(ByteCountFormatStyle(style: .file, locale: L10n.locale).format(Int64(clamping: bytes)))
                                 .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                         }
                     }
@@ -359,7 +359,7 @@ struct ConnectIQPage: View {
         VStack(spacing: 16) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 12)], spacing: 12) {
             ForEach(Array(library.history.sorted { $0.date > $1.date }.enumerated()), id: \.offset) { _, row in
-                catalogCard(id: row.appID, name: library.apps[row.appID]?.name ?? L10n.text("表盘资料暂不可用"),
+                catalogCard(id: row.appID, name: library.apps[row.appID]?.localizedName ?? L10n.text("表盘资料暂不可用"),
                             url: library.apps[row.appID]?.iconURL,
                             subtitle: "\(row.version) · \(row.date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(L10n.locale)))")
             }
@@ -373,7 +373,7 @@ struct ConnectIQPage: View {
         VStack(spacing: 16) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 12)], spacing: 12) {
             ForEach(library.featured) { app in
-                catalogCard(id: app.id, name: app.name, url: app.iconURL, subtitle: L10n.text("商店版本") + ": " + app.version)
+                catalogCard(id: app.id, name: app.localizedName, url: app.iconURL, subtitle: L10n.text("商店版本") + ": " + app.version)
             }
             }
             if library.featuredHasMore {
@@ -386,7 +386,7 @@ struct ConnectIQPage: View {
             Text(library.searchQuery).font(PulseTheme.font(size: 13, weight: .medium)).textSelection(.enabled)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 12)], spacing: 12) {
                 ForEach(library.searchResults) { app in
-                    catalogCard(id: app.id, name: app.name, url: app.iconURL, subtitle: L10n.text("商店版本") + ": " + app.version)
+                    catalogCard(id: app.id, name: app.localizedName, url: app.iconURL, subtitle: L10n.text("商店版本") + ": " + app.version)
                 }
             }
             if library.searchHasMore {
@@ -429,7 +429,7 @@ struct ConnectIQPage: View {
                 HStack(spacing: 16) {
                     ConnectIQArtwork(url: model.preview ? nil : app.iconURL, width: 88, height: 88)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(app.name).font(PulseTheme.font(size: 20, weight: .semibold))
+                        Text(app.localizedName).font(PulseTheme.font(size: 20, weight: .semibold))
                         Text(L10n.text("商店版本") + ": " + app.version).foregroundStyle(PulseTheme.secondary)
                         Text(L10n.text(compatibility(app))).font(PulseTheme.font(size: 11))
                             .foregroundStyle(isIncompatible(app) ? Color.orange : PulseTheme.secondary)
@@ -461,7 +461,7 @@ struct ConnectIQPage: View {
                         }.padding(.bottom, 6)
                     }.clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
-                Text(app.description).font(PulseTheme.font(size: 12)).lineSpacing(5).textSelection(.enabled)
+                Text(app.localizedDescription).font(PulseTheme.font(size: 12)).lineSpacing(5).textSelection(.enabled)
                 if !app.permissions.isEmpty {
                     Text(L10n.text("所需权限") + ": " + app.permissions.joined(separator: ", "))
                         .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
@@ -559,7 +559,7 @@ struct ConnectIQPage: View {
             Image(systemName: "folder.fill").foregroundStyle(PulseTheme.mint)
             VStack(alignment: .leading, spacing: 4) {
                 Text(L10n.text("已保存到本地文件夹")).font(PulseTheme.font(size: 12, weight: .medium)).foregroundStyle(PulseTheme.mint)
-                Text(library.selected?.name ?? url.lastPathComponent)
+                Text(library.selected?.localizedName ?? url.lastPathComponent)
                     .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineLimit(1)
             }
             Spacer(minLength: 8)

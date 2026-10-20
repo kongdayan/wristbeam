@@ -39,6 +39,8 @@ final class ConnectIQModelsTests: XCTestCase {
     }
 
     func testDetailsPreferChineseLocalizationAndNormalizeIdentifiers() throws {
+        let original = L10n.language; defer { L10n.language = original }
+        L10n.language = .zhHans
         let app = try ConnectIQApp.parse([
             "id": appID.uppercased(), "latestInternalVersion": 7, "latestExternalVersion": "1.7",
             "appLocalizations": [["locale": "en-US", "name": "Synthetic"],
@@ -52,6 +54,58 @@ final class ConnectIQModelsTests: XCTestCase {
         XCTAssertEqual(app.compatiblePartNumbers, ["006-B9999-00"])
         XCTAssertEqual(app.permissions, ["Sensor"]); XCTAssertEqual(app.paymentModel, 2)
         XCTAssertTrue(app.hasTrialMode)
+    }
+
+    func testStoreTextsSwitchLanguageWithoutRefetching() throws {
+        let original = L10n.language; defer { L10n.language = original }
+        L10n.language = .en
+        let app = try ConnectIQApp.parse([
+            "id": appID, "latestInternalVersion": 1,
+            "appLocalizations": [
+                ["locale": "zh_CN", "name": "山间", "description": "中文介绍"],
+                ["locale": "ja-JP", "name": "日本語"],
+                ["locale": "en_US", "name": "Mountain", "description": "English description"]]])
+        XCTAssertEqual(app.name, "Mountain")
+        XCTAssertEqual(app.localizedDescription, "English description")
+        L10n.language = .zhHans
+        XCTAssertEqual(app.localizedName, "山间")
+        XCTAssertEqual(app.localizedDescription, "中文介绍")
+        L10n.language = .en
+        XCTAssertEqual(app.localizedName, "Mountain")
+        XCTAssertEqual(app.localizedDescription, "English description")
+    }
+
+    func testStoreTextsFallBackToEnglishThenAvailableOriginal() throws {
+        let original = L10n.language; defer { L10n.language = original }
+        let english = try ConnectIQApp.parse([
+            "id": appID, "latestInternalVersion": 1,
+            "appLocalizations": [["locale": "ja", "name": "Original"],
+                                 ["locale": "en-GB", "name": "English"]]])
+        for language in [PulseLanguage.zhHans, .en] {
+            L10n.language = language
+            XCTAssertEqual(english.localizedName, "English")
+        }
+        let chineseOnly = try ConnectIQApp.parse([
+            "id": appID, "latestInternalVersion": 1,
+            "appLocalizations": [["locale": "zh-CN", "name": "原名", "description": "作者原文"]]])
+        XCTAssertEqual(chineseOnly.localizedName, "原名")
+        XCTAssertEqual(chineseOnly.localizedDescription, "作者原文")
+    }
+
+    func testStoreLocalizationsRoundTripAndLegacySnapshotsStillDecode() throws {
+        let original = L10n.language; defer { L10n.language = original }
+        L10n.language = .en
+        let app = try ConnectIQApp.parse([
+            "id": appID, "latestInternalVersion": 1,
+            "appLocalizations": [["locale": "en-US", "name": "English"], ["locale": "zh-CN", "name": "中文"]]])
+        let data = try JSONEncoder().encode(app)
+        let restored = try JSONDecoder().decode(ConnectIQApp.self, from: data)
+        L10n.language = .zhHans
+        XCTAssertEqual(restored.localizedName, "中文")
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        legacy.removeValue(forKey: "localizations")
+        let old = try JSONDecoder().decode(ConnectIQApp.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertEqual(old.localizedName, "English")
     }
 
     func testDetailsRejectIncompleteOrMalformedIdentityAndVersion() {

@@ -4,6 +4,11 @@ enum PulseLanguage: String, CaseIterable, Identifiable {
     case system, zhHans, en
     var id: String { rawValue }
     var title: String { switch self { case .system: return L10n.text("跟随系统"); case .zhHans: return "简体中文"; case .en: return "English" } }
+    func resolved(preferredLanguages: [String] = Locale.preferredLanguages) -> Self {
+        guard self == .system else { return self }
+        let primary = (preferredLanguages.first ?? "en").lowercased().replacingOccurrences(of: "_", with: "-")
+        return primary == "zh" || primary.hasPrefix("zh-") ? .zhHans : .en
+    }
 }
 
 /// Stable Chinese source keys keep protocol identifiers and persisted data intact.
@@ -16,7 +21,8 @@ enum L10n {
         get { lock.lock(); defer { lock.unlock() }; return selected }
         set { lock.lock(); selected = newValue; cache.removeAll(); lock.unlock() }
     }
-    static var isEnglish: Bool { language == .en || (language == .system && !(Locale.preferredLanguages.first ?? "en").hasPrefix("zh")) }
+    static var isEnglish: Bool { language.resolved() == .en }
+    static var languageTag: String { isEnglish ? "en-US" : "zh-CN" }
     static var locale: Locale { Locale(identifier: isEnglish ? "en_US" : "zh_CN") }
     private static let english: [String: String] = {
         // Installed apps own their resources. Bundle.module traps when SwiftPM's
@@ -58,14 +64,16 @@ enum L10n {
         guard Bundle.main.bundleURL.pathExtension == "app", english.count > 800 else { return false }
         let original = language; defer { language = original }
         language = .system
-        let expectedEnglish = !(Locale.preferredLanguages.first ?? "en").hasPrefix("zh")
+        let expectedEnglish = PulseLanguage.system.resolved() == .en
         guard text("腕映") == (expectedEnglish ? "WristBeam" : "腕映") else { return false }
         for _ in 0..<3 {
             language = .en
             guard text("腕映") == "WristBeam", text("显示设置") == "Display settings",
+                  text("搜索结果") == "Search results",
+                  text("搜索表盘名称、关键词或粘贴链接") == "Search watch faces by name, keyword or link",
                   text("已刷新 51 项云端同步指标") == "Refreshed 51 cloud metrics" else { return false }
             language = .zhHans
-            guard text("腕映") == "腕映", text("显示设置") == "显示设置" else { return false }
+            guard text("腕映") == "腕映", text("显示设置") == "显示设置", text("搜索结果") == "搜索结果" else { return false }
         }
         return true
     }
