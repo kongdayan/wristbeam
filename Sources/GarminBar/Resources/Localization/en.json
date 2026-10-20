@@ -1380,5 +1380,11 @@
   "发现表盘": "Discover watch faces",
   "清空搜索": "Clear search",
   "正在加载表盘…": "Loading watch faces…",
-  "暂无下载记录": "No download history"
+  "暂无下载记录": "No download history",
+  "搜索表盘名称、关键词或粘贴链接": "Search watch faces by name, keyword or link",
+  "搜索": "Search",
+  "请输入 1–128 个字符的表盘名称、关键词或有效的佳明商店链接": "Enter a watch-face name or keyword (1–128 characters), or a valid Garmin Store link",
+  "搜索结果": "Search results",
+  "未找到匹配的表盘，试试其他关键词": "No matching watch faces. Try another keyword.",
+  "请输入 1–128 个字符的表盘名称或关键词": "Enter a watch-face name or keyword (1–128 characters)"
 }

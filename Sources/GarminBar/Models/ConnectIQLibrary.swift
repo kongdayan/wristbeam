@@ -12,6 +12,7 @@ import Combine
     func fetchConnectIQHistory(deviceID: String, page: Int) async throws -> [ConnectIQDownloadRecord]
     func fetchConnectIQApp(id: String, deviceID: String) async throws -> ConnectIQApp
     func fetchConnectIQFeatured(deviceID: String, page: Int) async throws -> [ConnectIQApp]
+    func searchConnectIQApps(keywords: String, deviceID: String, page: Int) async throws -> [ConnectIQApp]
     func downloadConnectIQApp(app: ConnectIQApp, deviceID: String, allowQueueCreation: Bool) async throws -> Data
     func fetchConnectIQInstallMessageID(appID: String, deviceID: String, expectedSHA256: String) async throws -> UInt64
 }
@@ -219,6 +220,9 @@ enum ConnectIQPackageStore {
 @MainActor final class ConnectIQLibrary: ObservableObject {
     @Published private(set) var history: [ConnectIQDownloadRecord] = []
     @Published private(set) var featured: [ConnectIQApp] = []
+    @Published private(set) var searchResults: [ConnectIQApp] = []
+    @Published private(set) var searchQuery = ""
+    @Published private(set) var searchHasMore = false
     @Published private(set) var apps: [String: ConnectIQApp] = [:]
     @Published private(set) var selected: ConnectIQApp?
     @Published private(set) var busy = false
@@ -238,6 +242,7 @@ enum ConnectIQPackageStore {
     private var generation = UUID()
     private var historyPage = 0
     private var featuredPage = 0
+    private var searchPage = 0
     let downloadRoot: URL
     private let artworkLoader: (URL) async throws -> Data
 
@@ -267,6 +272,7 @@ enum ConnectIQPackageStore {
         let cancelledDownload = isDownloading
         task?.cancel(); task = nil; installPreparation?.cancel(); installPreparation = nil; scope = next; generation = UUID()
         history = []; featured = []; apps = [:]; selected = nil
+        searchResults = []; searchQuery = ""; searchHasMore = false; searchPage = 0
         busy = false; isDownloading = false
         status = cancelledDownload ? "下载已取消" : ""; savedURL = nil; localPackage = nil
         historyPage = 0; featuredPage = 0; historyHasMore = false; featuredHasMore = false
@@ -338,8 +344,33 @@ enum ConnectIQPackageStore {
     }
     static func appID(from input: String) -> String? { ConnectIQService.appID(from: input) }
     func lookup(_ input: String) {
-        guard let id = Self.appID(from: input) else { status = "请输入表盘 ID 或佳明商店链接"; return }
-        select(id)
+        if let id = Self.appID(from: input) { select(id) } else { search(input) }
+    }
+    func clearSearch() {
+        cancel()
+        searchResults = []; searchQuery = ""; searchHasMore = false; searchPage = 0; status = ""
+    }
+    func search(_ input: String, older: Bool = false) {
+        reconcile()
+        guard online else { status = "请先登录并选择手表"; return }
+        guard let query = ConnectIQService.searchKeywords(from: input) else {
+            status = "请输入 1–128 个字符的表盘名称或关键词"; return
+        }
+        if older && (query != searchQuery || !searchHasMore) { return }
+        let page = older ? searchPage + 1 : 0
+        if !older { searchResults = []; searchQuery = query; searchHasMore = false; searchPage = 0 }
+        run { [weak self] cloud, deviceID, token in
+            guard let self else { return }
+            let rows = try await cloud.searchConnectIQApps(keywords: query, deviceID: deviceID, page: page)
+            guard self.current(token), self.searchQuery == query else { return }
+            let previous = older ? self.searchResults : []
+            var seen = Set(previous.map(\.id))
+            let additions = rows.filter { seen.insert($0.id).inserted }
+            self.searchResults = previous + additions; self.searchPage = page
+            self.searchHasMore = rows.count == ConnectIQService.pageSize && !additions.isEmpty && page < 1000
+            for app in rows { self.apps[app.id] = app }
+            if self.searchResults.isEmpty { self.status = "未找到匹配的表盘，试试其他关键词" }
+        }
     }
     func select(_ id: String) {
         reconcile()

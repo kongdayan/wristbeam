@@ -81,6 +81,12 @@ struct ConnectIQQueuedPackage {
 }
 
 enum ConnectIQService {
+    static func searchKeywords(from input: String) -> String? {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text.count <= 128, !text.contains("://"),
+              text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else { return nil }
+        return text
+    }
     /// Public store media uses UUIDs, never caller-provided URLs or account credentials.
     static func imageURL(fileID: String?, kind: String, region: GarminRegion) -> URL? {
         guard ["icons", "screenshots"].contains(kind), let fileID, let uuid = UUID(uuidString: fileID) else { return nil }
@@ -103,6 +109,7 @@ enum ConnectIQService {
     static func storeURL(region: GarminRegion, path: String, query: [URLQueryItem]) -> URL {
         var components = URLComponents(string: "https://services.\(region.domain)/appstore/api/v2/asm/" + path)!
         components.queryItems = query
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         return components.url!
     }
     static func validatePackage(_ data: Data, contentType: String?) throws {

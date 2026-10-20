@@ -206,13 +206,78 @@ private final class CIQSessionFixture {
     }
 }
 
-private func installedInventory() -> Data {
+private func installedInventory(version: UInt64? = 74, disabled: Bool = false) -> Data {
     let uuid = Data([0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff])
-    let app = bytes(1, uuid) + integer(2, 3) + bytes(3, Data("CIQ Test".utf8)) + integer(4, 0) + integer(5, 74)
+    let app = bytes(1, uuid) + integer(2, 3) + bytes(3, Data("CIQ Test".utf8)) + integer(4, disabled ? 1 : 0)
+        + (version.map { integer(5, $0) } ?? Data())
     return bytes(3, bytes(2, integer(1, 1024) + integer(2, 20) + bytes(3, app)))
 }
 
 extension ConnectIQProtocolTests {
+    func testExistingFaceStillTransfersForUpdateReinstallAndDisabledRecovery() async throws {
+        try await MainActor.run {
+            for (version, disabled) in [(UInt64(1), false), (UInt64(74), false), (UInt64(74), true)] {
+                let fixture = CIQSessionFixture()
+                defer { fixture.session.disconnected() }
+                let account = "00112233445566778899aabbccddeeff"
+                fixture.session.setAccountGUID(account)
+                try fixture.ready()
+                let package = Data((0..<1300).map { UInt8(truncatingIfNeeded: $0) })
+                var statuses: [String] = []
+                fixture.session.onConnectIQInstall = { text, _, _ in statuses.append(text) }
+                fixture.session.installConnectIQPackage(package, appID: "00112233-4455-6677-8899-aabbccddeeff",
+                    expectedSHA256: GarminPrivateFile.digest(package), sourceMessageID: 123,
+                    expectedUnitID: 1234, expectedAccountGUID: account)
+                try fixture.respond(installedInventory(version: version, disabled: disabled))
+                XCTAssertTrue(fixture.session.connectIQInstallBusy)
+                let create = try XCTUnwrap(fixture.messages.last(where: { $0.number == 5005 }))
+                fixture.session.receive(try create.response(payload: Data([0, 1, 0])).framed())
+                let upload = try XCTUnwrap(fixture.messages.last(where: { $0.number == 5003 }))
+                var response = GFDIWriter(); response.u8(0); response.u32(0); response.u32(2000); response.u16(0)
+                fixture.session.receive(try upload.response(payload: Data(response.bytes)).framed())
+                var received = Data()
+                while received.count < package.count {
+                    let block = try XCTUnwrap(fixture.messages.last(where: { $0.number == 5004 }))
+                    var reader = GFDIReader(block.payload)
+                    _ = try reader.u8(); let crc = try reader.u16()
+                    XCTAssertEqual(try reader.u32(), UInt32(received.count))
+                    received.append(try reader.data(reader.remaining))
+                    XCTAssertEqual(crc, GFDICRC.calculate(received))
+                    var ack = GFDIWriter(); ack.u8(0); ack.u32(UInt32(received.count))
+                    fixture.session.receive(try block.response(payload: Data(ack.bytes)).framed())
+                }
+                XCTAssertEqual(received, package)
+                XCTAssertTrue(fixture.session.connectIQInstallBusy)
+                XCTAssertFalse(statuses.contains("手表已确认安装"))
+                try fixture.respond(installedInventory())
+                XCTAssertFalse(fixture.session.connectIQInstallBusy)
+                XCTAssertEqual(statuses.last, "手表已确认安装")
+            }
+        }
+    }
+
+    func testExistingFaceCannotMaskRejectedReinstall() async throws {
+        try await MainActor.run {
+            let fixture = CIQSessionFixture()
+            defer { fixture.session.disconnected() }
+            let account = "00112233445566778899aabbccddeeff"
+            fixture.session.setAccountGUID(account)
+            try fixture.ready()
+            let package = Data([1, 2, 3])
+            var progress = 0.0
+            fixture.session.onConnectIQInstall = { _, _, value in progress = value }
+            fixture.session.installConnectIQPackage(package, appID: "00112233-4455-6677-8899-aabbccddeeff",
+                expectedSHA256: GarminPrivateFile.digest(package), sourceMessageID: 123,
+                expectedUnitID: 1234, expectedAccountGUID: account)
+            try fixture.respond(installedInventory())
+            let create = try XCTUnwrap(fixture.messages.last(where: { $0.number == 5005 }))
+            fixture.session.receive(try create.response(payload: Data([2, 0, 0])).framed())
+            XCTAssertFalse(fixture.session.connectIQInstallBusy)
+            XCTAssertEqual(progress, 0)
+            XCTAssertFalse(fixture.messages.contains { $0.number == 5004 })
+        }
+    }
+
     func testSettingsNeedPushAndStatusThenSaveReadbackBeforeSuccess() async throws {
         try await MainActor.run {
             let fixture = CIQSessionFixture()

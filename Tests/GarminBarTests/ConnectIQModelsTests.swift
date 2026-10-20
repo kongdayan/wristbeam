@@ -5,6 +5,14 @@ import XCTest
 final class ConnectIQModelsTests: XCTestCase {
     private let appID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
+    func testKeywordInputPreservesUnicodeAndRejectsInvalidOrOversizeQueries() {
+        XCTAssertEqual(ConnectIQService.searchKeywords(from: "  山水 Digital + A&B  "), "山水 Digital + A&B")
+        XCTAssertNotNil(ConnectIQService.searchKeywords(from: String(repeating: "山", count: 128)))
+        for input in ["", " \n ", String(repeating: "a", count: 129), "a\nb", "a\u{0}b", "https://example.org/face"] {
+            XCTAssertNil(ConnectIQService.searchKeywords(from: input))
+        }
+    }
+
     func testMediaUsesRegionalPublicHostAndRejectsNonUUIDPaths() throws {
         XCTAssertEqual(ConnectIQService.imageURL(fileID: appID, kind: "icons", region: .china)?.absoluteString,
                        "https://services.garmin.cn/appstore/api/icons/\(appID)")

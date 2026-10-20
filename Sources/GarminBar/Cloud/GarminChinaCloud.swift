@@ -762,6 +762,22 @@ extension GarminChinaCloud {
         return try rows.map { try ConnectIQApp.parse($0, region: region) }.filter(\.isWatchFace)
     }
 
+    /// Store APK sr9.b / vs9: keyword search with device compatibility and relevance ordering.
+    func searchConnectIQApps(keywords: String, deviceID: String, page: Int = 0) async throws -> [ConnectIQApp] {
+        guard let keywords = ConnectIQService.searchKeywords(from: keywords), (0...1000).contains(page) else {
+            throw ConnectIQError.invalidData
+        }
+        let data = try await connectIQRequest(path: "apps/keywords", deviceID: deviceID, query: connectIQQuery(deviceID) + [
+            URLQueryItem(name: "keywords", value: keywords), URLQueryItem(name: "sortType", value: "mostRelevant"),
+            URLQueryItem(name: "filterType", value: "ALL"), URLQueryItem(name: "appType", value: "watchface"),
+            URLQueryItem(name: "locale", value: L10n.isEnglish ? "en-US" : "zh-CN"),
+            URLQueryItem(name: "pageSize", value: String(ConnectIQService.pageSize)), URLQueryItem(name: "startPageIndex", value: String(page)),
+            URLQueryItem(name: "companionAppPlatform", value: "android")])
+        guard let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              rows.count <= ConnectIQService.pageSize else { throw ConnectIQError.invalidData }
+        return try rows.map { try ConnectIQApp.parse($0, region: region) }.filter(\.isWatchFace)
+    }
+
     func connectIQSettingsContext(for face: GFDIInstalledWatchFace) throws -> ConnectIQSettingsContext {
         let device = try connectIQDevice(String(face.unitID))
         guard let version = face.version, version > 0 else { throw ConnectIQSettingsCloudError.invalidContext }

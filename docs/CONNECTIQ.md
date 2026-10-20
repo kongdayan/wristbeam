@@ -4,7 +4,9 @@ The Connect IQ page separates store listings, local packages, installed watch fa
 
 ## Store and local library
 
-Sign in and select a registered watch. Browse download history or popular faces, or paste an official store URL/application UUID. Icons and screenshots use Garmin's public regional media endpoints without account credentials. A listing's latest version and download history do not prove installation or current use.
+Sign in and select a registered watch. Search by name or keyword, browse download history or popular faces, or paste an official store URL/application UUID to open a specific listing. Keyword results use relevance ordering, the selected watch's device/part-number filters, and paginated cards. New queries and account/device changes invalidate older requests; duplicate results are removed. Icons and screenshots use Garmin's public regional media endpoints without account credentials. A listing's latest version and download history do not prove installation or current use.
+
+Keyword search follows the supplied Store APK's `sr9.b` / `vs9` request: `GET appstore/api/v2/asm/apps/keywords`, with `keywords`, `sortType=mostRelevant`, `filterType=ALL`, `appType=watchface`, locale, country, selected unit, page index and page size, plus the part-number header. Endpoint/parameter evidence is static APK analysis; regression tests use synthetic responses and do not establish live search results on every regional service.
 
 **Download to Mac** saves into `~/Downloads/WristBeam/ConnectIQ/<app-UUID>/`:
 
@@ -26,7 +28,7 @@ WristBeam separately queries realtime settings (Smart extension 42, composition 
 
 Installation is a separate explicit action. Before a transfer, WristBeam verifies the saved package checksum, account/device selection and compatibility. It reads the matching cloud task and re-downloads its payload for a checksum comparison, obtaining the authentic task identifier without creating another task. The identifier stays in memory.
 
-The official installer sends the complete payload as datatype `0xff`, identifier `11 00 00`. GFDI create/upload/data messages provide file allocation, resume offsets, cumulative CRCs and acknowledgements. Transfer completion is not sufficient evidence of installation: the target UUID must appear in a subsequent device inventory. The operation does not delete another watch face.
+The official installer sends the complete payload as datatype `0xff`, identifier `11 00 00`. GFDI create/upload/data messages provide file allocation, resume offsets, cumulative CRCs and acknowledgements. Explicit installation continues even when the UUID already exists: an inventory entry does not prove that its version or bytes match the selected package, and must not suppress an update or reinstall. Transfer completion is not sufficient evidence of installation: the target UUID must appear in a subsequent device inventory. This confirms acknowledged transfer and inventory presence, not a byte-for-byte readback or package-version comparison. The operation does not delete another watch face.
 
 **Open on watch** uses the separate Connect IQ SDK Bluetooth channel. The SDK application UUID differs from the public store UUID. WristBeam obtains it from the entry section of a checksum-verified local program, binding the outer store UUID to the selected inventory entry. Unknown formats and ambiguous entries are rejected. Download the package first when no local identity is available.
 

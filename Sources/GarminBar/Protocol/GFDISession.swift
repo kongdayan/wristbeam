@@ -1184,9 +1184,8 @@ final class GFDISession {
                 let inventory = try GFDIConnectIQ.installedWatchFaces(result.get(), unitID: expectedUnitID)
                 self.installedWatchFaceInventory = inventory; self.onInstalledWatchFaces?(inventory)
                 self.onWatchFaceStatus?("已读取 \(inventory.apps.count) 个已安装表盘", false)
-                if inventory.apps.contains(where: { $0.id == self.connectIQInstallTarget }) {
-                    self.finishConnectIQInstall("手表已安装此表盘", success: true); return
-                }
+                // Inventory identity does not prove package version or integrity.
+                // An explicit install must also transfer updates and reinstalls.
                 self.createConnectIQInstallFile(generation: generation)
             } catch { self.finishConnectIQInstall(error.localizedDescription, success: false) }
         }

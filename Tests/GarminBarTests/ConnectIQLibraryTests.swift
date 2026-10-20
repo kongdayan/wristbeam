@@ -16,6 +16,10 @@ import XCTest
     var downloadRequests = 0
     var installLookupContinuation: CheckedContinuation<UInt64, Error>?
     var duplicateFeatured = false
+    var stallSearch = false
+    var searchContinuations: [CheckedContinuation<[ConnectIQApp], Error>] = []
+    var searchCalls: [(keywords: String, page: Int)] = []
+    var searchRows: [ConnectIQApp]?
     var app = ConnectIQApp(id: "00000000-0000-0000-0000-000000000001", name: "Fixture Face", description: "",
                            version: "1.0", internalVersion: 1, isWatchFace: true, compatiblePartNumbers: ["fixture-part"],
                            permissions: [], paymentModel: nil, hasTrialMode: false, iconFileID: nil)
@@ -25,6 +29,11 @@ import XCTest
     func fetchConnectIQApp(id: String, deviceID: String) async throws -> ConnectIQApp { app }
     func fetchConnectIQFeatured(deviceID: String, page: Int) async throws -> [ConnectIQApp] {
         duplicateFeatured ? [app, app] : [app]
+    }
+    func searchConnectIQApps(keywords: String, deviceID: String, page: Int) async throws -> [ConnectIQApp] {
+        searchCalls.append((keywords, page))
+        if stallSearch { return try await withCheckedThrowingContinuation { searchContinuations.append($0) } }
+        return searchRows ?? [app]
     }
     func fetchConnectIQInstallMessageID(appID: String, deviceID: String, expectedSHA256: String) async throws -> UInt64 {
         try await withCheckedThrowingContinuation { installLookupContinuation = $0 }
@@ -38,6 +47,65 @@ import XCTest
 }
 
 final class ConnectIQLibraryTests: XCTestCase {
+    @MainActor func testKeywordSearchDeduplicatesPagesAndResetsForNewQuery() async {
+        let cloud = ConnectIQLibraryCloud(), library = ConnectIQLibrary()
+        cloud.searchRows = Array(repeating: cloud.app, count: ConnectIQService.pageSize)
+        library.attach(cloud); library.lookup("  山水  ")
+        await settle { !library.busy }
+        XCTAssertEqual(library.searchQuery, "山水")
+        XCTAssertEqual(library.searchResults.map(\.id), [cloud.app.id])
+        XCTAssertTrue(library.searchHasMore)
+        library.search(library.searchQuery, older: true)
+        await settle { !library.busy }
+        XCTAssertEqual(cloud.searchCalls.map { $0.page }, [0, 1])
+        XCTAssertEqual(library.searchResults.count, 1)
+        XCTAssertFalse(library.searchHasMore)
+        cloud.searchRows = []
+        library.search("Digital")
+        XCTAssertTrue(library.searchResults.isEmpty)
+        await settle { !library.busy }
+        XCTAssertEqual(cloud.searchCalls.last?.page, 0)
+        XCTAssertEqual(library.searchQuery, "Digital")
+        XCTAssertTrue(library.searchResults.isEmpty)
+        XCTAssertFalse(library.searchHasMore)
+    }
+
+    @MainActor func testNewSearchIgnoresLatePreviousQuery() async {
+        let cloud = ConnectIQLibraryCloud(), library = ConnectIQLibrary()
+        cloud.stallSearch = true; library.attach(cloud)
+        library.search("Old")
+        await settle { cloud.searchContinuations.count == 1 }
+        library.search("New")
+        await settle { cloud.searchContinuations.count == 2 }
+        cloud.searchContinuations[0].resume(returning: [cloud.app])
+        cloud.searchContinuations[1].resume(returning: [])
+        await settle { !library.busy }
+        XCTAssertEqual(library.searchQuery, "New")
+        XCTAssertTrue(library.searchResults.isEmpty)
+        XCTAssertTrue(library.apps.isEmpty)
+    }
+
+    @MainActor func testSearchResultsCannotSurviveScopeChangesOrClear() async {
+        for change in ["device", "account", "region", "offline", "clear"] {
+            let cloud = ConnectIQLibraryCloud(), library = ConnectIQLibrary()
+            cloud.stallSearch = true; library.attach(cloud); library.search("Digital")
+            await settle { cloud.searchContinuations.count == 1 }
+            switch change {
+            case "device": cloud.deviceId = "67890"
+            case "account": cloud.accountGUID = "another-owner"
+            case "region": cloud.region = .global
+            case "offline": cloud.networkEnabled = false
+            default: library.clearSearch()
+            }
+            library.reconcile()
+            cloud.searchContinuations[0].resume(returning: [cloud.app])
+            for _ in 0..<20 { await Task.yield() }
+            XCTAssertTrue(library.searchResults.isEmpty, change)
+            XCTAssertTrue(library.searchQuery.isEmpty, change)
+            XCTAssertFalse(library.busy)
+        }
+    }
+
     func testArtworkOnlyUsesPublicGarminMediaEndpoints() {
         let id = "00112233-4455-6677-8899-aabbccddeeff"
         for host in ["services.garmin.cn", "services.garmin.com"] {

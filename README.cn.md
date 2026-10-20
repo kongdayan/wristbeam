@@ -24,7 +24,7 @@ Mac 有电量条，人也该有。
 
 电脑电量低了知道充，人电量低了还在开会。至少现在，你和你的 AI 都能看见。
 
-**在 Mac 上换表盘。** 浏览 Connect IQ 表盘、保存官方安装包和预览图，通过蓝牙安装，并编辑支持的表盘设置，保存后回读确认。
+**在 Mac 上换表盘。** 按名称或关键词搜索 Connect IQ 表盘，保存官方安装包和预览图，通过蓝牙安装，并编辑支持的表盘设置，保存后回读确认。
 
 [Connect IQ 表盘](docs/CONNECTIQ.md) · [接入你的 AI](docs/developer/API.md) · [支持的设备](docs/DEVICES.md) · [可用指标](docs/METRICS.md)
 

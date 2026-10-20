@@ -42,14 +42,18 @@ struct ConnectIQPage: View {
                     } else {
                         HStack(spacing: 10) {
                             Image(systemName: "magnifyingglass").foregroundStyle(PulseTheme.secondary)
-                            TextField(L10n.text("表盘 ID 或佳明商店链接"), text: $lookup)
+                            TextField(L10n.text("搜索表盘名称、关键词或粘贴链接"), text: $lookup)
                                 .textFieldStyle(.plain).focused($searchFocused).onSubmit { lookupApp() }
                             if !lookup.isEmpty {
-                                Button { lookup = ""; searchFocused = true } label: { Image(systemName: "xmark.circle.fill") }
+                                Button {
+                                    lookup = ""; searchFocused = true
+                                    if tab == 2 { library.clearSearch(); tab = 1 }
+                                } label: { Image(systemName: "xmark.circle.fill") }
                                     .buttonStyle(.plain).foregroundStyle(PulseTheme.secondary)
                                     .accessibilityLabel(L10n.text("清空搜索"))
+                                    .disabled(library.busy)
                             }
-                            Button(L10n.text("查询")) { lookupApp() }
+                            Button(L10n.text("搜索")) { lookupApp() }
                                 .buttonStyle(ConnectIQButtonStyle(prominent: true))
                                 .disabled(!library.online || lookup.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || library.busy || model.preview)
                         }
@@ -58,13 +62,14 @@ struct ConnectIQPage: View {
                         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .strokeBorder(searchFocused ? PulseTheme.mint.opacity(0.6) : Color.primary.opacity(0.07), lineWidth: 1))
                         if lookupError {
-                            Label(L10n.text("请输入表盘 ID 或佳明商店链接"), systemImage: "exclamationmark.circle")
+                            Label(L10n.text("请输入 1–128 个字符的表盘名称、关键词或有效的佳明商店链接"), systemImage: "exclamationmark.circle")
                                 .font(PulseTheme.font(size: 11)).foregroundStyle(.orange)
                         }
                         HStack {
                             HStack(spacing: 4) {
                                 catalogTab("云端下载记录", index: 0)
                                 catalogTab("推荐表盘", index: 1)
+                                if !library.searchQuery.isEmpty { catalogTab("搜索结果", index: 2) }
                             }
                             .padding(4)
                             .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -72,16 +77,19 @@ struct ConnectIQPage: View {
                             Button { refresh() } label: { Label(L10n.text("刷新"), systemImage: "arrow.clockwise") }
                                 .disabled(!library.online || library.busy || model.preview)
                         }
-                        Text(L10n.text("下载记录不代表手表当前安装或正在使用的表盘")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                        if tab == 0 {
+                            Text(L10n.text("下载记录不代表手表当前安装或正在使用的表盘")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                        }
                         operationFeedback
                         catalogFeedback
-                        if tab == 0 { historyRows } else { featuredRows }
+                        if tab == 0 { historyRows } else if tab == 1 { featuredRows } else { searchRows }
                     }
                 }
             }
         }
         .buttonStyle(ConnectIQButtonStyle())
         .onChange(of: lookup) { _ in lookupError = false }
+        .onChange(of: library.searchQuery) { query in if query.isEmpty && tab == 2 { tab = 1 } }
         .onAppear {
             library.reconcile()
             library.refreshRuntimeMappings(appIDs: model.bluetooth.installedWatchFaces.map(\.id))
@@ -185,7 +193,7 @@ struct ConnectIQPage: View {
         Button {
             guard tab != index else { return }
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { tab = index }
-            if library.online && !model.preview && (index == 0 ? library.history.isEmpty : library.featured.isEmpty) { refresh() }
+            if library.online && !model.preview && index != 2 && (index == 0 ? library.history.isEmpty : library.featured.isEmpty) { refresh() }
         } label: {
             Text(L10n.text(title))
                 .font(PulseTheme.font(size: 12, weight: tab == index ? .semibold : .regular))
@@ -198,11 +206,11 @@ struct ConnectIQPage: View {
             .disabled(library.busy)
     }
     @ViewBuilder private var catalogFeedback: some View {
-        if (tab == 0 ? library.history.isEmpty : library.featured.isEmpty) {
+        if (tab == 0 ? library.history.isEmpty : tab == 1 ? library.featured.isEmpty : library.searchResults.isEmpty) {
             VStack(spacing: 12) {
                 if library.busy { ProgressView().controlSize(.small) }
                 else { Image(systemName: "square.grid.2x2").font(.system(size: 26)).foregroundStyle(PulseTheme.secondary) }
-                Text(L10n.text(library.busy ? "正在加载表盘…" : tab == 0 ? "暂无下载记录" : "暂无推荐表盘"))
+                Text(L10n.text(library.busy ? "正在加载表盘…" : tab == 0 ? "暂无下载记录" : tab == 1 ? "暂无推荐表盘" : "未找到匹配的表盘，试试其他关键词"))
                     .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
             }.frame(maxWidth: .infinity).padding(.vertical, 28)
                 .background(Color.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -210,10 +218,12 @@ struct ConnectIQPage: View {
     }
     private func lookupApp() {
         guard library.online, !library.busy, !model.preview else { return }
-        guard let id = ConnectIQLibrary.appID(from: lookup) else { lookupError = true; return }
+        let id = ConnectIQLibrary.appID(from: lookup)
+        guard id != nil || ConnectIQService.searchKeywords(from: lookup) != nil else { lookupError = true; return }
         lookupError = false
         searchFocused = false
-        openDetail(id)
+        if let id { openDetail(id) }
+        else { showDetail = false; tab = 2; library.search(lookup) }
     }
     private func openDetail(_ id: String) {
         guard library.online, !library.busy, !model.preview else { return }
@@ -368,6 +378,19 @@ struct ConnectIQPage: View {
             }
             if library.featuredHasMore {
                 Button(L10n.text("加载更多")) { library.refreshFeatured(older: true) }.disabled(library.busy)
+            }
+        }
+    }
+    private var searchRows: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(library.searchQuery).font(PulseTheme.font(size: 13, weight: .medium)).textSelection(.enabled)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 12)], spacing: 12) {
+                ForEach(library.searchResults) { app in
+                    catalogCard(id: app.id, name: app.name, url: app.iconURL, subtitle: L10n.text("商店版本") + ": " + app.version)
+                }
+            }
+            if library.searchHasMore {
+                Button(L10n.text("加载更多")) { library.search(library.searchQuery, older: true) }.disabled(library.busy)
             }
         }
     }
@@ -527,7 +550,9 @@ struct ConnectIQPage: View {
     }
     private func refresh() {
         guard !model.preview else { return }
-        if tab == 0 { library.refreshHistory() } else { library.refreshFeatured() }
+        if tab == 0 { library.refreshHistory() }
+        else if tab == 1 { library.refreshFeatured() }
+        else { library.search(library.searchQuery) }
     }
     private func downloadResult(_ url: URL) -> some View {
         HStack(spacing: 12) {

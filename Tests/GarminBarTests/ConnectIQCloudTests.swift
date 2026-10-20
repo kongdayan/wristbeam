@@ -70,7 +70,7 @@ private final class ConnectIQHTTP: URLProtocol {
             body = options.packageBody; headers["Content-Type"] = options.packageType
             if options.oversized { headers["Content-Length"] = String(ConnectIQService.maximumPackageBytes + 1) }
             if options.redirect { status = 302; headers["Location"] = "https://example.org/never-follow" }
-        } else if path == "/appstore/api/v2/asm/apps" {
+        } else if path == "/appstore/api/v2/asm/apps" || path == "/appstore/api/v2/asm/apps/keywords" {
             body = Self.json([Self.appObject(options)])
         } else if path == "/appstore/api/v2/asm/apps/\(Self.appID)" {
             body = Self.json(Self.appObject(options))
@@ -89,6 +89,45 @@ private final class ConnectIQHTTP: URLProtocol {
 }
 
 @MainActor final class ConnectIQCloudTests: XCTestCase {
+    func testKeywordSearchEncodesTextAndKeepsDeviceAndWatchFaceFilters() async throws {
+        try await withFixture { cloud in
+            let rows = try await cloud.searchConnectIQApps(keywords: "  山水 + Digital&A  ", deviceID: "101", page: 2)
+            XCTAssertEqual(rows.map(\.id), [ConnectIQHTTP.appID])
+            let request = try XCTUnwrap(ConnectIQHTTP.requests.last), parameters = query(request)
+            XCTAssertEqual(request.url?.path, "/appstore/api/v2/asm/apps/keywords")
+            XCTAssertEqual(request.url?.host, "services.garmin.cn")
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(parameters["keywords"], "山水 + Digital&A")
+            XCTAssertTrue(request.url!.absoluteString.contains("%2B"))
+            XCTAssertTrue(request.url!.absoluteString.contains("%26"))
+            XCTAssertEqual(parameters["sortType"], "mostRelevant")
+            XCTAssertEqual(parameters["filterType"], "ALL")
+            XCTAssertEqual(parameters["appType"], "watchface")
+            XCTAssertEqual(parameters["unitId"], "101")
+            XCTAssertEqual(parameters["countryCode"], "CN")
+            XCTAssertEqual(parameters["startPageIndex"], "2")
+            XCTAssertEqual(parameters["pageSize"], "30")
+            XCTAssertEqual(parameters["locale"], L10n.isEnglish ? "en-US" : "zh-CN")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Garmin-SW-Part-Number"), ConnectIQHTTP.part)
+            XCTAssertFalse(ConnectIQHTTP.requests.contains { $0.httpMethod == "POST" })
+        }
+    }
+
+    func testKeywordSearchRejectsInvalidInputAndHonorsOfflineGate() async throws {
+        try await withFixture { cloud in
+            let count = ConnectIQHTTP.requests.count
+            for keywords in [" ", String(repeating: "x", count: 129)] {
+                await expectError(.invalidData) { _ = try await cloud.searchConnectIQApps(keywords: keywords, deviceID: "101") }
+            }
+            await expectError(.invalidData) { _ = try await cloud.searchConnectIQApps(keywords: "Digital", deviceID: "101", page: -1) }
+            await expectError(.selectDevice) { _ = try await cloud.searchConnectIQApps(keywords: "Digital", deviceID: "202") }
+            cloud.setNetworkEnabled(false)
+            do { _ = try await cloud.searchConnectIQApps(keywords: "Digital", deviceID: "101"); XCTFail("Expected offline rejection") }
+            catch {}
+            XCTAssertEqual(ConnectIQHTTP.requests.count, count)
+        }
+    }
+
     func testHistoryUsesDIStoreIdentityDevicePartAndPagination() async throws {
         try await withFixture { cloud in
             let records = try await cloud.fetchConnectIQHistory(deviceID: "101", page: 3)
