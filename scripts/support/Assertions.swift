@@ -47,8 +47,9 @@ func XCTAssertEqual<T: Equatable>(_ expression: @autoclosure () throws -> T, _ e
     do { if try expression() != expected() { fail("Values differ", file: file, line: line) } }
     catch { fail("Unexpected error: \(error)", file: file, line: line) }
 }
-func XCTAssertTrue(_ expression: @autoclosure () throws -> Bool, file: StaticString = #filePath, line: UInt = #line) {
-    do { if try !expression() { fail("Expected true", file: file, line: line) } }
+func XCTAssertTrue(_ expression: @autoclosure () throws -> Bool, _ message: @autoclosure () -> String = "",
+                   file: StaticString = #filePath, line: UInt = #line) {
+    do { if try !expression() { fail("Expected true. \(message())", file: file, line: line) } }
     catch { fail("Unexpected error: \(error)", file: file, line: line) }
 }
 
@@ -59,6 +60,12 @@ func XCTAssertNotNil<T>(_ expression: @autoclosure () throws -> T?, file: Static
 
 func XCTAssertNotEqual<T: Equatable>(_ expression: @autoclosure () throws -> T, _ expected: @autoclosure () throws -> T, file: StaticString = #filePath, line: UInt = #line) {
     do { if try expression() == expected() { fail("Expected different values", file: file, line: line) } }
+    catch { fail("Unexpected error: \(error)", file: file, line: line) }
+}
+func XCTAssertLessThanOrEqual<T: Comparable>(_ expression: @autoclosure () throws -> T,
+                                            _ expected: @autoclosure () throws -> T,
+                                            file: StaticString = #filePath, line: UInt = #line) {
+    do { if try expression() > expected() { fail("Value exceeds upper bound", file: file, line: line) } }
     catch { fail("Unexpected error: \(error)", file: file, line: line) }
 }
 func XCTAssertFalse(_ expression: @autoclosure () throws -> Bool, file: StaticString = #filePath, line: UInt = #line) {
