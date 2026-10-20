@@ -20,11 +20,12 @@ I wanted my watch to talk to the computer I was already sitting in front of. Ins
 
 - **Give your phone a day off.** Connect a supported Garmin watch directly to your Mac and sync its activity and health files to Garmin Connect China or Global.
 - **Put your own battery in the menu bar.** Keep heart rate, Body Battery, stress, steps and more in view, with floating panels, daily charts and a customizable dashboard.
+- **Change your watch's look from your Mac.** Browse Connect IQ watch faces, save official packages and previews, install over Bluetooth, and edit supported watch-face settings with readback verification.
 - **Let your AI check in on you.** Use MCP to make your synced health metrics available to an AI assistant. Ask “How was my sleep?” or “What does my energy look like today?” Build your own tools with the HTTP/HTTPS API, Python SDK and webhooks.
 
 Your AI can already count tokens. Now it can ask how *you're* doing.
 
-[Connect your AI](docs/developer/API.md) · [Supported devices](docs/DEVICES.md) · [Available metrics](docs/METRICS.md)
+[Connect IQ watch faces](docs/CONNECTIQ.md) · [Connect your AI](docs/developer/API.md) · [Supported devices](docs/DEVICES.md) · [Available metrics](docs/METRICS.md)
 
 ![WristBeam](docs/images/showcase-hero.png)
 

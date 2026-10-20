@@ -67,6 +67,7 @@ struct SettingsRootView: View {
                     switch model.page {
                     case .overview: OverviewPage(model: model)
                     case .activities: ActivitiesPage(model: model)
+                    case .connectIQ: ConnectIQPage(model: model)
                     case .watch, .account: DevicePage(model: model)
                     case .sync: SyncPage(model: model)
                     case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about: PreferencesPage(model: model)
