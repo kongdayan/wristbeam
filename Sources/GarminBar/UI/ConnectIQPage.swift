@@ -54,7 +54,7 @@ struct ConnectIQPage: View {
                                     .disabled(library.busy)
                             }
                             Button(L10n.text("搜索")) { lookupApp() }
-                                .buttonStyle(ConnectIQButtonStyle(prominent: true))
+                                .buttonStyle(PulseButtonStyle(prominent: true))
                                 .disabled(!library.online || lookup.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || library.busy || model.preview)
                         }
                         .padding(8).padding(.leading, 6)
@@ -87,7 +87,7 @@ struct ConnectIQPage: View {
                 }
             }
         }
-        .buttonStyle(ConnectIQButtonStyle())
+        .buttonStyle(PulseButtonStyle())
         .onChange(of: lookup) { _ in lookupError = false }
         .onChange(of: library.searchQuery) { query in if query.isEmpty && tab == 2 { tab = 1 } }
         .onAppear {
@@ -139,7 +139,7 @@ struct ConnectIQPage: View {
                     }
                 }
             }
-            .buttonStyle(ConnectIQButtonStyle())
+            .buttonStyle(PulseButtonStyle())
             .padding(20).frame(width: 660, height: 680)
             .background(PulseTheme.background)
             .alert(L10n.text("下载表盘到 Mac？"), isPresented: $showDownloadConfirmation) {
@@ -242,7 +242,7 @@ struct ConnectIQPage: View {
                         guard canReadWatchFaces, let id = connectedUnitID else { return }
                         model.bluetooth.refreshWatchFaces(expectedUnitID: id)
                     }.disabled(!canReadWatchFaces)
-                        .buttonStyle(ConnectIQButtonStyle(prominent: canReadWatchFaces))
+                        .buttonStyle(PulseButtonStyle(prominent: canReadWatchFaces))
                 }
                 if model.bluetooth.isConnected {
                     Text(model.bluetooth.connectedName).foregroundStyle(PulseTheme.secondary)
@@ -332,7 +332,7 @@ struct ConnectIQPage: View {
                     }.disabled(model.preview || library.runtimeAppIDs[face.id] == nil || !model.bluetooth.canOpenInstalledWatchFace || model.bluetooth.watchFaceBusy
                                || model.bluetooth.watchFaceOpenBusy || model.bluetooth.connectIQInstallBusy || model.bluetooth.isTransferringFiles || connectedUnitID != face.unitID)
                     Button(L10n.text("设置")) { settingsSaved = false; settingsFace = face }
-                        .buttonStyle(ConnectIQButtonStyle(prominent: true))
+                        .buttonStyle(PulseButtonStyle(prominent: true))
                         .disabled(!canReadWatchFaces || !library.online || UInt32(model.cloud.deviceId) != face.unitID)
                     Spacer(minLength: 0)
                     Button(L10n.text("详情")) { openDetail(face.id) }
@@ -405,14 +405,14 @@ struct ConnectIQPage: View {
                 Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(PulseTheme.secondary.opacity(0.6))
             }.frame(height: 68)
         }
-        .buttonStyle(ConnectIQButtonStyle(card: true))
+        .buttonStyle(PulseButtonStyle(card: true))
         .disabled(!library.online || library.busy || model.preview)
         .help(name)
     }
     private func detailActions(_ app: ConnectIQApp) -> some View {
         HStack(spacing: 10) {
             Button { requestDownload(app) } label: { Label(L10n.text("下载到 Mac"), systemImage: "arrow.down.to.line") }
-                .buttonStyle(ConnectIQButtonStyle(prominent: true))
+                .buttonStyle(PulseButtonStyle(prominent: true))
                 .disabled(!library.online || library.busy || model.preview || !canDownload(app))
             Button { install(app) } label: { Label(L10n.text("安装到手表"), systemImage: "applewatch") }
                 .disabled(preparingInstall || !canInstall(app))

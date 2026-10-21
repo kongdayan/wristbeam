@@ -10,7 +10,7 @@ struct SettingsRootView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "waveform.path.ecg").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.text("腕映")).font(PulseTheme.font(size: 18, weight: .semibold))
+                        Text(L10n.text("腕映")).font(PulseTheme.font(size: 18, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
                 }.padding(.top, 20)
@@ -18,13 +18,13 @@ struct SettingsRootView: View {
                     VStack(spacing: 5) {
                         ForEach(AppPage.navigationPages) { page in
                             Button { model.detailMetric = nil; model.page = page } label: {
-                                HStack(spacing: 12) { Image(systemName: page.symbol).frame(width: 18); Text(L10n.text(page.title)); Spacer() }
+                                HStack(spacing: 12) { Image(systemName: page.symbol).frame(width: 18); Text(L10n.text(page.title)).fixedSize(horizontal: false, vertical: true); Spacer() }
                                     .font(PulseTheme.font(size: 12, weight: model.page.navigationPage == page ? .semibold : .regular))
                                     .padding(.horizontal, 12).padding(.vertical, 12)
                                     .foregroundStyle(model.page.navigationPage == page ? PulseTheme.mint : Color.primary.opacity(0.55))
                                     .background(model.page.navigationPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                            }.buttonStyle(.plain)
+                            }.buttonStyle(PulseRowButtonStyle())
                                 .accessibilityValue(model.page.navigationPage == page ? L10n.text("已选择") : L10n.text("未选择"))
                         }
                     }
@@ -37,8 +37,8 @@ struct SettingsRootView: View {
                     Label(L10n.text("打开菜单栏"), systemImage: "menubar.rectangle")
                 }.buttonStyle(.bordered).frame(maxWidth: .infinity)
                 VStack(alignment: .leading, spacing: 9) {
-                    HStack { StatusDot(active: model.bluetooth.isConnected); Text(L10n.text(model.bluetooth.isConnected ? "手表已连接" : "等待手表")) }
-                    HStack { StatusDot(active: model.cloud.isAuthenticated); Text(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "\(model.cloud.region.title)已连接" : "账户待登录")) }
+                    HStack { StatusDot(active: model.bluetooth.isConnected); Text(L10n.text(model.workflow.connectionTitle)) }
+                    HStack { StatusDot(active: model.workflow.cloudActive); Text(L10n.text(model.workflow.accountTitle)) }
                 }.font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                 HStack {
                     Spacer()
@@ -49,7 +49,7 @@ struct SettingsRootView: View {
             Rectangle().fill(Color.primary.opacity(0.06)).frame(width: 1)
             ScrollViewReader { scroll in
             ScrollView {
-                VStack(alignment: .leading, spacing: 23) {
+                VStack(alignment: .leading, spacing: PulseTheme.sectionSpacing) {
                     if let kind = model.detailMetric {
                         if kind.isOvernightHRV { HRVDetailView(model: model, kind: kind) } else { MetricDetailView(model: model, kind: kind) }
                     } else {
@@ -65,9 +65,11 @@ struct SettingsRootView: View {
                     }
                     }
                 }.id("settings-top").padding(32).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(ScrollPositionKeeper(positions: model.scrollPositions, key: model.mainScrollKey))
+            }.id(model.mainScrollKey)
+            .onChange(of: model.activityBrowsing) { _ in
+                if model.page == .activities && model.selectedActivityID == nil { scroll.scrollTo("settings-top", anchor: .top) }
             }
-            .onChange(of: model.selectedActivityID) { _ in scroll.scrollTo("settings-top", anchor: .top) }
-            .onChange(of: model.page) { _ in scroll.scrollTo("settings-top", anchor: .top) }
             }
         }.id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
             .font(PulseTheme.font(size: 13)).controlSize(.large)
@@ -96,7 +98,7 @@ struct PreferencesRootView: View {
                                 .foregroundStyle(model.settingsPage == page ? PulseTheme.mint : Color.primary)
                                 .background(model.settingsPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(PulseRowButtonStyle())
                             .accessibilityValue(model.settingsPage == page ? L10n.text("已选择") : L10n.text("未选择"))
                     }
                 }.padding(12)
@@ -428,97 +430,6 @@ struct AccountPage: View {
                 }
             }
             }
-        }
-    }
-}
-
-struct SyncPage: View {
-    @ObservedObject var model: AppModel
-    var body: some View {
-        VStack(alignment: .leading, spacing: 19) {
-            SyncSetupGuide(model: model)
-            SyncProgressView(model: model)
-            PulseCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(L10n.text("本地暂存")).font(PulseTheme.font(size: 17, weight: .semibold))
-                    Text(L10n.format("{0} 份原始文件 · {1} 天读数 · {2}", String(model.localDataSummary.fitFiles), String(model.localDataSummary.telemetryDays), model.localDataSummary.sizeText))
-                        .font(PulseTheme.font(size: 13))
-                    Text(L10n.text("暂存不会自动删除。导出包含原始 FIT 和手表读数 CSV。"))
-                        .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
-                    HStack {
-                        Button(L10n.text("导出暂存数据")) { model.exportLocalData() }.disabled(model.preview || model.isExportingLocalData)
-                        Button(L10n.text("刷新存储信息")) { model.refreshLocalDataSummary() }
-                        Spacer()
-                        Button(L10n.text("上传暂存文件")) { model.uploadStoredFiles() }
-                            .disabled(model.preview || !model.cloudSyncEnabled || !model.cloud.isAuthenticated || model.uploads.isSyncing || model.uploads.pendingCount == 0)
-                    }.buttonStyle(.bordered)
-                    if !model.storageIssues.isEmpty {
-                        Label(L10n.text("本地保存或读取异常"), systemImage: "externaldrive.badge.exclamationmark").foregroundStyle(.orange)
-                        Button(L10n.text("重试本地存储")) { model.retryLocalStorage() }.buttonStyle(.bordered)
-                    }
-                    if !model.localExportStatus.isEmpty { Text(L10n.text(model.localExportStatus)).font(PulseTheme.font(size: 12)) }
-                }
-            }
-            PulseCard {
-                HStack {
-                    VStack(alignment: .leading, spacing: 7) {
-                        Text(L10n.text("\(model.uploads.pendingCount) 个文件待同步")).font(PulseTheme.font(size: 18, weight: .semibold))
-                        Text(L10n.text(model.uploads.status)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
-                        Text(L10n.text("手表：\(model.bluetooth.transferStatus)")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Button(L10n.text("接收手表数据")) { model.syncNow() }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview)
-                        Button(L10n.text("同步最近一次运动")) { model.syncRecentActivity() }.buttonStyle(.bordered).font(PulseTheme.font(size: 10)).disabled(model.preview || !model.bluetooth.canSyncFiles)
-                    }
-                }
-            }
-            HStack(spacing: 10) {
-                Button { model.importFIT() } label: { Label(L10n.text("导入原始 FIT"), systemImage: "square.and.arrow.down") }.buttonStyle(.bordered).disabled(model.preview)
-                Button { model.watchFITFolder() } label: { Label(L10n.text("同步 FIT 文件夹"), systemImage: "folder.badge.plus") }.buttonStyle(.bordered).disabled(model.preview)
-                Button { NSWorkspace.shared.open(AppPaths.root) } label: { Label(L10n.text("打开本地数据"), systemImage: "folder") }.buttonStyle(.bordered)
-            }
-            if let directory = model.uploads.watchedDirectory {
-                HStack {
-                    Text(L10n.text("自动同步：\(directory.lastPathComponent)")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
-                    Spacer()
-                    Button(L10n.text("停止文件夹同步")) { model.uploads.stopWatching() }.buttonStyle(.plain).font(PulseTheme.font(size: 11))
-                }
-            }
-            Text(L10n.text("手表读数和原始文件先保存在本机。云端补传使用原始 FIT；导出不会删除暂存。"))
-                .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
-            if !model.uploads.visibleJobs.isEmpty {
-                VStack(spacing: 8) {
-                    ForEach(model.uploads.visibleJobs.prefix(12)) { job in
-                        PulseCard {
-                            VStack(alignment: .leading, spacing: 7) {
-                                HStack {
-                                    Text(L10n.text(job.dataType.label)).font(PulseTheme.font(size: 12, weight: .medium)).help(L10n.text(job.originalName))
-                                    Text(job.createdAt, style: .time).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                                    Spacer()
-                                    Text(L10n.text(job.state.label)).font(PulseTheme.font(size: 10)).foregroundStyle(job.state.isComplete ? PulseTheme.mint : PulseTheme.secondary)
-                                }
-                                Text(L10n.text(job.detail)).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                                if job.dataType == .activity, job.state.isComplete,
-                                   let id = job.cloudStatus?.activityID, !id.isEmpty, id.allSatisfy({ $0.isNumber }),
-                                   let url = URL(string: "https://connect.\(model.cloud.region.domain)/modern/activity/\(id)") {
-                                    Link(L10n.text("在\(model.cloud.region.title)查看运动 ↗"), destination: url).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.mint)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            VStack(alignment: .leading, spacing: 14) {
-                Text(L10n.text("最近活动")).font(PulseTheme.font(size: 13, weight: .semibold))
-                ForEach(model.events.prefix(25)) { event in
-                    HStack(alignment: .top, spacing: 15) {
-                        Text(event.date, style: .time).font(PulseTheme.font(size: 10, design: .monospaced)).foregroundStyle(PulseTheme.secondary).frame(width: 66, alignment: .leading)
-                        Text(L10n.text(event.message)).font(PulseTheme.font(size: 11)).foregroundStyle(Color.primary.opacity(0.72)).textSelection(.enabled)
-                        Spacer(minLength: 0)
-                    }
-                }
-            }.padding(.top, 9)
         }
     }
 }

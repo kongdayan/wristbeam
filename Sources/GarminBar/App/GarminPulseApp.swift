@@ -28,7 +28,7 @@ enum GarminPulseMain {
 }
 
 @MainActor
-final class PulseAppDelegate: NSObject, NSApplicationDelegate {
+final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     let model = AppModel()
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
@@ -222,7 +222,41 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
             editMenu.addItem(NSMenuItem(title: L10n.text(title), action: Selector(action), keyEquivalent: key))
         }
         editItem.submenu = editMenu
+        let navigationItem = NSMenuItem()
+        let navigation = NSMenu(title: L10n.text("前往"))
+        for (index, page) in AppPage.navigationPages.enumerated() {
+            let item = NSMenuItem(title: L10n.text(page.title), action: #selector(navigateToPage(_:)), keyEquivalent: String(index + 1))
+            item.target = self; item.tag = index; navigation.addItem(item)
+        }
+        navigation.addItem(.separator())
+        for (title, action, key) in [("返回", #selector(goBack), "["), ("刷新当前页面", #selector(refreshPage), "r"), ("搜索运动", #selector(searchActivities), "f")] {
+            let item = NSMenuItem(title: L10n.text(title), action: action, keyEquivalent: key)
+            item.target = self; navigation.addItem(item)
+        }
+        navigationItem.submenu = navigation; menu.addItem(navigationItem)
         NSApp.mainMenu = menu
+    }
+
+    @objc private func navigateToPage(_ item: NSMenuItem) {
+        guard AppPage.navigationPages.indices.contains(item.tag) else { return }
+        model.openSettings(AppPage.navigationPages[item.tag])
+    }
+    @objc private func goBack() { model.goBack() }
+    @objc private func refreshPage() { model.refreshCurrentPage() }
+    @objc private func searchActivities() { model.activitySearchRequest += 1 }
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if NSApp.keyWindow?.attachedSheet != nil { return false }
+        let mainActive = settingsWindow?.isKeyWindow == true
+        switch menuItem.action {
+        case #selector(goBack): return mainActive && model.canGoBack
+        case #selector(searchActivities): return mainActive && model.page == .activities && model.selectedActivityID == nil && model.detailMetric == nil
+        case #selector(refreshPage):
+            guard mainActive, !model.preview else { return false }
+            if model.page == .activities { return model.activities.online && !model.activities.busy }
+            if model.page == .sync { return !model.bluetooth.isTransferringFiles }
+            return (model.page == .overview || model.detailMetric != nil) && !model.isRefreshingHealth
+        default: return true
+        }
     }
 
     private func showPreferences(_ page: AppPage) {

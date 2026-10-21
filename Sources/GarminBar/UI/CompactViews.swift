@@ -21,8 +21,8 @@ struct MenuPopover: View {
                 if model.menuVisibleMetrics.isEmpty { Text(L10n.text("在显示设置中选择菜单栏指标")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary) }
             }.frame(maxHeight: .infinity)
             VStack(alignment: .leading, spacing: 9) {
-                HStack { Image(systemName: "antenna.radiowaves.left.and.right"); Text(L10n.text(model.bluetooth.status)); Spacer() }
-                HStack { Image(systemName: "cloud"); Text(L10n.text(model.cloud.isAuthenticated ? "\(model.cloud.region.title)已连接" : "\(model.cloud.region.title)待登录")); Spacer(); Text(L10n.text("\(model.uploads.pendingCount) 待同步")) }
+                HStack { Image(systemName: "antenna.radiowaves.left.and.right"); Text(L10n.text(model.workflow.connectionTitle)); Spacer() }
+                HStack { Image(systemName: model.workflow.accountSymbol); Text(L10n.text(model.workflow.accountTitle)); Spacer(); Text(L10n.text(model.workflow.transferTitle)) }
             }.font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
             HStack(spacing: 9) {
                 Button { model.openSettings(.watch) } label: { Label(L10n.text("连接与配置"), systemImage: "slider.horizontal.3").frame(maxWidth: .infinity) }
@@ -31,7 +31,7 @@ struct MenuPopover: View {
                     .buttonStyle(.bordered)
             }.controlSize(.regular)
             HStack {
-                Button(L10n.text("立即同步")) { model.syncNow() }.disabled(model.preview || (!model.bluetooth.canSyncFiles && model.uploads.pendingCount == 0))
+                Button(L10n.text("接收手表数据")) { model.syncNow() }.disabled(model.preview)
                 Spacer()
                 Button { model.openSettings(model.settingsPage) } label: { Image(systemName: "gearshape") }
                     .help(L10n.text("设置")).accessibilityLabel(L10n.text("设置"))

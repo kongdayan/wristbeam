@@ -28,14 +28,21 @@ final class AppModel: ObservableObject {
     var hrvRequestID = UUID()
     var hrvMessageDay: String?
     var hrvStore: GarminHRVStore?
-    @Published var detailMetric: MetricKind? = nil
+    @Published var detailMetric: MetricKind? = nil {
+        didSet { if let kind = detailMetric, kind != oldValue { scrollPositions.offsets.removeValue(forKey: "metric." + kind.rawValue) } }
+    }
     @Published var detailDay = Date()
     @Published var metricNotes: [MetricKind: String] = [:]
     @Published var events: [ActivityLog] = []
     var now = Date()
     @Published var page = AppPage.overview
     @Published var settingsPage = AppPage.settings
-    @Published var selectedActivityID: String?
+    @Published var selectedActivityID: String? {
+        didSet { if let id = selectedActivityID, id != oldValue { scrollPositions.offsets.removeValue(forKey: "activity." + id) } }
+    }
+    @Published var activityBrowsing = ActivityBrowsingState()
+    @Published var activitySearchRequest = 0
+    let scrollPositions = ScrollPositions()
     @Published var showLogin = false
     @Published var language = PulseLanguage(rawValue: AppPreferences.shared.string(forKey: "language") ?? "system") ?? .system {
         didSet { L10n.language = language; AppPreferences.shared.set(language.rawValue, forKey: "language"); onAppearanceChange?() }
@@ -240,6 +247,7 @@ final class AppModel: ObservableObject {
         }.store(in: &subscriptions)
         if !preview { activities.attach(cloud); connectIQ.attach(cloud) }
         connectIQ.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
+        activities.$accountRevision.dropFirst().sink { [weak self] _ in self?.resetActivityBrowsing() }.store(in: &subscriptions)
         activities.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
         developer.attach(self)
         weather.attach(cloud: cloud, bluetooth: bluetooth)

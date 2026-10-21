@@ -51,7 +51,7 @@ struct HRVDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Button { model.detailMetric = nil } label: { Label(L10n.text("返回健康看板"), systemImage: "chevron.left") }.buttonStyle(.bordered).controlSize(.large)
+                PulseBackButton(title: "返回健康看板") { model.goBack() }
                 Spacer()
                 Button(L10n.text("刷新记录")) { Task { await model.refreshHealthMetrics(force: true); await model.loadHRVNight(day) } }
                     .disabled(model.preview || model.isRefreshingHealth || model.hrvLoading).buttonStyle(.bordered)

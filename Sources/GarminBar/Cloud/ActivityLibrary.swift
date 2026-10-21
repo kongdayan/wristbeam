@@ -6,6 +6,7 @@ import Combine
     @Published private(set) var busy = false
     @Published private(set) var status = ""
     @Published private(set) var cacheRevision = 0
+    @Published private(set) var accountRevision = 0
     @Published var refreshMinutes: Int {
         didSet { preferences.set(refreshMinutes, forKey: "activities.refreshMinutes"); lastAttempt = Date() }
     }
@@ -49,7 +50,7 @@ import Combine
         guard next != scope else { return }
         scope = next; generation = UUID(); busy = false; status = ""; lastPageIDs = []; detailCache = [:]
         store = next.isEmpty ? nil : GarminActivityStore(directory: root.appendingPathComponent(next, isDirectory: true))
-        index = store?.loadIndex() ?? .init(); cacheRevision += 1
+        index = store?.loadIndex() ?? .init(); cacheRevision += 1; accountRevision += 1
     }
     func tick(now: Date = Date()) {
         reconcile()

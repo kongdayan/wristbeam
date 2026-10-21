@@ -119,8 +119,7 @@ struct MetricDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
-                Button { model.detailMetric = nil } label: { Label(L10n.text("返回健康看板"), systemImage: "chevron.left") }
-                    .buttonStyle(.bordered).controlSize(.large).font(PulseTheme.font(size: 14, weight: .semibold)).frame(minHeight: 44)
+                PulseBackButton(title: "返回健康看板") { model.goBack() }
                 Spacer()
                 Button(L10n.text("刷新记录")) { Task { await model.refreshSeries(day: model.detailDay, force: true) } }
                     .buttonStyle(.bordered).disabled(!model.cloud.isAuthenticated || model.loadingSeriesDays.contains(GarminHealthMetrics.calendarDate(model.detailDay)))

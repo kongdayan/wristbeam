@@ -45,9 +45,9 @@ struct DashboardConnectionStatus: View {
             Divider().frame(height: 16).padding(.horizontal, 4)
             Button { model.page = .account } label: {
                 HStack(spacing: 7) {
-                    Image(systemName: "cloud")
-                    Text(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "云账号已连接" : "连接账户"))
-                    StatusDot(active: model.cloud.isAuthenticated)
+                    Image(systemName: model.workflow.accountSymbol)
+                    Text(L10n.text(model.workflow.accountTitle))
+                    StatusDot(active: model.workflow.cloudActive)
                 }
             }.help(L10n.text(model.cloud.region.title))
         }.buttonStyle(.plain).font(PulseTheme.font(size: 11, weight: .medium))
