@@ -40,6 +40,45 @@ final class GFDISession {
     var onFile: ((URL, GFDIFileMetadata) -> Void)?
     var onDeviceInfo: ((GFDIDeviceInfo) -> Void)?
     var onRealtimeData: ((UInt16, Data) -> Void)?
+    var onConnectIQSettingsStatus: ((String, Bool) -> Void)?
+    private(set) var connectIQSettingsBusy = false
+    private var settingsOperationID: UUID?
+    private var settingsAppID = ""
+    private var settingsUnitID: UInt32 = 0
+    private var settingsAccount = ""
+    private var settingsDeadline: Date?
+    private var settingsCompletion: ((Result<GFDIConnectIQSettingsSnapshot, Error>) -> Void)?
+    private var settingsExpected: GFDIMonkeyValue?
+    private var settingsSaveData: Data?
+    private var settingsReceived: (values: GFDIMonkeyValue, raw: Data)?
+    private var settingsGetAcknowledged = false
+    private var settingsLastSnapshot: GFDIConnectIQSettingsSnapshot?
+    private var settingsPushTransfer: GFDIConnectIQTransfer?
+    private var settingsPushDeadline: Date?
+    private var ciqOutgoingData = Data()
+    private var ciqOutgoingOffset = 0
+    private var ciqOutgoingSize = 0
+    var onConnectIQInstall: ((String, Bool, Double) -> Void)?
+    private(set) var connectIQInstallBusy = false
+    private var connectIQInstaller: GFDIConnectIQInstaller?
+    private var connectIQInstallGeneration = UUID()
+    private var connectIQInstallTarget = ""
+    private var connectIQInstallUnit: UInt32 = 0
+    private var connectIQInstallAccount = ""
+    private var connectIQInstallRetries = 0
+    private var connectIQInstallVerificationTask: Task<Void, Never>?
+    var onInstalledWatchFaces: ((GFDIInstalledWatchFaceInventory?) -> Void)?
+    private var installedWatchFaceInventory: GFDIInstalledWatchFaceInventory?
+    var onWatchFaces: (([GFDIWatchFaceOption]) -> Void)?
+    var onWatchFaceStatus: ((String, Bool) -> Void)?
+    private var watchFaceChoices: [GFDIWatchFaceOption] = []
+    private var watchFaceBusy = false
+    private var ciqQueryID: UInt16?
+    private var ciqCompleted: [UInt16: GFDIConnectIQTransfer] = [:]
+    private var ciqCompletedOrder: [UInt16] = []
+    private var ciqTransfer: GFDIConnectIQTransfer?
+    private var ciqDeadline: Date?
+    private var ciqCompletion: ((Result<Data, Error>) -> Void)?
     var onBatteryReading: ((GFDIBattery.Reading) -> Void)?
     var weatherProvider: ((GFDIWeatherRequest) async throws -> WatchWeatherSnapshot)?
     var onWeatherDelivery: ((Bool) -> Void)?
@@ -158,6 +197,7 @@ final class GFDISession {
 
     private func disconnected(report: Bool) {
         cancelWeather()
+        resetConnectIQ()
         connectedToTransport = false
         isReady = false
         isSyncing = false
@@ -187,6 +227,7 @@ final class GFDISession {
     func transportReady() {
         guard connectedToTransport else { return }
         cancelWeather()
+        resetConnectIQ()
         // A characteristic redirect invalidates the previous packet stream and pending request
         // correlation. Restart read tasks at zero; their original watch files remain untouched.
         isReady = false
@@ -208,6 +249,7 @@ final class GFDISession {
     }
 
     func setAccountGUID(_ guid: String?) {
+        if guid != accountGUID { resetConnectIQ() }
         accountGUID = guid
         cloudIdentityMatches = nil
         identityDeadline = nil
@@ -222,6 +264,7 @@ final class GFDISession {
     func requestSync(includeArchivedActivities: Bool = false) {
         guard connectedToTransport else { status("请先连接手表；已保存的文件可继续上传"); return }
         guard !isSyncing else { return }
+        guard !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy else { status("请等待表盘操作完成后同步"); return }
         guard !authenticationUnsupported else { status("手表要求 Garmin 应用层加密，当前版本无法传输文件"); return }
         guard deviceInfo?.needsNativeMLR != true else { status("手表启用 CoreTransfer / MLR（能力 90）；本版本仅支持旧文件协议，实时订阅可继续"); return }
         self.includeArchivedActivities = includeArchivedActivities
@@ -322,7 +365,10 @@ final class GFDISession {
                 }
             } else if command == 3 || command == 4 {
                 let handle = try reader.u8()
-                if handles[handle] == 1 { cancelWeather(); isReady = false; abortSync("手表关闭了文件同步通道") }
+                if handles[handle] == 1 {
+                    cancelWeather(); isReady = false; abortSync("手表关闭了文件同步通道")
+                    if connectIQInstallBusy { finishConnectIQInstall("手表关闭了文件通道，安装未确认", success: false) }
+                }
                 handles.removeValue(forKey: handle)
             }
         } catch { status("手表蓝牙控制响应无效：\(error.localizedDescription)") }
@@ -352,10 +398,10 @@ final class GFDISession {
         } catch { status("无法编码手表请求：\(error.localizedDescription)") }
     }
 
-    private func request(_ number: UInt16, payload: Data = Data(), completion: @escaping (Result<Data, Error>) -> Void) {
+    private func request(_ number: UInt16, payload: Data = Data(), retries: Int = 1, completion: @escaping (Result<Data, Error>) -> Void) {
         guard pending[number] == nil else { completion(.failure(Failure(message: "同步请求正在处理中"))); return }
         let message = GFDIMessage(number: number, payload: payload)
-        pending[number] = Request(message: message, deadline: Date().addingTimeInterval(10), retries: 1, completion: completion)
+        pending[number] = Request(message: message, deadline: Date().addingTimeInterval(10), retries: retries, completion: completion)
         send(message)
     }
 
@@ -368,6 +414,7 @@ final class GFDISession {
                 let number = try reader.u16()
                 let result = try reader.u8()
                 let responsePayload = try reader.data(reader.remaining)
+                if number == 5043, receiveConnectIQAcknowledgement(status: result, payload: responsePayload) { return }
                 if number == 5043, receiveBatteryAcknowledgement(status: result, payload: responsePayload) { return }
                 guard let request = pending.removeValue(forKey: number) else { return }
                 if result == 0 { request.completion(.success(responsePayload)) }
@@ -398,6 +445,7 @@ final class GFDISession {
                 abortSync("手表返回压缩文件块；当前版本只支持标准文件块，请重试")
             case 5022:
                 send(message.response())
+                if connectIQInstallBusy { finishConnectIQInstall("手表取消了表盘传输，安装未确认", success: false) }
                 abortSync("手表取消了本次文件传输，原始文件仍保留在手表")
             case 5023:
                 let reading = try GFDIBattery.legacy(message.payload)
@@ -406,14 +454,19 @@ final class GFDISession {
                     if batteryUsesLegacy { batteryDeadline = nil }
                     onBatteryReading?(reading)
                 }
-            case 5043: receiveBatteryNotification(message)
+            case 5043: receiveProtobufNotification(message)
             case 5044:
                 var reader = GFDIReader(message.payload)
-                if try reader.u16() == batteryQueryID { receiveBatteryResponse(message) }
+                let id = try reader.u16()
+                if id == ciqQueryID || ciqCompleted[id] != nil { receiveConnectIQResponse(message) }
+                else if id == batteryQueryID { receiveBatteryResponse(message) }
                 else { try receiveIdentityResponse(message) }
             case 5045:
                 var reader = GFDIReader(message.payload)
-                if try reader.u16() == batteryQueryID {
+                let id = try reader.u16()
+                if id == ciqQueryID {
+                    send(message.response(payload: message.payload)); finishConnectIQ(.failure(GFDIConnectIQError.rejected))
+                } else if id == batteryQueryID {
                     send(message.response(payload: message.payload)); batteryFallback()
                 } else { send(message.response(status: 2)) }
             case 5101:
@@ -596,7 +649,7 @@ final class GFDISession {
     }
 
     private func checkIdentityThenSync() {
-        guard isReady else { return }
+        guard isReady, !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy else { return }
         if deviceInfo?.configurationFlags.contains(95) == true, let accountGUID {
             guard let bytes = GFDICoreIdentity.guidBytes(accountGUID) else { status("账户 GUID 格式无效，请重新登录佳明账户"); return }
             guard cloudIdentityMatches != false else { abortSync("手表账户 GUID 与登录账户不匹配，已停止文件同步"); return }
@@ -880,12 +933,15 @@ final class GFDISession {
         if let deadline = batteryNotificationDeadline, deadline < now {
             batteryNotification = nil; batteryNotificationDeadline = nil
         }
+        if let deadline = settingsDeadline, deadline < now { finishSettings(.failure(Failure(message: "表盘设置请求超时，请重新读取"))) }
+        if let deadline = settingsPushDeadline, deadline < now { settingsPushTransfer = nil; settingsPushDeadline = nil }
+        if let deadline = ciqDeadline, deadline < now { finishConnectIQ(.failure(Failure(message: "表盘请求超时，请重新读取"))) }
         if let deadline = batteryDeadline, deadline < now { batteryFallback(now: now) }
         refreshBatteryIfNeeded(now: now)
     }
 
     private func allocateProtobufQueryID() -> UInt16 {
-        repeat { protobufQueryID &+= 1 } while protobufQueryID == 0 || protobufQueryID == identityQueryID || protobufQueryID == batteryQueryID
+        repeat { protobufQueryID &+= 1 } while protobufQueryID == 0 || protobufQueryID == identityQueryID || protobufQueryID == batteryQueryID || protobufQueryID == ciqQueryID || ciqCompleted[protobufQueryID] != nil
         return protobufQueryID
     }
 
@@ -901,7 +957,7 @@ final class GFDISession {
         guard isReady, !authenticationUnsupported, !isSyncing, !queuedSync,
               identityDeadline == nil, !handshakeCompletionPending,
               deviceInfo?.configurationFlags.contains(4) != true || handshakeCompleted,
-              batteryDeadline == nil, now >= nextBatteryRefresh else { return }
+              !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy, batteryDeadline == nil, now >= nextBatteryRefresh else { return }
         nextBatteryRefresh = now.addingTimeInterval(300)
         batteryDeadline = now.addingTimeInterval(20)
         if batteryUsesLegacy {
@@ -977,6 +1033,448 @@ final class GFDISession {
             batteryNotification = nil; batteryNotificationDeadline = nil
             send(message.response(status: 5))
         }
+    }
+
+    func startConnectIQSettings(appID: String, settingsData: Data?, expectedUnitID: UInt32, operationID: UUID,
+                                completion: @escaping (Result<GFDIConnectIQSettingsSnapshot, Error>) -> Void) {
+        guard !connectIQSettingsBusy, !connectIQInstallBusy, !watchFaceBusy, ciqCompletion == nil,
+              !isSyncing, !queuedSync, canTransferFiles, connectedToTransport,
+              expectedUnitID != 0, deviceInfo?.unitID == expectedUnitID,
+              let uuid = UUID(uuidString: appID), let accountGUID, !accountGUID.isEmpty else {
+            completion(.failure(GFDIConnectIQSettingsError.stale)); return
+        }
+        let id = uuid.uuidString.lowercased()
+        guard installedWatchFaceInventory?.apps.contains(where: { $0.id == id && $0.unitID == expectedUnitID }) == true else {
+            completion(.failure(GFDIConnectIQSettingsError.notInstalled)); return
+        }
+        do {
+            let expected = try settingsData.map { try GFDIMonkeyCodec.decode($0) }
+            if settingsData != nil {
+                guard settingsLastSnapshot?.appID == id, settingsLastSnapshot?.unitID == expectedUnitID,
+                      settingsAccount == accountGUID else { throw GFDIConnectIQSettingsError.stale }
+            }
+            settingsOperationID = operationID; settingsAppID = id; settingsUnitID = expectedUnitID; settingsAccount = accountGUID
+            settingsCompletion = completion; settingsExpected = expected; settingsSaveData = settingsData
+            connectIQSettingsBusy = true; settingsReceived = nil; settingsGetAcknowledged = false
+            requestSettingsRead(operationID: operationID)
+        } catch { completion(.failure(error)) }
+    }
+
+    func cancelConnectIQSettings(appID: String, expectedUnitID: UInt32, operationID: UUID? = nil) {
+        guard connectIQSettingsBusy, settingsAppID == appID.lowercased(), settingsUnitID == expectedUnitID,
+              operationID == nil || operationID == settingsOperationID else { return }
+        finishSettings(.failure(CancellationError()))
+    }
+
+    private func settingsContextValid() -> Bool {
+        connectIQSettingsBusy && connectedToTransport && canTransferFiles && deviceInfo?.unitID == settingsUnitID
+            && accountGUID == settingsAccount && !isSyncing && !connectIQInstallBusy
+    }
+
+    private func requestSettingsRead(operationID: UUID) {
+        guard settingsContextValid() else { finishSettings(.failure(GFDIConnectIQSettingsError.stale)); return }
+        do {
+            settingsReceived = nil; settingsGetAcknowledged = false; settingsDeadline = Date().addingTimeInterval(30)
+            onConnectIQSettingsStatus?(settingsExpected == nil ? "正在读取手表表盘设置" : settingsSaveData != nil ? "正在核对手表当前设置" : "正在回读确认表盘设置", true)
+            let request = try GFDIConnectIQSettings.request(appID: settingsAppID)
+            connectIQQuery(request) { [weak self] result in
+                guard let self, self.settingsOperationID == operationID, self.connectIQSettingsBusy else { return }
+                do {
+                    try GFDIConnectIQSettings.checkResponse(result.get(), appID: self.settingsAppID, saving: false)
+                    self.settingsGetAcknowledged = true; self.completeSettingsReadIfReady(operationID: operationID)
+                } catch { self.finishSettings(.failure(error)) }
+            }
+        } catch { finishSettings(.failure(error)) }
+    }
+
+    private func completeSettingsReadIfReady(operationID: UUID) {
+        guard settingsGetAcknowledged, let received = settingsReceived else { return }
+        guard settingsContextValid() else { finishSettings(.failure(GFDIConnectIQSettingsError.stale)); return }
+        do {
+            if let saveData = settingsSaveData {
+                // Re-read before writing; never overwrite a watch-side edit made after opening the form.
+                guard received.values == settingsLastSnapshot?.values else { throw GFDIConnectIQSettingsError.stale }
+                let request = try GFDIConnectIQSettings.request(appID: settingsAppID, settingsData: saveData)
+                settingsReceived = nil; settingsGetAcknowledged = false; settingsDeadline = Date().addingTimeInterval(90)
+                onConnectIQSettingsStatus?("正在保存表盘设置", true)
+                connectIQQuery(request) { [weak self] result in
+                    guard let self, self.settingsOperationID == operationID, self.connectIQSettingsBusy else { return }
+                    do {
+                        try GFDIConnectIQSettings.checkResponse(result.get(), appID: self.settingsAppID, saving: true)
+                        self.settingsSaveData = nil
+                        self.requestSettingsRead(operationID: operationID)
+                    } catch { self.finishSettings(.failure(error)) }
+                }
+                return
+            }
+            if let expected = settingsExpected, received.values != expected { throw GFDIConnectIQSettingsError.unconfirmed }
+            let snapshot = GFDIConnectIQSettingsSnapshot(appID: settingsAppID, unitID: settingsUnitID, values: received.values,
+                jsonData: try received.values.jsonData(), rawData: received.raw, savedAndVerified: settingsExpected != nil)
+            settingsLastSnapshot = snapshot
+            finishSettings(.success(snapshot))
+        } catch { finishSettings(.failure(error)) }
+    }
+
+    private func finishSettings(_ result: Result<GFDIConnectIQSettingsSnapshot, Error>) {
+        let callback = settingsCompletion
+        settingsCompletion = nil; settingsOperationID = nil; settingsDeadline = nil; connectIQSettingsBusy = false
+        settingsExpected = nil; settingsSaveData = nil; settingsReceived = nil; settingsGetAcknowledged = false
+        ciqCompletion = nil; ciqDeadline = nil; ciqTransfer = nil; ciqQueryID = nil; ciqOutgoingData = Data()
+        switch result {
+        case .success(let snapshot): onConnectIQSettingsStatus?(snapshot.savedAndVerified ? "手表已保存并回读确认设置" : "已读取手表表盘设置", false)
+        case .failure(let error): onConnectIQSettingsStatus?(error is CancellationError ? "已取消表盘设置操作" : error.localizedDescription, false)
+        }
+        callback?(result)
+    }
+
+    /// Device-initiated 5043: settings values use a separate request ID from the initiating Get.
+    /// Both fragment ACK and application-level 5044 response are required (APK Handler + hu8).
+    private func receiveProtobufNotification(_ message: GFDIMessage) {
+        do {
+            var reader = GFDIReader(message.payload)
+            let id = try reader.u16()
+            if settingsPushTransfer?.complete == true, settingsPushTransfer?.requestID != id { settingsPushTransfer = nil }
+            if settingsPushTransfer == nil { settingsPushTransfer = GFDIConnectIQTransfer(requestID: id) }
+            guard var transfer = settingsPushTransfer, transfer.requestID == id else { send(message.response(status: 2)); return }
+            let fragment = try transfer.accept(message.payload)
+            settingsPushTransfer = transfer; settingsPushDeadline = Date().addingTimeInterval(25)
+            if !transfer.complete { send(message.response(payload: fragment.ack)); return }
+            if let pushed = try GFDIConnectIQSettings.push(transfer.data) {
+                send(message.response(payload: fragment.ack))
+                send(GFDIMessage(number: 5044, payload: GFDIConnectIQTransfer.request(id: id, data: GFDIConnectIQSettings.pushResponse)))
+                guard !fragment.duplicate, connectIQSettingsBusy, pushed.appID == settingsAppID,
+                      let operationID = settingsOperationID else { return }
+                do {
+                    settingsReceived = (try GFDIMonkeyCodec.decode(pushed.data), pushed.data)
+                    completeSettingsReadIfReady(operationID: operationID)
+                } catch { finishSettings(.failure(error)) }
+            } else if try GFDIBattery.isChangeNotification(transfer.data) {
+                send(message.response(payload: fragment.ack))
+                if !fragment.duplicate { nextBatteryRefresh = Date() }
+            } else {
+                send(message.response(status: 2)); settingsPushTransfer = nil; settingsPushDeadline = nil
+            }
+        } catch {
+            settingsPushTransfer = nil; settingsPushDeadline = nil
+            send(message.response(status: 5))
+        }
+    }
+
+    func installConnectIQPackage(_ data: Data, appID: String, expectedSHA256: String, sourceMessageID: UInt64,
+                                 expectedUnitID: UInt32, expectedAccountGUID: String) {
+        guard !connectIQInstallBusy, !connectIQSettingsBusy, !watchFaceBusy, ciqCompletion == nil, !isSyncing, !queuedSync else {
+            onConnectIQInstall?("请等待当前手表操作完成", false, 0); return
+        }
+        let normalizedAccount = expectedAccountGUID.replacingOccurrences(of: "-", with: "").lowercased()
+        let currentAccount = accountGUID?.replacingOccurrences(of: "-", with: "").lowercased()
+        guard canTransferFiles, connectedToTransport, expectedUnitID != 0, deviceInfo?.unitID == expectedUnitID,
+              !normalizedAccount.isEmpty, normalizedAccount == currentAccount, identityDeadline == nil,
+              let target = UUID(uuidString: appID) else {
+            onConnectIQInstall?("请连接同一账户的所选手表后安装", false, 0); return
+        }
+        do { connectIQInstaller = try GFDIConnectIQInstaller(data: data, expectedSHA256: expectedSHA256, sourceMessageID: sourceMessageID) }
+        catch { onConnectIQInstall?(error.localizedDescription, false, 0); return }
+        connectIQInstallGeneration = UUID(); let generation = connectIQInstallGeneration
+        connectIQInstallTarget = target.uuidString.lowercased(); connectIQInstallUnit = expectedUnitID
+        connectIQInstallAccount = normalizedAccount; connectIQInstallBusy = true; connectIQInstallRetries = 0
+        onConnectIQInstall?("正在核对手表已安装表盘", true, 0)
+        connectIQQuery(GFDIConnectIQ.installedWatchFacesQuery) { [weak self] result in
+            guard let self, self.connectIQInstallGeneration == generation, self.connectIQInstallBusy else { return }
+            do {
+                let inventory = try GFDIConnectIQ.installedWatchFaces(result.get(), unitID: expectedUnitID)
+                self.installedWatchFaceInventory = inventory; self.onInstalledWatchFaces?(inventory)
+                self.onWatchFaceStatus?("已读取 \(inventory.apps.count) 个已安装表盘", false)
+                // Inventory identity does not prove package version or integrity.
+                // An explicit install must also transfer updates and reinstalls.
+                self.createConnectIQInstallFile(generation: generation)
+            } catch { self.finishConnectIQInstall(error.localizedDescription, success: false) }
+        }
+    }
+
+    private func connectIQInstallContextIsValid() -> Bool {
+        connectIQInstallBusy && connectedToTransport && canTransferFiles && !isSyncing
+            && deviceInfo?.unitID == connectIQInstallUnit && cloudIdentityMatches != false
+            && accountGUID?.replacingOccurrences(of: "-", with: "").lowercased() == connectIQInstallAccount
+    }
+
+    private func createConnectIQInstallFile(generation: UUID) {
+        guard connectIQInstallContextIsValid(), let installer = connectIQInstaller else {
+            finishConnectIQInstall("设备或账户已变化，安装已停止", success: false); return
+        }
+        onConnectIQInstall?("正在准备手表安装文件", true, 0)
+        request(5005, payload: installer.createRequest, retries: 0) { [weak self] result in
+            guard let self, self.connectIQInstallGeneration == generation, self.connectIQInstallBusy else { return }
+            do {
+                let index = try GFDIConnectIQInstaller.createdIndex(result.get())
+                guard self.connectIQInstallContextIsValid(), let installer = self.connectIQInstaller else { throw GFDIConnectIQError.stale }
+                self.request(5003, payload: installer.uploadRequest(index: index), retries: 0) { [weak self] response in
+                    guard let self, self.connectIQInstallGeneration == generation, self.connectIQInstallBusy else { return }
+                    do {
+                        guard var installer = self.connectIQInstaller else { throw GFDIConnectIQError.stale }
+                        try installer.acceptUpload(response.get()); self.connectIQInstaller = installer
+                        self.sendConnectIQInstallBlock(generation: generation)
+                    } catch { self.finishConnectIQInstall(error.localizedDescription, success: false) }
+                }
+            } catch { self.finishConnectIQInstall(error.localizedDescription, success: false) }
+        }
+    }
+
+    private func sendConnectIQInstallBlock(generation: UUID) {
+        guard connectIQInstallContextIsValid(), var installer = connectIQInstaller, let info = deviceInfo else {
+            finishConnectIQInstall("设备或账户已变化，安装已停止", success: false); return
+        }
+        do {
+            let payload = try installer.nextBlock(maximumPacketSize: info.maximumPacketSize)
+            connectIQInstaller = installer
+            onConnectIQInstall?("正在向手表传送表盘", true, installer.progress)
+            request(5004, payload: payload, retries: 1) { [weak self] result in
+                guard let self, self.connectIQInstallGeneration == generation, self.connectIQInstallBusy else { return }
+                do {
+                    guard var installer = self.connectIQInstaller else { throw GFDIConnectIQError.stale }
+                    let advanced = try installer.acceptBlock(result.get())
+                    self.connectIQInstaller = installer
+                    if advanced { self.connectIQInstallRetries = 0 } else { self.connectIQInstallRetries += 1 }
+                    guard self.connectIQInstallRetries <= 3 else { throw GFDIConnectIQInstaller.InstallError.invalidResponse }
+                    if installer.complete {
+                        self.onConnectIQInstall?("文件已传完，正在确认手表安装", true, 1)
+                        self.verifyConnectIQInstallation(generation: generation, attempts: 5)
+                    } else { self.sendConnectIQInstallBlock(generation: generation) }
+                } catch { self.finishConnectIQInstall(error.localizedDescription, success: false) }
+            }
+        } catch { finishConnectIQInstall(error.localizedDescription, success: false) }
+    }
+
+    private func verifyConnectIQInstallation(generation: UUID, attempts: Int) {
+        guard connectIQInstallContextIsValid() else { finishConnectIQInstall("安装结果尚未确认，请重新读取手表表盘", success: false); return }
+        connectIQQuery(GFDIConnectIQ.installedWatchFacesQuery) { [weak self] result in
+            guard let self, self.connectIQInstallGeneration == generation, self.connectIQInstallBusy else { return }
+            do {
+                let inventory = try GFDIConnectIQ.installedWatchFaces(result.get(), unitID: self.connectIQInstallUnit)
+                self.installedWatchFaceInventory = inventory; self.onInstalledWatchFaces?(inventory)
+                self.onWatchFaceStatus?("已读取 \(inventory.apps.count) 个已安装表盘", false)
+                if inventory.apps.contains(where: { $0.id == self.connectIQInstallTarget }) {
+                    self.finishConnectIQInstall("手表已确认安装", success: true); return
+                }
+                guard attempts > 1 else { throw GFDIConnectIQError.unconfirmed }
+                self.connectIQInstallVerificationTask = Task { @MainActor [weak self] in
+                    do { try await Task.sleep(nanoseconds: 2_000_000_000) } catch { return }
+                    guard let self, self.connectIQInstallGeneration == generation, self.connectIQInstallBusy else { return }
+                    self.verifyConnectIQInstallation(generation: generation, attempts: attempts - 1)
+                }
+            } catch { self.finishConnectIQInstall("文件已传完，手表安装尚未确认，请重新读取", success: false) }
+        }
+    }
+
+    private func finishConnectIQInstall(_ text: String, success: Bool) {
+        let progress = connectIQInstaller?.progress ?? 0
+        connectIQInstallVerificationTask?.cancel(); connectIQInstallVerificationTask = nil
+        connectIQInstallGeneration = UUID(); connectIQInstallBusy = false; connectIQInstaller = nil
+        ciqCompletion = nil; ciqDeadline = nil; ciqTransfer = nil; ciqQueryID = nil
+        pending.removeValue(forKey: 5005); pending.removeValue(forKey: 5003); pending.removeValue(forKey: 5004)
+        onConnectIQInstall?(text, false, success ? 1 : progress)
+    }
+
+    /// Explicit UI request only; no automatic reads or device writes on connection.
+    func refreshWatchFaces(expectedUnitID: UInt32) {
+        guard !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy else { return }
+        guard canUseWatchFaces(expectedUnitID) else { onWatchFaceStatus?("请连接所选云端设备并等待同步完成", false); return }
+        watchFaceBusy = true; watchFaceChoices = []; onWatchFaces?([])
+        installedWatchFaceInventory = nil; onInstalledWatchFaces?(nil)
+        onWatchFaceStatus?("正在读取手表已安装表盘", true)
+        connectIQQuery(GFDIConnectIQ.installedWatchFacesQuery) { [weak self] result in
+            guard let self else { return }
+            do {
+                let inventory = try GFDIConnectIQ.installedWatchFaces(result.get(), unitID: expectedUnitID)
+                self.installedWatchFaceInventory = inventory; self.onInstalledWatchFaces?(inventory)
+                self.readWatchFaceGrid(expectedUnitID: expectedUnitID)
+            } catch { self.finishWatchFaceOperation(.failure(error), selectedID: nil) }
+        }
+    }
+
+    private func readWatchFaceGrid(expectedUnitID: UInt32) {
+        onWatchFaceStatus?("已读取已安装表盘，正在检查手表切换能力", true)
+        connectIQQuery(GFDIConnectIQ.compositionQuery()) { [weak self] result in
+            guard let self else { return }
+            do {
+                let choices = try GFDIConnectIQ.choices(result.get(), unitID: expectedUnitID)
+                self.readWatchFaceSettings(choices, expectedUnitID: expectedUnitID) { [weak self] updated in
+                    self?.finishWatchFaceOperation(updated, selectedID: nil)
+                }
+            } catch { self.finishWatchFaceOperation(.failure(error), selectedID: nil) }
+        }
+    }
+
+    func selectWatchFace(_ choice: GFDIWatchFaceOption, expectedUnitID: UInt32) {
+        guard !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy else { return }
+        guard canUseWatchFaces(expectedUnitID), choice.unitID == expectedUnitID,
+              let current = watchFaceChoices.first(where: { $0 == choice }), current.isSelected == false else {
+            onWatchFaceStatus?("请重新读取所选设备的表盘列表", false); return
+        }
+        watchFaceBusy = true; onWatchFaceStatus?("正在核对手表表盘", true)
+        // Indexes are firmware-defined. Refresh their mapping before writing; never apply a
+        // cached index after an install, composition change or device reconnect.
+        connectIQQuery(GFDIConnectIQ.compositionQuery()) { [weak self] result in
+            guard let self else { return }
+            do {
+                let fresh = try GFDIConnectIQ.choices(result.get(), unitID: expectedUnitID)
+                guard let match = fresh.first(where: { $0.id == current.id }),
+                      match.compositionVersion == current.compositionVersion, match.globalVersion == current.globalVersion,
+                      match.title == current.title, match.imageName == current.imageName else { throw GFDIConnectIQError.stale }
+                self.readWatchFaceSettings(fresh, expectedUnitID: expectedUnitID) { [weak self] state in
+                    guard let self else { return }
+                    do {
+                        let choices = try state.get()
+                        guard let target = choices.first(where: { $0.id == current.id }), target.isSelected != nil else { throw GFDIConnectIQError.stale }
+                        self.watchFaceChoices = choices
+                        if target.isSelected == true { self.finishWatchFaceOperation(.success(choices), selectedID: target.id); return }
+                        self.performWatchFaceSelection(target, expectedUnitID: expectedUnitID)
+                    } catch { self.finishWatchFaceOperation(.failure(error), selectedID: current.id) }
+                }
+            } catch { self.finishWatchFaceOperation(.failure(error), selectedID: current.id) }
+        }
+    }
+
+    private func performWatchFaceSelection(_ choice: GFDIWatchFaceOption, expectedUnitID: UInt32) {
+        guard canUseWatchFaces(expectedUnitID) else { finishWatchFaceOperation(.failure(GFDIConnectIQError.stale), selectedID: choice.id); return }
+        onWatchFaceStatus?("正在切换表盘", true)
+        connectIQQuery(GFDIConnectIQ.selection(choice)) { [weak self] result in
+            guard let self else { return }
+            do {
+                try GFDIConnectIQ.checkSelectionResponse(result.get())
+                self.readWatchFaceSettings(self.watchFaceChoices, expectedUnitID: expectedUnitID) { [weak self] updated in
+                    self?.finishWatchFaceOperation(updated, selectedID: choice.id)
+                }
+            } catch { self.finishWatchFaceOperation(.failure(error), selectedID: choice.id) }
+        }
+    }
+
+    private func canUseWatchFaces(_ unitID: UInt32) -> Bool {
+        unitID != 0 && deviceInfo?.unitID == unitID && isReady && connectedToTransport
+            && !authenticationUnsupported && !isSyncing && !queuedSync && identityDeadline == nil
+            && !handshakeCompletionPending && (deviceInfo?.configurationFlags.contains(4) != true || handshakeCompleted)
+            && cloudIdentityMatches != false
+    }
+
+    private func readWatchFaceSettings(_ choices: [GFDIWatchFaceOption], expectedUnitID: UInt32,
+                                      completion: @escaping (Result<[GFDIWatchFaceOption], Error>) -> Void) {
+        let compositions = Array(Set(choices.filter { $0.isSelected == nil }.map(\.compositionID))).sorted()
+        // Re-read all compositions even if the previous state was known.
+        var reset = choices
+        for index in reset.indices { reset[index].isSelected = nil }
+        let ids = compositions.isEmpty ? Array(Set(choices.map(\.compositionID))).sorted() : compositions
+        readWatchFaceSettingsStep(reset, ids: ids, expectedUnitID: expectedUnitID, completion: completion)
+    }
+
+    private func readWatchFaceSettingsStep(_ choices: [GFDIWatchFaceOption], ids: [UInt32], expectedUnitID: UInt32,
+                                          completion: @escaping (Result<[GFDIWatchFaceOption], Error>) -> Void) {
+        guard canUseWatchFaces(expectedUnitID) else { completion(.failure(GFDIConnectIQError.stale)); return }
+        guard let id = ids.first else { completion(.success(choices)); return }
+        connectIQQuery(GFDIConnectIQ.settingsQuery(composition: id)) { [weak self] result in
+            guard let self else { return }
+            do {
+                let updated = try GFDIConnectIQ.applySettings(result.get(), compositionID: id, choices: choices)
+                self.readWatchFaceSettingsStep(updated, ids: Array(ids.dropFirst()), expectedUnitID: expectedUnitID, completion: completion)
+            } catch { completion(.failure(error)) }
+        }
+    }
+
+    private func finishWatchFaceOperation(_ result: Result<[GFDIWatchFaceOption], Error>, selectedID: String?) {
+        watchFaceBusy = false
+        switch result {
+        case .success(let choices):
+            watchFaceChoices = choices; onWatchFaces?(choices)
+            if let selectedID, choices.first(where: { $0.id == selectedID })?.isSelected != true {
+                onWatchFaceStatus?(GFDIConnectIQError.unconfirmed.localizedDescription, false)
+            } else { onWatchFaceStatus?(selectedID == nil ? "已读取手表表盘" : "手表已确认表盘选择", false) }
+        case .failure(let error):
+            watchFaceChoices = []; onWatchFaces?([])
+            if selectedID == nil, let inventory = installedWatchFaceInventory {
+                onWatchFaceStatus?("已读取 \(inventory.apps.count) 个已安装表盘；手表未提供当前选择或切换列表", false)
+            } else { onWatchFaceStatus?(error.localizedDescription, false) }
+        }
+    }
+
+    private func connectIQQuery(_ data: Data, completion: @escaping (Result<Data, Error>) -> Void) {
+        guard ciqCompletion == nil, connectedToTransport, isReady else { completion(.failure(GFDIConnectIQError.stale)); return }
+        let id = allocateProtobufQueryID()
+        ciqQueryID = id; ciqTransfer = GFDIConnectIQTransfer(requestID: id)
+        ciqDeadline = Date().addingTimeInterval(25); ciqCompletion = completion
+        ciqOutgoingData = data; ciqOutgoingOffset = 0
+        sendConnectIQFragment()
+    }
+
+    private func sendConnectIQFragment() {
+        guard let id = ciqQueryID, ciqCompletion != nil else { return }
+        let maximum = deviceInfo?.maximumPacketSize ?? 512
+        let capacity = min(4096, maximum - ((maximum + 253) / 254) - 8 - 14)
+        guard capacity > 0, ciqOutgoingData.count <= 512 * 1024 else { finishConnectIQ(.failure(GFDIProtocolError.oversized)); return }
+        ciqOutgoingSize = min(capacity, ciqOutgoingData.count - ciqOutgoingOffset)
+        var writer = GFDIWriter(); writer.u16(id); writer.u32(UInt32(ciqOutgoingOffset))
+        writer.u32(UInt32(ciqOutgoingData.count)); writer.u32(UInt32(ciqOutgoingSize))
+        writer.data(ciqOutgoingData.subdata(in: ciqOutgoingOffset..<ciqOutgoingOffset + ciqOutgoingSize))
+        send(GFDIMessage(number: 5043, payload: Data(writer.bytes)))
+    }
+
+    private func receiveConnectIQAcknowledgement(status: UInt8, payload: Data) -> Bool {
+        var reader = GFDIReader(payload)
+        guard let id = ciqQueryID, (try? reader.u16()) == id else { return false }
+        guard ciqCompletion != nil else { return true }
+        guard status == 0, let offset = try? reader.u32(), (try? reader.u8()) == 0,
+              let error = try? reader.u8(), [0, 101].contains(error) else {
+            finishConnectIQ(.failure(GFDIConnectIQError.rejected)); return true
+        }
+        if Int(offset) < ciqOutgoingOffset { return true } // Late duplicate ACK.
+        guard Int(offset) == ciqOutgoingOffset else { finishConnectIQ(.failure(GFDIConnectIQError.malformed)); return true }
+        let next = ciqOutgoingOffset + ciqOutgoingSize
+        if next < ciqOutgoingData.count {
+            ciqOutgoingOffset = next; ciqDeadline = Date().addingTimeInterval(25); sendConnectIQFragment()
+        }
+        return true
+    }
+
+    private func receiveConnectIQResponse(_ message: GFDIMessage) {
+        var reader = GFDIReader(message.payload)
+        guard let id = try? reader.u16() else { send(message.response(status: 5)); return }
+        if var completed = ciqCompleted[id] {
+            do {
+                let fragment = try completed.accept(message.payload)
+                guard fragment.duplicate else { send(message.response(status: 5)); return }
+                send(message.response(payload: fragment.ack))
+            } catch { send(message.response(status: 5)) }
+            return
+        }
+        guard var transfer = ciqTransfer, ciqCompletion != nil else { send(message.response(status: 2)); return }
+        do {
+            let fragment = try transfer.accept(message.payload)
+            ciqTransfer = transfer
+            send(message.response(payload: fragment.ack))
+            if transfer.complete, !fragment.duplicate { finishConnectIQ(.success(transfer.data)) }
+        } catch {
+            send(message.response(status: 5)); finishConnectIQ(.failure(error))
+        }
+    }
+
+    private func finishConnectIQ(_ result: Result<Data, Error>) {
+        let completion = ciqCompletion
+        ciqCompletion = nil; ciqDeadline = nil
+        // Consecutive RTS queries can overlap retransmissions of the previous response.
+        if let transfer = ciqTransfer, transfer.complete {
+            ciqCompleted[transfer.requestID] = transfer; ciqCompletedOrder.append(transfer.requestID)
+            while ciqCompletedOrder.count > 4 { ciqCompleted.removeValue(forKey: ciqCompletedOrder.removeFirst()) }
+        }
+        completion?(result)
+    }
+
+    private func resetConnectIQ() {
+        if connectIQSettingsBusy { finishSettings(.failure(GFDIConnectIQSettingsError.stale)) }
+        settingsLastSnapshot = nil; settingsPushTransfer = nil; settingsPushDeadline = nil
+        ciqOutgoingData = Data(); ciqOutgoingOffset = 0; ciqOutgoingSize = 0
+        if connectIQInstallBusy { finishConnectIQInstall("连接或账户已变化，安装未确认", success: false) }
+        ciqCompletion = nil; ciqDeadline = nil; ciqTransfer = nil; ciqQueryID = nil
+        ciqCompleted.removeAll(); ciqCompletedOrder.removeAll()
+        watchFaceBusy = false; watchFaceChoices = []; onWatchFaces?([])
+        installedWatchFaceInventory = nil; onInstalledWatchFaces?(nil)
+        onWatchFaceStatus?("连接手表后读取", false)
     }
 
     private func status(_ message: String) { onStatus?(message) }

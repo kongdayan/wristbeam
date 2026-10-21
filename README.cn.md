@@ -24,7 +24,9 @@ Mac 有电量条，人也该有。
 
 电脑电量低了知道充，人电量低了还在开会。至少现在，你和你的 AI 都能看见。
 
-[接入你的 AI](docs/developer/API.md) · [支持的设备](docs/DEVICES.md) · [可用指标](docs/METRICS.md)
+**在 Mac 上换表盘。** 按名称或关键词搜索 Connect IQ 表盘，保存官方安装包和预览图，通过蓝牙安装，并编辑支持的表盘设置，保存后回读确认。
+
+[Connect IQ 表盘](docs/CONNECTIQ.md) · [接入你的 AI](docs/developer/API.md) · [支持的设备](docs/DEVICES.md) · [可用指标](docs/METRICS.md)
 
 ![腕映：菜单栏、浮窗与健康看板](docs/images/showcase-hero-zh.png)
 
@@ -51,7 +53,7 @@ Mac 有电量条，人也该有。
 - 带壳图片分享整个看板、选中卡片或单个数值，支持浅色／深色、复制、保存和系统分享。
 - 全天曲线、分时柱形、日期与时间范围、光标读数、原始记录；缺测留空。
 - 正常 Garmin 蓝牙通道，交互配对教程，原 FIT 持久队列、去重与云同步。
-- 白天／夜间／系统主题，中英应用界面，确认后自动升级。
+- 白天／夜间／系统主题，确认后自动升级。应用随中文系统显示中文，其他系统语言显示英文，也可手动切换。README 单独提供多语言版本。
 
 只读 MCP、HTTP/HTTPS API、Python SDK 与签名 Webhook，在「设置 → 开发者集成」中配置。默认关闭。[开发者接口文档](docs/developer/API.md)。
 

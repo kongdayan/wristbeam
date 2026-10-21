@@ -32,6 +32,31 @@ final class WatchBluetooth: NSObject, ObservableObject {
     @Published var nearby: [NearbyWatch] = []
     @Published var gatt: [GATTEntry] = []
     @Published var availableMetrics: Set<MetricKind> = []
+    @Published private(set) var connectIQSettingsBusy = false
+    @Published private(set) var connectIQSettingsStatus = ""
+    @Published private(set) var connectIQSettingsSnapshot: GFDIConnectIQSettingsSnapshot?
+    @Published private(set) var connectIQInstallBusy = false
+    @Published private(set) var connectIQInstallStatus = ""
+    @Published private(set) var connectIQInstallProgress: Double = 0
+    var canInstallConnectIQ: Bool {
+        isConnected && protocolReady && canSyncFiles && !isTransferringFiles
+            && !connectIQInstallBusy && !connectIQSettingsBusy && !watchFaceBusy && !watchFaceOpenBusy
+    }
+    @Published private(set) var canOpenInstalledWatchFace = false
+    @Published private(set) var watchFaceOpenStatus = ""
+    @Published private(set) var watchFaceOpenBusy = false
+    private var ciqTX: CBCharacteristic?
+    private var ciqRX: CBCharacteristic?
+    private var ciqOpenApp: (id: String, unitID: UInt32)?
+    @Published private(set) var watchFaceSDKVersion: UInt16?
+    private var ciqOpenCommand: UInt8 = 5
+    private var ciqOpenSent = false
+    private var ciqOpenTimeout: Task<Void, Never>?
+    @Published private(set) var installedWatchFaces: [GFDIInstalledWatchFace] = []
+    @Published private(set) var installedWatchFaceAvailableSpace: UInt64?
+    @Published private(set) var watchFaces: [GFDIWatchFaceOption] = []
+    @Published private(set) var watchFaceStatus = "连接手表后读取"
+    @Published private(set) var watchFaceBusy = false
     @Published var transferStatus = "连接后检测文件同步能力"
     @Published var canSyncFiles = false
     @Published private(set) var protocolReady = false
@@ -70,6 +95,150 @@ final class WatchBluetooth: NSObject, ObservableObject {
     @discardableResult
     func sendWeather(_ snapshot: WatchWeatherSnapshot) -> Bool {
         session?.sendWeather(snapshot) == true
+    }
+
+    func refreshWatchFaces(expectedUnitID: UInt32) {
+        guard !watchFaceOpenBusy, !connectIQInstallBusy, !connectIQSettingsBusy else { return }
+        guard let session, isConnected else { watchFaceStatus = "请先连接手表"; return }
+        session.refreshWatchFaces(expectedUnitID: expectedUnitID)
+    }
+
+    func selectWatchFace(_ choice: GFDIWatchFaceOption, expectedUnitID: UInt32) {
+        guard !watchFaceOpenBusy, !connectIQInstallBusy, !connectIQSettingsBusy else { return }
+        guard let session, isConnected else { watchFaceStatus = "请先连接手表"; return }
+        session.selectWatchFace(choice, expectedUnitID: expectedUnitID)
+    }
+
+    func readConnectIQSettings(appID: String, expectedUnitID: UInt32) async throws -> GFDIConnectIQSettingsSnapshot {
+        try await performConnectIQSettings(appID: appID, settingsData: nil, expectedUnitID: expectedUnitID)
+    }
+
+    func saveConnectIQSettings(appID: String, settingsData: Data, expectedUnitID: UInt32) async throws -> GFDIConnectIQSettingsSnapshot {
+        try await performConnectIQSettings(appID: appID, settingsData: settingsData, expectedUnitID: expectedUnitID)
+    }
+
+    func cancelConnectIQSettings(appID: String, expectedUnitID: UInt32) {
+        session?.cancelConnectIQSettings(appID: appID, expectedUnitID: expectedUnitID)
+    }
+
+    private func performConnectIQSettings(appID: String, settingsData: Data?, expectedUnitID: UInt32) async throws -> GFDIConnectIQSettingsSnapshot {
+        try Task.checkCancellation()
+        guard !watchFaceOpenBusy, !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy,
+              !isTransferringFiles, isConnected, protocolReady, let session else { throw GFDIConnectIQSettingsError.stale }
+        let operationID = UUID()
+        let snapshot: GFDIConnectIQSettingsSnapshot = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                session.startConnectIQSettings(appID: appID, settingsData: settingsData, expectedUnitID: expectedUnitID, operationID: operationID) {
+                    continuation.resume(with: $0)
+                }
+            }
+        } onCancel: {
+            Task { @MainActor in session.cancelConnectIQSettings(appID: appID, expectedUnitID: expectedUnitID, operationID: operationID) }
+        }
+        connectIQSettingsSnapshot = snapshot
+        return snapshot
+    }
+
+    func installConnectIQPackage(_ data: Data, appID: String, expectedSHA256: String, sourceMessageID: UInt64,
+                                 expectedUnitID: UInt32, expectedAccountGUID: String) {
+        guard canInstallConnectIQ, let session else { connectIQInstallStatus = "请连接手表并等待当前操作完成"; return }
+        session.installConnectIQPackage(data, appID: appID, expectedSHA256: expectedSHA256, sourceMessageID: sourceMessageID,
+                                      expectedUnitID: expectedUnitID, expectedAccountGUID: expectedAccountGUID)
+    }
+
+    /// Explicit user action bound to the device's installed inventory. The official SDK
+    /// sends command 6 directly; its separate command 5 is not an open prerequisite.
+    func openInstalledWatchFace(_ app: GFDIInstalledWatchFace, expectedUnitID: UInt32, runtimeAppID: String? = nil) {
+        guard !watchFaceOpenBusy, !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy, !isTransferringFiles else { return }
+        guard isConnected, protocolReady, expectedUnitID != 0, session?.deviceInfo?.unitID == expectedUnitID,
+              app.unitID == expectedUnitID, installedWatchFaces.contains(app),
+              selected != nil, ciqRX != nil, ciqTX != nil else {
+            watchFaceOpenStatus = "请连接同一手表并重新读取已安装表盘"; return
+        }
+        guard let runtimeAppID, let runtimeUUID = UUID(uuidString: runtimeAppID) else {
+            watchFaceOpenStatus = "请先下载并校验此表盘，再请求打开"; return
+        }
+        startWatchFaceSDKRequest(appID: runtimeUUID.uuidString.lowercased(), expectedUnitID: expectedUnitID, command: 6)
+    }
+
+    /// A read-only SDK application-info query. Never advances to command 6.
+    /// A successful result reports installed version, not active/current state.
+    func probeConnectIQApplication(appID: String, expectedUnitID: UInt32) {
+        guard !watchFaceOpenBusy, !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy, !isTransferringFiles else { return }
+        guard UUID(uuidString: appID) != nil, isConnected, protocolReady, expectedUnitID != 0,
+              session?.deviceInfo?.unitID == expectedUnitID, selected != nil, ciqRX != nil, ciqTX != nil else {
+            watchFaceOpenStatus = "请连接同一手表后检查应用"; return
+        }
+        startWatchFaceSDKRequest(appID: appID, expectedUnitID: expectedUnitID, command: 5)
+    }
+
+    private func startWatchFaceSDKRequest(appID: String, expectedUnitID: UInt32, command: UInt8) {
+        guard let selected, let ciqRX else { return }
+        ciqOpenApp = (appID, expectedUnitID)
+        ciqOpenCommand = command; ciqOpenSent = false; watchFaceSDKVersion = nil
+        watchFaceOpenBusy = true
+        watchFaceOpenStatus = command == 6 ? "正在请求手表打开表盘" : "正在核对手表应用"
+        ciqOpenTimeout?.cancel()
+        ciqOpenTimeout = Task { @MainActor [weak self] in
+            do { try await Task.sleep(nanoseconds: 25_000_000_000) } catch { return }
+            self?.finishWatchFaceOpen(command == 6 ? "手表打开请求超时，请查看手表" : "手表应用查询超时，请重试")
+        }
+        if ciqRX.isNotifying { sendPendingWatchFaceOpen() }
+        else { selected.setNotifyValue(true, for: ciqRX) }
+    }
+
+    private func sendPendingWatchFaceOpen() {
+        guard watchFaceOpenBusy, !ciqOpenSent, let app = ciqOpenApp, let selected,
+              let ciqTX, ciqRX?.isNotifying == true, isConnected,
+              session?.deviceInfo?.unitID == app.unitID else { return }
+        do {
+            let packet = try GFDIConnectIQSDK.command(ciqOpenCommand, appID: app.id)
+            let mode: CBCharacteristicWriteType = ciqTX.properties.contains(.writeWithoutResponse) ? .withoutResponse : .withResponse
+            guard packet.count <= selected.maximumWriteValueLength(for: mode) else { throw GFDIProtocolError.oversized }
+            if mode == .withoutResponse, !selected.canSendWriteWithoutResponse { return }
+            ciqOpenSent = true
+            selected.writeValue(packet, for: ciqTX, type: mode)
+        } catch { finishWatchFaceOpen(error.localizedDescription) }
+    }
+
+    private func receiveWatchFaceOpen(_ data: Data) {
+        guard watchFaceOpenBusy, ciqOpenSent, let app = ciqOpenApp,
+              session?.deviceInfo?.unitID == app.unitID else { return }
+        // Other CIQ traffic is unrelated; it must not complete this request.
+        guard data.count >= 18, data[0] == 0, data[1] == ciqOpenCommand,
+              (try? GFDIConnectIQSDK.uuidBytes(app.id)) == Data(data[2..<18]) else { return }
+        do {
+            if ciqOpenCommand == 5 {
+                let version = try GFDIConnectIQSDK.applicationVersion(data, appID: app.id)
+                guard version != UInt16.max else { finishWatchFaceOpen("手表 SDK 未找到此应用"); return }
+                watchFaceSDKVersion = version
+                finishWatchFaceOpen("手表 SDK 确认应用已安装，内部版本 \(version)")
+            } else {
+                let status = try GFDIConnectIQSDK.openStatus(data, appID: app.id)
+                switch status {
+                case 0: finishWatchFaceOpen("手表已显示打开提示，请在手表确认")
+                case 1: finishWatchFaceOpen("手表未显示打开提示，请在手表查看当前状态")
+                case 2: finishWatchFaceOpen("手表报告此应用未安装，请重新读取")
+                case 3: finishWatchFaceOpen("手表报告此表盘已在运行")
+                default: finishWatchFaceOpen("手表未能打开此表盘（状态 \(status)）")
+                }
+            }
+        } catch { finishWatchFaceOpen(error.localizedDescription) }
+    }
+
+    private func finishWatchFaceOpen(_ text: String) {
+        ciqOpenTimeout?.cancel(); ciqOpenTimeout = nil
+        ciqOpenApp = nil; ciqOpenSent = false; watchFaceOpenBusy = false; watchFaceOpenStatus = text
+    }
+
+    private func setupConnectIQSDK(in service: CBService, characteristics: [CBCharacteristic]) {
+        let compact = service.uuid == WatchUUID.garmin("8022")
+        guard compact || service.uuid == CBUUID(string: "16AA8022-3769-4C74-A755-877DDE3A2930") else { return }
+        let write = compact ? WatchUUID.garmin("4C80") : CBUUID(string: "DF334C80-E6A7-D082-274D-78FC66F85E16")
+        let read = compact ? WatchUUID.garmin("CD28") : CBUUID(string: "4ACBCD28-7425-868E-F447-915C8F00D0CB")
+        ciqTX = characteristics.first { $0.uuid == write && ($0.properties.contains(.writeWithoutResponse) || $0.properties.contains(.write)) }
+        ciqRX = characteristics.first { $0.uuid == read && ($0.properties.contains(.notify) || $0.properties.contains(.indicate)) }
+        canOpenInstalledWatchFace = ciqTX != nil && ciqRX != nil
     }
 
     private var central: CBCentralManager?
@@ -152,6 +321,11 @@ final class WatchBluetooth: NSObject, ObservableObject {
         isConnected = false; isConnecting = false; canSyncFiles = false; protocolReady = false
         availableMetrics.removeAll(); registeredMetrics.removeAll(); liveSampleCount = 0; lastLiveSampleAt = nil
         batteryCharging = nil; batteryEstimatedHoursRemaining = nil
+        watchFaces = []; installedWatchFaces = []; installedWatchFaceAvailableSpace = nil
+        finishWatchFaceOpen(""); watchFaceSDKVersion = nil; ciqTX = nil; ciqRX = nil; canOpenInstalledWatchFace = false
+        watchFaceBusy = false; watchFaceStatus = "连接手表后读取"
+        connectIQInstallBusy = false
+        connectIQSettingsBusy = false; connectIQSettingsSnapshot = nil
         outbound.removeAll(); tx = nil; rx = nil; sessionStarted = false; waitingForResponse = false
     }
 
@@ -260,16 +434,19 @@ final class WatchBluetooth: NSObject, ObservableObject {
     }
 
     func requestFileSync() {
+        guard !watchFaceOpenBusy else { transferStatus = "请等待表盘打开请求完成"; return }
         guard canSyncFiles else { transferStatus = "当前连接尚未提供文件同步通道"; return }
         session?.requestSync()
     }
 
     func requestRecentActivity() {
+        guard !watchFaceOpenBusy else { transferStatus = "请等待表盘打开请求完成"; return }
         guard canSyncFiles else { transferStatus = "当前连接尚未提供文件同步通道"; return }
         session?.requestSync(includeArchivedActivities: true)
     }
 
     func updateAccountGUID(_ guid: String?) {
+        if guid != accountGUID, watchFaceOpenBusy { finishWatchFaceOpen("账户已变化，请重新读取手表表盘") }
         accountGUID = guid
         session?.setAccountGUID(guid)
     }
@@ -354,6 +531,18 @@ final class WatchBluetooth: NSObject, ObservableObject {
         engine.onFile = { [weak self] url, metadata in self?.onFile?(url, metadata) }
         engine.onSyncFinished = { [weak self] success in self?.onSyncFinished?(success) }
         engine.onFilesAvailable = { [weak self] in self?.onFilesAvailable?() }
+        engine.onConnectIQSettingsStatus = { [weak self] text, busy in
+            self?.connectIQSettingsStatus = text; self?.connectIQSettingsBusy = busy
+        }
+        engine.onConnectIQInstall = { [weak self] text, busy, progress in
+            self?.connectIQInstallStatus = text; self?.connectIQInstallBusy = busy; self?.connectIQInstallProgress = progress
+        }
+        engine.onInstalledWatchFaces = { [weak self] inventory in
+            self?.installedWatchFaces = inventory?.apps ?? []
+            self?.installedWatchFaceAvailableSpace = inventory?.availableSpace
+        }
+        engine.onWatchFaces = { [weak self] choices in self?.watchFaces = choices }
+        engine.onWatchFaceStatus = { [weak self] text, busy in self?.watchFaceStatus = text; self?.watchFaceBusy = busy }
         engine.onBatteryReading = { [weak self] reading in
             guard let self else { return }
             self.batteryCharging = reading.charging
@@ -408,6 +597,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
     }
 
     private func processValue(_ characteristic: CBCharacteristic, data: Data) {
+        if characteristic.uuid == ciqRX?.uuid { receiveWatchFaceOpen(data); return }
         if characteristic.uuid == CBUUID(string: "2A19"), let value = data.first, value <= 100 {
             batteryCharging = nil; batteryEstimatedHoursRemaining = nil
             availableMetrics.insert(.watchBattery)
@@ -555,14 +745,19 @@ extension WatchBluetooth {
                 if characteristic.properties.contains(.read) { peripheral.readValue(for: characteristic) }
             }
         }
+        setupConnectIQSDK(in: service, characteristics: characteristics)
         setupTransfer(in: service, characteristics: characteristics)
         _ = diagnosticsURL()
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
         guard peripheral.identifier == selected?.identifier else { return }
-        if let error { onLog?("订阅失败：\(error.localizedDescription)"); return }
+        if let error {
+            if characteristic.uuid == ciqRX?.uuid, watchFaceOpenBusy { finishWatchFaceOpen("表盘通道订阅失败：\(error.localizedDescription)") }
+            onLog?("订阅失败：\(error.localizedDescription)"); return
+        }
         if characteristic.isNotifying { subscribed.insert(characteristic.uuid.uuidString) }
+        if characteristic.uuid == ciqRX?.uuid { sendPendingWatchFaceOpen() }
         if characteristic.uuid == rx?.uuid {
             if sessionStarted { session?.transportReady() } else { startSession() }
         }
@@ -576,11 +771,16 @@ extension WatchBluetooth {
     }
 
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard peripheral.identifier == selected?.identifier, characteristic.uuid == tx?.uuid else { return }
+        guard peripheral.identifier == selected?.identifier else { return }
+        if characteristic.uuid == ciqTX?.uuid {
+            if let error, watchFaceOpenBusy { finishWatchFaceOpen("表盘请求发送失败：\(error.localizedDescription)") }
+            return
+        }
+        guard characteristic.uuid == tx?.uuid else { return }
         waitingForResponse = false
         if let error { onLog?("发送失败：\(error.localizedDescription)"); session?.disconnected(); canSyncFiles = false; return }
         drainWrites()
     }
 
-    func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) { drainWrites() }
+    func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) { drainWrites(); sendPendingWatchFaceOpen() }
 }

@@ -96,7 +96,7 @@ import SwiftUI
                     }
                 }
                 model.fontScale = 1.15
-                for page in [AppPage.overview,.activities,.watch,.account,.sync,.settings,.appearance,.developer,.updates,.about] {
+                for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.developer,.updates,.about] {
                     model.page = page
                     try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
@@ -115,7 +115,8 @@ import SwiftUI
                 }
             }
         }
-        print("PASS: production-view renders including cached activity detail; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font")
+        precondition(model.cloud.requestCount == 0)
+        print("PASS: production-view renders including cached activity detail and Connect IQ; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font; no cloud requests")
     }
     @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL) throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))

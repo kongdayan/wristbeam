@@ -30,6 +30,7 @@ final class GarminChinaCloud: ObservableObject {
     @Published private(set) var loginRevision = UUID()
     @Published private(set) var expiresAt: Date?
 
+    private var connectIQDownloadID: UUID?
     private var token: GarminOAuthToken?
     private var refreshTask: Task<GarminOAuthToken, Error>?
     private var refreshIdentity = UUID()
@@ -709,5 +710,175 @@ final class GarminChinaCloud: ObservableObject {
         data.append(bytes)
         data.append(Data("\r\n--\(boundary)--\r\n".utf8))
         return data
+    }
+}
+
+// Connect IQ reuses the existing DI token, refresh serialization and region/pause guards.
+// Tested China read path: Bearer DI + APPSTORE_MOBILE, not the OAuth client ID or IT token.
+extension GarminChinaCloud {
+    private func connectIQDevice(_ id: String) throws -> GarminCloudDevice {
+        guard networkEnabled, !Task.isCancelled else { throw CancellationError() }
+        guard isAuthenticated, !accountGUID.isEmpty else { throw GarminCloudError.authenticationRequired }
+        guard id == deviceId, let device = devices.first(where: { $0.id == id }), UInt64(id) != nil else { throw ConnectIQError.selectDevice }
+        guard let part = device.partNumber, part.range(of: "^006-B[0-9]+-[0-9]+$", options: .regularExpression) != nil else { throw ConnectIQError.missingPartNumber }
+        return device
+    }
+    private func connectIQQuery(_ id: String) -> [URLQueryItem] {
+        [URLQueryItem(name: "countryCode", value: region == .china ? "CN" : Locale.current.region?.identifier ?? "US"),
+         URLQueryItem(name: "unitId", value: id)]
+    }
+    private func connectIQRequest(path: String, deviceID: String, query: [URLQueryItem], method: String = "GET") async throws -> Data {
+        let device = try connectIQDevice(deviceID), generation = authenticationGeneration
+        let url = ConnectIQService.storeURL(region: region, path: path, query: query)
+        let response = try await authenticatedRequest(url: url, method: method, authFailureInvalidatesSession: false,
+            additionalHeaders: ["X-garmin-client-id": "APPSTORE_MOBILE", "X-Garmin-SW-Part-Number": device.partNumber!],
+            maximumBytes: ConnectIQService.maximumJSONBytes)
+        guard generation == authenticationGeneration, self.deviceId == deviceID else { throw CancellationError() }
+        guard (200...299).contains(response.1.statusCode) else { throw GarminCloudError.http(response.1.statusCode, "Connect IQ") }
+        return response.0
+    }
+    func fetchConnectIQHistory(deviceID: String, page: Int = 0) async throws -> [ConnectIQDownloadRecord] {
+        guard (0...1000).contains(page) else { throw ConnectIQError.invalidData }
+        let data = try await connectIQRequest(path: "apps/downloads", deviceID: deviceID, query: [
+            URLQueryItem(name: "unitId", value: deviceID), URLQueryItem(name: "startPageIndex", value: String(page)),
+            URLQueryItem(name: "pageSize", value: String(ConnectIQService.pageSize))])
+        return try ConnectIQDownloadRecord.parse(data)
+    }
+    func fetchConnectIQApp(id: String, deviceID: String) async throws -> ConnectIQApp {
+        guard let id = UUID(uuidString: id)?.uuidString.lowercased() else { throw ConnectIQError.invalidAppID }
+        let data = try await connectIQRequest(path: "apps/" + id, deviceID: deviceID,
+            query: connectIQQuery(deviceID) + [URLQueryItem(name: "ignoreCompatibility", value: "false")])
+        let app = try ConnectIQApp.parse(data, region: region)
+        guard app.id == id else { throw ConnectIQError.invalidData }
+        return app
+    }
+    func fetchConnectIQFeatured(deviceID: String, page: Int = 0) async throws -> [ConnectIQApp] {
+        guard (0...1000).contains(page) else { throw ConnectIQError.invalidData }
+        let data = try await connectIQRequest(path: "apps", deviceID: deviceID, query: connectIQQuery(deviceID) + [
+            URLQueryItem(name: "sortType", value: "mostPopular"), URLQueryItem(name: "appType", value: "watchface"),
+            URLQueryItem(name: "pageSize", value: String(ConnectIQService.pageSize)), URLQueryItem(name: "startPageIndex", value: String(page)),
+            URLQueryItem(name: "companionAppPlatform", value: "android")])
+        guard let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { throw ConnectIQError.invalidData }
+        return try rows.map { try ConnectIQApp.parse($0, region: region) }.filter(\.isWatchFace)
+    }
+
+    /// Store APK sr9.b / vs9: keyword search with device compatibility and relevance ordering.
+    func searchConnectIQApps(keywords: String, deviceID: String, page: Int = 0) async throws -> [ConnectIQApp] {
+        guard let keywords = ConnectIQService.searchKeywords(from: keywords), (0...1000).contains(page) else {
+            throw ConnectIQError.invalidData
+        }
+        let data = try await connectIQRequest(path: "apps/keywords", deviceID: deviceID, query: connectIQQuery(deviceID) + [
+            URLQueryItem(name: "keywords", value: keywords), URLQueryItem(name: "sortType", value: "mostRelevant"),
+            URLQueryItem(name: "filterType", value: "ALL"), URLQueryItem(name: "appType", value: "watchface"),
+            URLQueryItem(name: "locale", value: L10n.languageTag),
+            URLQueryItem(name: "pageSize", value: String(ConnectIQService.pageSize)), URLQueryItem(name: "startPageIndex", value: String(page)),
+            URLQueryItem(name: "companionAppPlatform", value: "android")])
+        guard let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              rows.count <= ConnectIQService.pageSize else { throw ConnectIQError.invalidData }
+        return try rows.map { try ConnectIQApp.parse($0, region: region) }.filter(\.isWatchFace)
+    }
+
+    func connectIQSettingsContext(for face: GFDIInstalledWatchFace) throws -> ConnectIQSettingsContext {
+        let device = try connectIQDevice(String(face.unitID))
+        guard let version = face.version, version > 0 else { throw ConnectIQSettingsCloudError.invalidContext }
+        return try ConnectIQSettingsContext(appID: face.id, version: version, partNumber: device.partNumber!,
+                                            region: region, locale: L10n.languageTag)
+    }
+
+    /// APK x60/a10 uses HTTP_CLIENT_NO_AUTH. Never attach account tokens to the editor/serializer.
+    func serializeConnectIQSettings(_ jsonData: Data, context: ConnectIQSettingsContext, deviceID: String) async throws -> Data {
+        let device = try connectIQDevice(deviceID), generation = authenticationGeneration
+        guard context.region == region, context.partNumber == device.partNumber else {
+            throw ConnectIQSettingsCloudError.contextChanged
+        }
+        let request = try context.binaryRequest(settingsJSON: jsonData)
+        requestCount += 1
+        let (data, response) = try await Self.activityBytes(session: session, request: request, maximumBytes: 256 * 1024)
+        guard generation == authenticationGeneration, self.deviceId == deviceID, networkEnabled, !Task.isCancelled else {
+            throw ConnectIQSettingsCloudError.contextChanged
+        }
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200, !data.isEmpty,
+              !(http.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased().contains("html") else {
+            throw ConnectIQSettingsCloudError.invalidResponse
+        }
+        return data
+    }
+    /// Bind a local package to the current device's real cloud installation task.
+    /// Read-only: never creates, acknowledges or deletes a queue entry.
+    func fetchConnectIQInstallMessageID(appID: String, deviceID: String, expectedSHA256: String) async throws -> UInt64 {
+        guard expectedSHA256.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { throw ConnectIQError.packageChanged }
+        let device = try connectIQDevice(deviceID), generation = authenticationGeneration
+        let requestRegion = region
+        func checkContext() throws {
+            guard generation == self.authenticationGeneration, self.deviceId == deviceID,
+                  self.networkEnabled, !Task.isCancelled else { throw CancellationError() }
+        }
+        let app = try await fetchConnectIQApp(id: appID, deviceID: deviceID)
+        try checkContext()
+        guard app.isWatchFace, app.compatiblePartNumbers.contains(device.partNumber!) else { throw ConnectIQError.incompatible }
+        var url = URLComponents(string: requestRegion.apiBase + "/device-service/devicemessage/messages")!
+        url.queryItems = [URLQueryItem(name: "device_id", value: deviceID)]
+        let queue = try await authenticatedRequest(url: url.url!, authFailureInvalidatesSession: false,
+                                                   maximumBytes: ConnectIQService.maximumJSONBytes)
+        try checkContext()
+        guard queue.1.statusCode == 200 else { throw GarminCloudError.http(queue.1.statusCode, "Connect IQ") }
+        guard let item = try ConnectIQService.queuedPackage(queue.0, appID: app.id, deviceID: deviceID, region: requestRegion),
+              let id = item.messageID, id > 0, id < (UInt64(1) << 54) else { throw ConnectIQError.installationContextMissing }
+        let file = try await authenticatedRequest(url: item.url, authFailureInvalidatesSession: false,
+            additionalHeaders: ["Accept": "*/*", "X-garmin-client-id": "APPSTORE_MOBILE"], maximumBytes: ConnectIQService.maximumPackageBytes)
+        try checkContext()
+        guard file.1.statusCode == 200 else { throw GarminCloudError.http(file.1.statusCode, "Connect IQ") }
+        try ConnectIQService.validatePackage(file.0, contentType: file.1.value(forHTTPHeaderField: "Content-Type"))
+        guard GarminPrivateFile.digest(file.0) == expectedSHA256 else { throw ConnectIQError.packageChanged }
+        return id
+    }
+
+    /// This can create a cloud installation queue ONLY after explicit UI confirmation.
+    /// The returned bytes are an opaque server package. No queue completion or BLE write occurs here.
+    func downloadConnectIQApp(app: ConnectIQApp, deviceID: String, allowQueueCreation: Bool) async throws -> Data {
+        guard connectIQDownloadID == nil else { throw ConnectIQError.busy }
+        let operation = UUID(); connectIQDownloadID = operation
+        defer { if connectIQDownloadID == operation { connectIQDownloadID = nil } }
+        let device = try connectIQDevice(deviceID), generation = authenticationGeneration
+        let region = self.region
+        func checkContext() throws {
+            guard self.authenticationGeneration == generation, self.deviceId == deviceID, self.networkEnabled, !Task.isCancelled else { throw CancellationError() }
+        }
+        // Refresh compatibility/version from the server; do not trust a stale view or caller-supplied model.
+        let current = try await fetchConnectIQApp(id: app.id, deviceID: deviceID)
+        try checkContext()
+        guard current.isWatchFace, current.compatiblePartNumbers.contains(device.partNumber!) else { throw ConnectIQError.incompatible }
+        var messagesURL = URLComponents(string: region.apiBase + "/device-service/devicemessage/messages")!
+        messagesURL.queryItems = [URLQueryItem(name: "device_id", value: deviceID)]
+        func queuedURL() async throws -> URL? {
+            try checkContext()
+            let response = try await self.authenticatedRequest(url: messagesURL.url!, authFailureInvalidatesSession: false, maximumBytes: ConnectIQService.maximumJSONBytes)
+            try checkContext()
+            guard response.1.statusCode == 200 else { throw GarminCloudError.http(response.1.statusCode, "Connect IQ") }
+            return try ConnectIQService.packageURL(response.0, appID: current.id, deviceID: deviceID, region: region)
+        }
+        var fileURL = try await queuedURL()
+        if fileURL == nil {
+            guard allowQueueCreation else { throw ConnectIQError.queueConsentRequired }
+            try checkContext()
+            _ = try await connectIQRequest(path: "apps/\(current.id)/install", deviceID: deviceID, query: [
+                URLQueryItem(name: "internalAppVersion", value: String(current.internalVersion)),
+                URLQueryItem(name: "locale", value: "zh-CN"), URLQueryItem(name: "unitId", value: deviceID)], method: "POST")
+            for attempt in 0..<6 {
+                try checkContext()
+                if attempt > 0 { try await Task.sleep(nanoseconds: 1_000_000_000) }
+                fileURL = try await queuedURL()
+                if fileURL != nil { break }
+            }
+        }
+        guard let fileURL else { throw ConnectIQError.packagePending }
+        try checkContext()
+        // Exact host allowlist was checked while parsing metadata. Redirects remain disabled.
+        let response = try await authenticatedRequest(url: fileURL, authFailureInvalidatesSession: false,
+            additionalHeaders: ["Accept": "*/*", "X-garmin-client-id": "APPSTORE_MOBILE"], maximumBytes: ConnectIQService.maximumPackageBytes)
+        try checkContext()
+        guard response.1.statusCode == 200 else { throw GarminCloudError.http(response.1.statusCode, "Connect IQ") }
+        try ConnectIQService.validatePackage(response.0, contentType: response.1.value(forHTTPHeaderField: "Content-Type"))
+        return response.0
     }
 }

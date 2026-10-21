@@ -38,6 +38,7 @@ struct GarminCloudDevice: Identifiable, Codable, Hashable {
     let id: String
     let name: String
     let productName: String
+    var partNumber: String? = nil
 
     static func parse(_ data: Data) throws -> [Self] {
         let object = try JSONSerialization.jsonObject(with: data)
@@ -47,7 +48,7 @@ struct GarminCloudDevice: Identifiable, Codable, Hashable {
             guard let id = stringValue(item["deviceId"] ?? item["unitId"]), UInt64(id) != nil else { return nil }
             let product = stringValue(item["productDisplayName"] ?? item["productName"]) ?? "Garmin"
             let name = stringValue(item["displayName"] ?? item["deviceDisplayName"]) ?? product
-            return Self(id: id, name: name, productName: product)
+            return Self(id: id, name: name, productName: product, partNumber: item["partNumber"] as? String)
         }
     }
 }

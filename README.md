@@ -20,11 +20,12 @@ I wanted my watch to talk to the computer I was already sitting in front of. Ins
 
 - **Give your phone a day off.** Connect a supported Garmin watch directly to your Mac and sync its activity and health files to Garmin Connect China or Global.
 - **Put your own battery in the menu bar.** Keep heart rate, Body Battery, stress, steps and more in view, with floating panels, daily charts and a customizable dashboard.
+- **Change your watch's look from your Mac.** Search Connect IQ watch faces by name or keyword, save official packages and previews, install over Bluetooth, and edit supported watch-face settings with readback verification.
 - **Let your AI check in on you.** Use MCP to make your synced health metrics available to an AI assistant. Ask “How was my sleep?” or “What does my energy look like today?” Build your own tools with the HTTP/HTTPS API, Python SDK and webhooks.
 
 Your AI can already count tokens. Now it can ask how *you're* doing.
 
-[Connect your AI](docs/developer/API.md) · [Supported devices](docs/DEVICES.md) · [Available metrics](docs/METRICS.md)
+[Connect IQ watch faces](docs/CONNECTIQ.md) · [Connect your AI](docs/developer/API.md) · [Supported devices](docs/DEVICES.md) · [Available metrics](docs/METRICS.md)
 
 ![WristBeam](docs/images/showcase-hero.png)
 
@@ -50,7 +51,7 @@ Real app UI with isolated demo data. [Original captures and artwork notes](docs/
 - Independent menu bar, panel and dashboard selections, group toggles, search, drag ordering, adjustable text and layout.
 - Daily curves, interval bars, date/time ranges, cursor readings and original records. Gaps remain empty.
 - Garmin Bluetooth pairing guide, persistent original-FIT queue, deduplication and cloud sync.
-- Light/dark/system themes, Chinese/English app UI, and updates that require confirmation.
+- Light/dark/system themes and updates that require confirmation. The app uses Chinese for Chinese system languages and English for all others, with a manual language override. README translations are maintained separately.
 
 Opt-in read-only MCP, HTTP/HTTPS API, Python SDK and signed webhooks in Settings → Developer integrations. [Developer API](docs/developer/API.md).
 

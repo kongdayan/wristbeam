@@ -9,11 +9,12 @@ root = Path(__file__).resolve().parent.parent
 sources = root / "Sources/GarminBar"
 production = sorted((sources / "Protocol").glob("*.swift"))
 production += [sources / "Developer/DeveloperConfiguration.swift", sources / "Developer/DeveloperProtocol.swift", sources / "Developer/DeveloperServer.swift", sources / "Developer/DeveloperSecrets.swift", sources / "Developer/DeveloperClients.swift", sources / "Developer/ActivityQueries.swift", sources / "Developer/DeveloperQueries.swift", sources / "Developer/HealthSummary.swift"]
-production += [sources / "Models/ActivityMetricCatalog.swift"]
+production += [sources / "Models/ActivityMetricCatalog.swift", sources / "Models/ConnectIQLibrary.swift"]
 production += [sources / "Models" / name for name in ("Metrics.swift", "MetricFreshness.swift", "HealthAccountScope.swift", "ChartSampling.swift", "HealthHistoryReader.swift", "AppStorage.swift", "LocalDataArchive.swift", "ConnectionPolicy.swift", "MetricTimeSeries.swift", "DisplaySettings.swift", "DashboardSharing.swift", "PulseWidgetSnapshot.swift", "WatchDiscovery.swift", "Localization.swift", "SoftwareRelease.swift")]
 production += [sources / "Cloud" / name for name in (
     "GarminCloudModels.swift", "GarminFITFileClassifier.swift", "GarminHealthMetrics.swift", "GarminHRV.swift", "GarminDailySeries.swift",
-    "GarminChinaCloud.swift", "GarminUploadQueue.swift", "GarminWeather.swift", "OpenMeteoWeather.swift", "GarminActivities.swift", "ActivityLibrary.swift")]
+    "GarminChinaCloud.swift", "GarminUploadQueue.swift", "GarminWeather.swift", "OpenMeteoWeather.swift", "GarminActivities.swift", "ActivityLibrary.swift",
+    "ConnectIQModels.swift", "ConnectIQSettingsCloud.swift")]
 
 with tempfile.TemporaryDirectory(prefix="garmin-pulse-tests-") as temporary:
     stage = Path(temporary)
