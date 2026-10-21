@@ -100,14 +100,18 @@ struct MetricCard: View {
 
 /// Shared row feedback; native bordered controls remain the default for actions.
 struct PulseRowButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var enabled
-    @Environment(\.isFocused) private var focused
-    @State private var hovered = false
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.contentShape(RoundedRectangle(cornerRadius: 10))
-            .background(PulseTheme.mint.opacity(enabled && (hovered || configuration.isPressed) ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(focused ? PulseTheme.mint : .clear, lineWidth: 2))
-            .opacity(enabled ? 1 : 0.5).onHover { hovered = $0 }
+    func makeBody(configuration: Configuration) -> some View { Row(configuration: configuration) }
+    private struct Row: View {
+        let configuration: Configuration
+        @Environment(\.isEnabled) private var enabled
+        @Environment(\.isFocused) private var focused
+        @State private var hovered = false
+        var body: some View {
+            configuration.label.contentShape(RoundedRectangle(cornerRadius: 10))
+                .background(PulseTheme.mint.opacity(enabled && (hovered || configuration.isPressed) ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(focused ? PulseTheme.mint : .clear, lineWidth: 2))
+                .opacity(enabled ? 1 : 0.5).onHover { hovered = $0 }
+        }
     }
 }
 

@@ -37,7 +37,7 @@ struct DashboardConnectionStatus: View {
             Button { model.page = .watch } label: {
                 HStack(spacing: 7) {
                     Image(systemName: "applewatch")
-                    Text(L10n.text(model.bluetooth.isConnected ? "手表已连接" : "连接手表"))
+                    Text(L10n.text(model.workflow.connectionTitle))
                     WatchBatteryBadge(model: model)
                     StatusDot(active: model.bluetooth.isConnected)
                 }

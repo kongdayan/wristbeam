@@ -134,6 +134,14 @@ import SwiftUI
         model.goBack(); settle()
         precondition(abs(contentScroll().contentView.bounds.origin.y-dashboardY) < 3,"Return restores dashboard offset")
         navigationWindow.contentView = nil
+        model.selectedActivityID = selected
+        model.activityBrowsing = ActivityBrowsingState(search:"Synthetic",page:1)
+        AppPreferences.shared.set(GarminPrivateFile.digest(Data("china:empty-workflow-fixture".utf8)),forKey:"activities.scope.china")
+        model.activities.reconcile()
+        precondition(model.selectedActivityID == nil && model.activityBrowsing == ActivityBrowsingState(),"Changing account clears list/detail context")
+        precondition(!model.scrollPositions.offsets.keys.contains { $0.hasPrefix("activity.") || $0 == "page.activities" })
+        AppPreferences.shared.set(GarminPrivateFile.digest(Data(browsingScope.utf8)),forKey:"activities.scope.china")
+        model.activities.reconcile()
         model.scrollPositions.offsets = [:]; model.activityBrowsing = ActivityBrowsingState()
         print("PASS native list/detail and dashboard/detail scroll restoration, search/page retention and independent preferences")
         for english in [false,true] {

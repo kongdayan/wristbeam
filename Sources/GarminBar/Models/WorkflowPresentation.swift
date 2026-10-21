@@ -57,4 +57,3 @@ enum ActivityListState: Equatable {
     var offsets: [String: CGFloat] = [:]
     func clearActivities() { offsets = offsets.filter { !$0.key.hasPrefix("activity.") && $0.key != "page.activities" } }
 }
-
