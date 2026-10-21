@@ -1,0 +1,70 @@
+{
+  "head": "0ba238d311cabb3ae7050b91c7102baaf015e304",
+  "ciRun": 39543187105,
+  "images": [
+    {
+      "file": "page-sync-en-light.png",
+      "sha256": "4db4162783326019b7a862f7e16204572fc1b58f8bc96f94624ca12e4131831e",
+      "pixels": [
+        1020,
+        768
+      ]
+    },
+    {
+      "file": "page-sync-zh-dark.png",
+      "sha256": "5893886e7afefc60575b4698de49aebff9463069695f8eef65537e6ae50a8515",
+      "pixels": [
+        1020,
+        768
+      ]
+    },
+    {
+      "file": "activities-no-results-en-light.png",
+      "sha256": "d6efebd7b47f1198f487b18ca26af35e2e9f7c2166691f4e802393b9399a3bb0",
+      "pixels": [
+        1020,
+        768
+      ]
+    },
+    {
+      "file": "activities-no-results-zh-dark.png",
+      "sha256": "a04d17182e2b0e6d345338f8cea7072a1ab0a1c6ade62c1c74ab661f14f74124",
+      "pixels": [
+        1020,
+        768
+      ]
+    },
+    {
+      "file": "menu-en-dark.png",
+      "sha256": "7c3d36a16134349c538df993538be5d8c5362d01042e3403353d577c057f39d6",
+      "pixels": [
+        420,
+        500
+      ]
+    },
+    {
+      "file": "menu-zh-light.png",
+      "sha256": "118ca3536ad1155a886b5a577b46a7bc976e8969c744697e8b59281eb0ea44d9",
+      "pixels": [
+        420,
+        500
+      ]
+    },
+    {
+      "file": "dashboard-narrow-en-light.png",
+      "sha256": "b0c1d3639fb75ec555106dd4c08b64f340687b64a8ea37f3e2e47e8b673e4fd7",
+      "pixels": [
+        880,
+        640
+      ]
+    },
+    {
+      "file": "page-activities-en-light.png",
+      "sha256": "eb33582b32070d27326edf4322b7c6cdd1cd0ee7a03e06b0a571f99cb9be280c",
+      "pixels": [
+        1020,
+        768
+      ]
+    }
+  ]
+}
