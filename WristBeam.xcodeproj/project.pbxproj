@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0616225225510375405D30D6 /* GFDIRequestCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3878BA8A3430F7EB71271C3F /* GFDIRequestCapture.swift */; };
 		07061B42392CB78D18ED9E73 /* ActivityMetricCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70E1D16A26FD3B1ED2672B5D /* ActivityMetricCatalog.swift */; };
+		082EDCFFB2D8AD8F6AA658B9 /* ConnectIQSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE01E6AB8976EA216209957D /* ConnectIQSettingsView.swift */; };
 		0C0BF6D1C7481FB98DCADB2D /* WidgetSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC8B1C9BE9DF1A3D0AF2D7A5 /* WidgetSharing.swift */; };
 		0CD36135FC3AABFC2EBBEBAD /* PreferenceComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC2417D79A5A516EFCD4843 /* PreferenceComponents.swift */; };
 		10E745ED10D62EECA3C11F37 /* DeveloperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73417F9F09F145ED7CB9A894 /* DeveloperProtocol.swift */; };
@@ -25,15 +26,21 @@
 		3391BE56C998B00E130AD0FB /* ActivityLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA73B6BAB314DCF8967A88C /* ActivityLibrary.swift */; };
 		33E3BB6B56FC64265C45A685 /* ChartSampling.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29A9E49272247F51B3ADE60 /* ChartSampling.swift */; };
 		343848C76CC2383A83F2B913 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6E77C39F52A8AF89FABADB /* AppModel.swift */; };
+		35EF52C3DFBF49A16831378F /* ScrollPositionKeeper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449ADBEE7F7CE9461B62607B /* ScrollPositionKeeper.swift */; };
 		3A49FFBCE9CCCDA169D2DF76 /* SettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE6D8089EAC5A0865596248 /* SettingsViews.swift */; };
 		3DF66E54E56EBF4C49837054 /* SoftwareRelease.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAD5A529B0DFF5FDA41DA64C /* SoftwareRelease.swift */; };
 		43310FE456B77357ED679C8A /* GFDISession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8165BB61079BA3E65778C48 /* GFDISession.swift */; };
+		44F2812CEF9C83F6B1576238 /* ConnectIQPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 511A0EC7DE4B9FCD59025EC3 /* ConnectIQPage.swift */; };
+		462B3FB70DC32EE4999528CE /* WorkflowPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C3C2F67697A2E6ADF8B9424 /* WorkflowPresentation.swift */; };
 		47B4315EFC7CCE430926D1FC /* MetricTimeSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBABD4A2BC15D29B37B80899 /* MetricTimeSeries.swift */; };
+		48254E6E0B48AD3ECD483846 /* NavigationWindowPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E45833E3BD8D4BABC0F278 /* NavigationWindowPolicy.swift */; };
 		49EC2459067A976FA80A816B /* AppHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2730CD2DB9BCB05F900DB1 /* AppHistory.swift */; };
 		4E42D1886D7F23F366CCFD3A /* SoftwareUpdatePage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1567591CAA0ACD83546F48D8 /* SoftwareUpdatePage.swift */; };
 		53CE41DD72FA2FAB61864C0D /* DeveloperServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB951F73431D0D5919ACAC88 /* DeveloperServer.swift */; };
 		53D6381DFF54D61E58183D69 /* Localization in Resources */ = {isa = PBXBuildFile; fileRef = F4B9E73D8296726092B575AA /* Localization */; };
 		5517E3D18EBA21BB70D66BF9 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 438299E8402BF4ECD3FF7D91 /* Metrics.swift */; };
+		56C516E75BD711A844BAF7B4 /* SyncPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F7F90E62C72FAF170CAE26 /* SyncPage.swift */; };
+		56D13B18B1082D1447BCCC92 /* ConnectIQModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069E02E3BF01FF38E16F87A6 /* ConnectIQModels.swift */; };
 		5ABCCFFA57FD51CA11603ED3 /* AppControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F2CB29F44039DC1B4CA0E5 /* AppControl.swift */; };
 		5B77E1271D8A790748ABD031 /* PulseWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */; };
 		5D5E19C223BCFF477CF40F06 /* ActivityDetailContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A9B5D83E9076E506A2A398 /* ActivityDetailContent.swift */; };
@@ -43,12 +50,16 @@
 		69C718B73D2568DA04669202 /* DeveloperQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2AE568744CD4884E10F89ED /* DeveloperQueries.swift */; };
 		69F3E298410A32C4066253BC /* GarminCloudModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0CA653FBDE6CE33E4229619 /* GarminCloudModels.swift */; };
 		6AF05D197A3C471874059142 /* SyncProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 469332E2E0B648FE64427993 /* SyncProgressView.swift */; };
+		6F2B997663322FE94F260E7F /* ConnectIQSettingsCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B62418218EC61AD8C7A74CE /* ConnectIQSettingsCloud.swift */; };
 		723921F874530F006A6BD6B9 /* ActivityQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC7CF07EAF3965FB9F7985C8 /* ActivityQueries.swift */; };
 		73C72F4F7E43E719F34B9200 /* AppSynchronization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BFFF084AF7DFEB6C659550A /* AppSynchronization.swift */; };
 		74AF3A0F95B135F70617B98E /* ActivityLibraryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D75950D46871A1DA436094 /* ActivityLibraryCard.swift */; };
 		7926F7EAF0BAD3E85555AD08 /* DeveloperConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C271D46B6120891DEDC7ED43 /* DeveloperConfiguration.swift */; };
 		7BA3F89B2ADA63E439997DA8 /* WatchDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF0C72726181B9D0FF2428B /* WatchDiscovery.swift */; };
+		7BBFF95955144593BDC06C05 /* GFDIConnectIQ.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4FA003899B28687672228A2 /* GFDIConnectIQ.swift */; };
+		7D90EE2F5EA090B89E4E21E6 /* ConnectIQStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 902F062C408780F9338F7CC8 /* ConnectIQStyle.swift */; };
 		7FF618F5CFF87BB85E5867D2 /* MetricIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55221495574C8ACC34CC95D /* MetricIcon.swift */; };
+		80A6846EB49C8493429F1958 /* AppWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9558BF817C4F730A253D6C47 /* AppWorkflow.swift */; };
 		815552B09810CFE777D4436C /* HealthHistoryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9E2CC7D960FA2AAC338319 /* HealthHistoryReader.swift */; };
 		83565FF02767CBF01D65F9DF /* DashboardControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = A80EBF2544A3A34D572EBA75 /* DashboardControls.swift */; };
 		85B01A490C10CF22909F9FDB /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 051E6225A85174601A16F8F0 /* Theme.swift */; };
@@ -57,9 +68,13 @@
 		8D7DFDF9FE6D71DF462CD2BE /* OpenMeteoWeather.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CBDFF83C706E69D8A223DD5 /* OpenMeteoWeather.swift */; };
 		8EB5F786E5C95EB9C0B38322 /* ConnectionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05C64C7135506BD9DE85049B /* ConnectionPolicy.swift */; };
 		8F2E4A752238B0EB66A1B4C3 /* PulseWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */; };
+		8FA060207E11D65745DE8FE0 /* ConnectIQLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = F44770D5A16D984210573ED3 /* ConnectIQLibrary.swift */; };
 		9474DCEC765B379FE05F967A /* WatchWeatherController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D0605A0AED008BD50EB52D /* WatchWeatherController.swift */; };
 		94EDDBCFB7C9239C51663120 /* WatchWeatherCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DBF677771A3C348478B0F88 /* WatchWeatherCard.swift */; };
+		990FD56D13793D97B74BAC63 /* GFDIConnectIQSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5112F3A6A44E00D40BF10EC9 /* GFDIConnectIQSettings.swift */; };
 		9AFC94B1592DEC9418153098 /* FloatingPulseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2149999B03F9F7757980DBDC /* FloatingPulseView.swift */; };
+		9CD9D57209B86BD3866260E0 /* GFDIConnectIQPackageIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584E7B35A78233956CCA290E /* GFDIConnectIQPackageIdentity.swift */; };
+		A11BAB3193C8E2816F05540B /* ConnectIQSettingsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3770ADAA04F0460987B8E321 /* ConnectIQSettingsController.swift */; };
 		A1A8CC90C5C44457BDC8B004 /* DeveloperSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32FEAEDC3A2A448B6BBECE60 /* DeveloperSecrets.swift */; };
 		A25AD073C9FB17DE960927DC /* GFDIFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B239BE2900F5FF25136C71E /* GFDIFiles.swift */; };
 		A59B3505A975EF75A8DB39D7 /* GarminChinaCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB678CE0A78BCD6BBD5B15FC /* GarminChinaCloud.swift */; };
@@ -89,6 +104,7 @@
 		F6AD8671E9FFF628F362041B /* GFDIWeather.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9B889967E3E8F978BC767AD /* GFDIWeather.swift */; };
 		F9201C2AA0CE65661510F496 /* PreferencesPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6285CE132F9FAEEE941A0ED7 /* PreferencesPage.swift */; };
 		FAED21529EC3115329CBC514 /* GarminActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E1242B21577E33CFD1F9259 /* GarminActivities.swift */; };
+		FC4F542392017F18028AE288 /* GFDIConnectIQInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41CDB003F32852B1A06B1E6D /* GFDIConnectIQInstaller.swift */; };
 		FFBD14A96EBE64AE027D1955 /* MetricCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F28C1570B0E554EADD2E8D /* MetricCharts.swift */; };
 /* End PBXBuildFile section */
 
@@ -122,6 +138,8 @@
 		051E6225A85174601A16F8F0 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		055778CAE682D8980585183D /* GarminPulseWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GarminPulseWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		05C64C7135506BD9DE85049B /* ConnectionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPolicy.swift; sourceTree = "<group>"; };
+		069E02E3BF01FF38E16F87A6 /* ConnectIQModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQModels.swift; sourceTree = "<group>"; };
+		0B62418218EC61AD8C7A74CE /* ConnectIQSettingsCloud.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQSettingsCloud.swift; sourceTree = "<group>"; };
 		11A40CB0D368FDDCE48CEAFA /* DeveloperAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperAccess.swift; sourceTree = "<group>"; };
 		1226B0ECC7A4666D7B18EC44 /* GarminLoginWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminLoginWebView.swift; sourceTree = "<group>"; };
 		1567591CAA0ACD83546F48D8 /* SoftwareUpdatePage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdatePage.swift; sourceTree = "<group>"; };
@@ -133,20 +151,28 @@
 		2E6E77C39F52A8AF89FABADB /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		32FEAEDC3A2A448B6BBECE60 /* DeveloperSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSecrets.swift; sourceTree = "<group>"; };
 		35A9B5D83E9076E506A2A398 /* ActivityDetailContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityDetailContent.swift; sourceTree = "<group>"; };
+		36F7F90E62C72FAF170CAE26 /* SyncPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPage.swift; sourceTree = "<group>"; };
+		3770ADAA04F0460987B8E321 /* ConnectIQSettingsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQSettingsController.swift; sourceTree = "<group>"; };
 		3878BA8A3430F7EB71271C3F /* GFDIRequestCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIRequestCapture.swift; sourceTree = "<group>"; };
 		404AC4A545215804EEBBE174 /* DeveloperSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsPage.swift; sourceTree = "<group>"; };
+		41CDB003F32852B1A06B1E6D /* GFDIConnectIQInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIConnectIQInstaller.swift; sourceTree = "<group>"; };
 		438299E8402BF4ECD3FF7D91 /* Metrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Metrics.swift; sourceTree = "<group>"; };
 		4390F1708BDA4216CCC29F07 /* AppStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorage.swift; sourceTree = "<group>"; };
 		43E28B2C6FCFAD6349E6CBD1 /* LocalDataArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDataArchive.swift; sourceTree = "<group>"; };
+		449ADBEE7F7CE9461B62607B /* ScrollPositionKeeper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollPositionKeeper.swift; sourceTree = "<group>"; };
 		459CEFCFB97553A1949A7299 /* GarminPulse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GarminPulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		469332E2E0B648FE64427993 /* SyncProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncProgressView.swift; sourceTree = "<group>"; };
 		4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingGuide.swift; sourceTree = "<group>"; };
 		4FF0C72726181B9D0FF2428B /* WatchDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchDiscovery.swift; sourceTree = "<group>"; };
+		5112F3A6A44E00D40BF10EC9 /* GFDIConnectIQSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIConnectIQSettings.swift; sourceTree = "<group>"; };
+		511A0EC7DE4B9FCD59025EC3 /* ConnectIQPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQPage.swift; sourceTree = "<group>"; };
+		584E7B35A78233956CCA290E /* GFDIConnectIQPackageIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIConnectIQPackageIdentity.swift; sourceTree = "<group>"; };
 		59F28C1570B0E554EADD2E8D /* MetricCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCharts.swift; sourceTree = "<group>"; };
 		5B239BE2900F5FF25136C71E /* GFDIFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIFiles.swift; sourceTree = "<group>"; };
 		5BA73B6BAB314DCF8967A88C /* ActivityLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLibrary.swift; sourceTree = "<group>"; };
 		5DE05FF35D55A6F2096C55AB /* DisplaySettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaySettings.swift; sourceTree = "<group>"; };
 		6285CE132F9FAEEE941A0ED7 /* PreferencesPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesPage.swift; sourceTree = "<group>"; };
+		6C3C2F67697A2E6ADF8B9424 /* WorkflowPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowPresentation.swift; sourceTree = "<group>"; };
 		6C9E2CC7D960FA2AAC338319 /* HealthHistoryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthHistoryReader.swift; sourceTree = "<group>"; };
 		6DBF677771A3C348478B0F88 /* WatchWeatherCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWeatherCard.swift; sourceTree = "<group>"; };
 		6E0F3337238FF313BD6BEF78 /* DeveloperClientManagement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperClientManagement.swift; sourceTree = "<group>"; };
@@ -160,14 +186,18 @@
 		7AC2417D79A5A516EFCD4843 /* PreferenceComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferenceComponents.swift; sourceTree = "<group>"; };
 		7EE6D8089EAC5A0865596248 /* SettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViews.swift; sourceTree = "<group>"; };
 		7EEEF67C42548DE6F1DE453C /* GarminFITFileClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminFITFileClassifier.swift; sourceTree = "<group>"; };
+		81E45833E3BD8D4BABC0F278 /* NavigationWindowPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationWindowPolicy.swift; sourceTree = "<group>"; };
 		87AF7893C4D9145A57063C78 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		8BFFF084AF7DFEB6C659550A /* AppSynchronization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSynchronization.swift; sourceTree = "<group>"; };
 		8FA3B6755A5625D53E23DF10 /* DeveloperQueryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperQueryModel.swift; sourceTree = "<group>"; };
+		902F062C408780F9338F7CC8 /* ConnectIQStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQStyle.swift; sourceTree = "<group>"; };
 		94430862DC1AA4AC270CF11E /* GarminHealthMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminHealthMetrics.swift; sourceTree = "<group>"; };
+		9558BF817C4F730A253D6C47 /* AppWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppWorkflow.swift; sourceTree = "<group>"; };
 		95B09C189CA5D7FC57A98968 /* DeveloperClientsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperClientsView.swift; sourceTree = "<group>"; };
 		A0CA653FBDE6CE33E4229619 /* GarminCloudModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminCloudModels.swift; sourceTree = "<group>"; };
 		A33C0B77581375AAA6E6F01B /* DeveloperSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSelfTest.swift; sourceTree = "<group>"; };
 		A4F4074157D37AAA55840884 /* GFDICodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDICodec.swift; sourceTree = "<group>"; };
+		A4FA003899B28687672228A2 /* GFDIConnectIQ.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIConnectIQ.swift; sourceTree = "<group>"; };
 		A80EBF2544A3A34D572EBA75 /* DashboardControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardControls.swift; sourceTree = "<group>"; };
 		B0D75950D46871A1DA436094 /* ActivityLibraryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLibraryCard.swift; sourceTree = "<group>"; };
 		B2AE568744CD4884E10F89ED /* DeveloperQueries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperQueries.swift; sourceTree = "<group>"; };
@@ -187,6 +217,7 @@
 		D7EF390C12149AF807847276 /* GarminWeather.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminWeather.swift; sourceTree = "<group>"; };
 		DBABD4A2BC15D29B37B80899 /* MetricTimeSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricTimeSeries.swift; sourceTree = "<group>"; };
 		DC7CF07EAF3965FB9F7985C8 /* ActivityQueries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityQueries.swift; sourceTree = "<group>"; };
+		DE01E6AB8976EA216209957D /* ConnectIQSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQSettingsView.swift; sourceTree = "<group>"; };
 		DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDICoreIdentity.swift; sourceTree = "<group>"; };
 		E187BE3DED6BA0AFD0F55EB7 /* SetupGuides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupGuides.swift; sourceTree = "<group>"; };
 		E25BF5C33DBC96A6FBC28BA0 /* HealthAccountScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthAccountScope.swift; sourceTree = "<group>"; };
@@ -194,6 +225,7 @@
 		EC3378D98D83D57B32FB9DA9 /* DashboardSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardSharing.swift; sourceTree = "<group>"; };
 		EC8B1C9BE9DF1A3D0AF2D7A5 /* WidgetSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSharing.swift; sourceTree = "<group>"; };
 		F29A9E49272247F51B3ADE60 /* ChartSampling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartSampling.swift; sourceTree = "<group>"; };
+		F44770D5A16D984210573ED3 /* ConnectIQLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQLibrary.swift; sourceTree = "<group>"; };
 		F4B9E73D8296726092B575AA /* Localization */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Localization; path = Sources/GarminBar/Resources/Localization; sourceTree = SOURCE_ROOT; };
 		F4F2CB29F44039DC1B4CA0E5 /* AppControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppControl.swift; sourceTree = "<group>"; };
 		F55221495574C8ACC34CC95D /* MetricIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricIcon.swift; sourceTree = "<group>"; };
@@ -232,6 +264,9 @@
 				35A9B5D83E9076E506A2A398 /* ActivityDetailContent.swift */,
 				B0D75950D46871A1DA436094 /* ActivityLibraryCard.swift */,
 				1C9F9D43C690A9CF38B09F93 /* CompactViews.swift */,
+				511A0EC7DE4B9FCD59025EC3 /* ConnectIQPage.swift */,
+				DE01E6AB8976EA216209957D /* ConnectIQSettingsView.swift */,
+				902F062C408780F9338F7CC8 /* ConnectIQStyle.swift */,
 				A80EBF2544A3A34D572EBA75 /* DashboardControls.swift */,
 				C325ECD9BC02C1B278565F20 /* DashboardSharingView.swift */,
 				95B09C189CA5D7FC57A98968 /* DeveloperClientsView.swift */,
@@ -240,12 +275,15 @@
 				728CD6B4F3DE5B50A5C1AE82 /* HRVViews.swift */,
 				59F28C1570B0E554EADD2E8D /* MetricCharts.swift */,
 				F55221495574C8ACC34CC95D /* MetricIcon.swift */,
+				81E45833E3BD8D4BABC0F278 /* NavigationWindowPolicy.swift */,
 				4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */,
 				7AC2417D79A5A516EFCD4843 /* PreferenceComponents.swift */,
 				6285CE132F9FAEEE941A0ED7 /* PreferencesPage.swift */,
+				449ADBEE7F7CE9461B62607B /* ScrollPositionKeeper.swift */,
 				7EE6D8089EAC5A0865596248 /* SettingsViews.swift */,
 				E187BE3DED6BA0AFD0F55EB7 /* SetupGuides.swift */,
 				1567591CAA0ACD83546F48D8 /* SoftwareUpdatePage.swift */,
+				36F7F90E62C72FAF170CAE26 /* SyncPage.swift */,
 				469332E2E0B648FE64427993 /* SyncProgressView.swift */,
 				051E6225A85174601A16F8F0 /* Theme.swift */,
 				6DBF677771A3C348478B0F88 /* WatchWeatherCard.swift */,
@@ -257,6 +295,8 @@
 			isa = PBXGroup;
 			children = (
 				5BA73B6BAB314DCF8967A88C /* ActivityLibrary.swift */,
+				069E02E3BF01FF38E16F87A6 /* ConnectIQModels.swift */,
+				0B62418218EC61AD8C7A74CE /* ConnectIQSettingsCloud.swift */,
 				6E1242B21577E33CFD1F9259 /* GarminActivities.swift */,
 				FB678CE0A78BCD6BBD5B15FC /* GarminChinaCloud.swift */,
 				A0CA653FBDE6CE33E4229619 /* GarminCloudModels.swift */,
@@ -293,6 +333,10 @@
 			children = (
 				C0193F1CF371FA9A6AD9E958 /* GFDIBattery.swift */,
 				A4F4074157D37AAA55840884 /* GFDICodec.swift */,
+				A4FA003899B28687672228A2 /* GFDIConnectIQ.swift */,
+				41CDB003F32852B1A06B1E6D /* GFDIConnectIQInstaller.swift */,
+				584E7B35A78233956CCA290E /* GFDIConnectIQPackageIdentity.swift */,
+				5112F3A6A44E00D40BF10EC9 /* GFDIConnectIQSettings.swift */,
 				DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */,
 				5B239BE2900F5FF25136C71E /* GFDIFiles.swift */,
 				3878BA8A3430F7EB71271C3F /* GFDIRequestCapture.swift */,
@@ -311,8 +355,11 @@
 				2E6E77C39F52A8AF89FABADB /* AppModel.swift */,
 				4390F1708BDA4216CCC29F07 /* AppStorage.swift */,
 				8BFFF084AF7DFEB6C659550A /* AppSynchronization.swift */,
+				9558BF817C4F730A253D6C47 /* AppWorkflow.swift */,
 				F29A9E49272247F51B3ADE60 /* ChartSampling.swift */,
 				05C64C7135506BD9DE85049B /* ConnectionPolicy.swift */,
+				F44770D5A16D984210573ED3 /* ConnectIQLibrary.swift */,
+				3770ADAA04F0460987B8E321 /* ConnectIQSettingsController.swift */,
 				EC3378D98D83D57B32FB9DA9 /* DashboardSharing.swift */,
 				5DE05FF35D55A6F2096C55AB /* DisplaySettings.swift */,
 				E25BF5C33DBC96A6FBC28BA0 /* HealthAccountScope.swift */,
@@ -326,6 +373,7 @@
 				BAD5A529B0DFF5FDA41DA64C /* SoftwareRelease.swift */,
 				4FF0C72726181B9D0FF2428B /* WatchDiscovery.swift */,
 				D1D0605A0AED008BD50EB52D /* WatchWeatherController.swift */,
+				6C3C2F67697A2E6ADF8B9424 /* WorkflowPresentation.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -498,8 +546,16 @@
 				343848C76CC2383A83F2B913 /* AppModel.swift in Sources */,
 				15A7091F99D3B1ADDFF62769 /* AppStorage.swift in Sources */,
 				73C72F4F7E43E719F34B9200 /* AppSynchronization.swift in Sources */,
+				80A6846EB49C8493429F1958 /* AppWorkflow.swift in Sources */,
 				33E3BB6B56FC64265C45A685 /* ChartSampling.swift in Sources */,
 				CFE7F65B0B302D823EB3135F /* CompactViews.swift in Sources */,
+				8FA060207E11D65745DE8FE0 /* ConnectIQLibrary.swift in Sources */,
+				56D13B18B1082D1447BCCC92 /* ConnectIQModels.swift in Sources */,
+				44F2812CEF9C83F6B1576238 /* ConnectIQPage.swift in Sources */,
+				6F2B997663322FE94F260E7F /* ConnectIQSettingsCloud.swift in Sources */,
+				A11BAB3193C8E2816F05540B /* ConnectIQSettingsController.swift in Sources */,
+				082EDCFFB2D8AD8F6AA658B9 /* ConnectIQSettingsView.swift in Sources */,
+				7D90EE2F5EA090B89E4E21E6 /* ConnectIQStyle.swift in Sources */,
 				8EB5F786E5C95EB9C0B38322 /* ConnectionPolicy.swift in Sources */,
 				83565FF02767CBF01D65F9DF /* DashboardControls.swift in Sources */,
 				881A2A8A4E92D4C8F1490005 /* DashboardSharing.swift in Sources */,
@@ -520,6 +576,10 @@
 				9AFC94B1592DEC9418153098 /* FloatingPulseView.swift in Sources */,
 				C36C389AD6EA9249E02E946B /* GFDIBattery.swift in Sources */,
 				D9A9052D942B0B98FD0DBD00 /* GFDICodec.swift in Sources */,
+				7BBFF95955144593BDC06C05 /* GFDIConnectIQ.swift in Sources */,
+				FC4F542392017F18028AE288 /* GFDIConnectIQInstaller.swift in Sources */,
+				9CD9D57209B86BD3866260E0 /* GFDIConnectIQPackageIdentity.swift in Sources */,
+				990FD56D13793D97B74BAC63 /* GFDIConnectIQSettings.swift in Sources */,
 				CFE88F410F13FD7F6925D1B0 /* GFDICoreIdentity.swift in Sources */,
 				A25AD073C9FB17DE960927DC /* GFDIFiles.swift in Sources */,
 				0616225225510375405D30D6 /* GFDIRequestCapture.swift in Sources */,
@@ -547,16 +607,19 @@
 				7FF618F5CFF87BB85E5867D2 /* MetricIcon.swift in Sources */,
 				47B4315EFC7CCE430926D1FC /* MetricTimeSeries.swift in Sources */,
 				5517E3D18EBA21BB70D66BF9 /* Metrics.swift in Sources */,
+				48254E6E0B48AD3ECD483846 /* NavigationWindowPolicy.swift in Sources */,
 				8D7DFDF9FE6D71DF462CD2BE /* OpenMeteoWeather.swift in Sources */,
 				251DE8250A9F1E39CCAAA7FD /* PairingGuide.swift in Sources */,
 				0CD36135FC3AABFC2EBBEBAD /* PreferenceComponents.swift in Sources */,
 				F9201C2AA0CE65661510F496 /* PreferencesPage.swift in Sources */,
 				5B77E1271D8A790748ABD031 /* PulseWidgetSnapshot.swift in Sources */,
+				35EF52C3DFBF49A16831378F /* ScrollPositionKeeper.swift in Sources */,
 				3A49FFBCE9CCCDA169D2DF76 /* SettingsViews.swift in Sources */,
 				E2041D82193F32CC2524E2B2 /* SetupGuides.swift in Sources */,
 				3DF66E54E56EBF4C49837054 /* SoftwareRelease.swift in Sources */,
 				4E42D1886D7F23F366CCFD3A /* SoftwareUpdatePage.swift in Sources */,
 				DF9A41AE118373090A866DD7 /* SoftwareUpdater.swift in Sources */,
+				56C516E75BD711A844BAF7B4 /* SyncPage.swift in Sources */,
 				6AF05D197A3C471874059142 /* SyncProgressView.swift in Sources */,
 				85B01A490C10CF22909F9FDB /* Theme.swift in Sources */,
 				CD4E0D69D2B3BA664857E9B0 /* WatchBluetooth.swift in Sources */,
@@ -564,6 +627,7 @@
 				94EDDBCFB7C9239C51663120 /* WatchWeatherCard.swift in Sources */,
 				9474DCEC765B379FE05F967A /* WatchWeatherController.swift in Sources */,
 				0C0BF6D1C7481FB98DCADB2D /* WidgetSharing.swift in Sources */,
+				462B3FB70DC32EE4999528CE /* WorkflowPresentation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -613,7 +677,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -627,7 +691,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.7;
+				MARKETING_VERSION = 0.3.9;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -753,7 +817,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -773,7 +837,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.7;
+				MARKETING_VERSION = 0.3.9;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.3.9 — 2026-10-21
+
+- Add Connect IQ watch-face management on Mac: text search, store details, package download/install, installed apps and device settings. Updates and reinstalls transfer the package even when the app UUID is already present. Chinese and English interface text follows the app language.
+- Separate preferences into their own window, group dashboard metrics, and guide device connection with progressive setup and troubleshooting.
+- Unify local-only status across the sidebar, dashboard, menu and sync center. Show stored data without cloud-login or pending-upload prompts when cloud sync is off.
+- Keep activity searches, pages and scroll position when returning from details; open details at the top and restore the previous dashboard position on Back. Clear activity browsing context when accounts change.
+- Reorganize sync around current status, primary actions and Watch → Local → Cloud. Keep settings, file tools and logs in expandable sections, with useful next actions for activity empty/error states.
+- Share button/row feedback and Back controls. Add Command–1…5 navigation, Command–[ Back, Command–F activity search and Command–R refresh, with sheet/modal guards.
+- Validate native scroll restoration, independent preferences and sheet keyboard behavior using isolated fixtures. Build/test Apple Silicon and Intel packages in GitHub Actions, with provenance checks and same-commit release artifact reuse.
 
 - Add a “Require access key” switch for MCP and the read-only HTTP API, enabled by default for new and existing configurations. Explicit keyless mode accepts requests without an Authorization header; supplied credentials still enforce validity and client scopes. Show active authentication status and matching client configuration examples.
 
