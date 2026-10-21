@@ -121,8 +121,12 @@ struct OverviewPage: View {
     @ObservedObject var model: AppModel
     @State private var showStyle = false
     @State private var shareRequest: DashboardShareRequest?
+    @State private var contentWidth: CGFloat = 0
     private var columns: [GridItem] {
-        model.dashboardColumns == 0 ? [GridItem(.adaptive(minimum: model.cardSize.minimumWidth * model.fontScale), spacing: 14)] : Array(repeating: GridItem(.flexible(minimum: 120), spacing: 14), count: min(4, max(1, model.dashboardColumns)))
+        let minimum = model.cardSize.minimumWidth * model.fontScale
+        if model.dashboardColumns == 0 { return [GridItem(.adaptive(minimum: minimum), spacing: 14)] }
+        let fitting = max(1, Int((contentWidth + 14) / (minimum + 14)))
+        return Array(repeating: GridItem(.flexible(), spacing: 14), count: min(fitting, min(4, max(1, model.dashboardColumns))))
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -152,26 +156,20 @@ struct OverviewPage: View {
             if model.preview && model.previewSetup {
                 Button(L10n.text("加载演示数据")) { model.previewSetup = false; model.enablePreview() }.buttonStyle(.bordered)
             }
-            if (!model.preview || model.previewSetup) && !model.bluetooth.sessionActivated && !model.bluetooth.isConnected { FirstConnectionGuide(model: model) }
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(model.dashboardVisibleMetrics) { kind in
-                    MetricCard(model: model, kind: kind)
-                        .onDrag { NSItemProvider(object: kind.rawValue as NSString) }
-                        .onDrop(of: [UTType.plainText], isTargeted: nil) { providers in
-                            guard let provider = providers.first else { return false }
-                            _ = provider.loadObject(ofClass: NSString.self) { object, _ in
-                                guard let raw = object as? String, let dragged = MetricKind(rawValue: raw) else { return }
-                                Task { @MainActor in model.dashboardOrder = MetricLayout.moving(dragged, before: kind, in: model.dashboardVisibleMetrics) }
-                            }
-                            return true
-                        }
-                        .contextMenu {
-                            Button(L10n.text("分享这项数值")) { shareRequest = DashboardShareRequest(kinds: [kind], valueOnly: true) }
-                            Button(L10n.text("分享这张卡片")) { shareRequest = DashboardShareRequest(kinds: [kind]) }
-                            Button(L10n.text("移到最前")) { model.dashboardOrder = [kind.rawValue] + model.dashboardVisibleMetrics.filter { $0 != kind }.map(\.rawValue) }
-                            Button(L10n.text("从健康看板隐藏")) { model.dashboardMetrics.remove(kind) }
-                        }
+            if (!model.preview || model.previewSetup) && !model.bluetooth.sessionActivated && !model.bluetooth.isConnected && model.availableMetricKinds.isEmpty { FirstConnectionGuide(model: model) }
+            if model.dashboardGrouped {
+                ForEach(MetricLayout.dashboardSections(model.dashboardVisibleMetrics)) { section in
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text(section.title).font(PulseTheme.font(size: 16, weight: .semibold))
+                            Spacer()
+                            Text("\(section.metrics.count)").font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                        }.accessibilityAddTraits(.isHeader)
+                        metricGrid(section.metrics, emphasized: section.id == "focus")
+                    }.padding(.top, 8)
                 }
+            } else {
+                metricGrid(model.dashboardVisibleMetrics)
             }
             if model.dashboardVisibleMetrics.isEmpty {
                 VStack(spacing: 12) {
@@ -180,12 +178,40 @@ struct OverviewPage: View {
                     Button(L10n.text("显示样式")) { showStyle = true }
                 }.foregroundStyle(PulseTheme.secondary).frame(maxWidth: .infinity).padding(30)
             }
+        }.background {
+            GeometryReader { proxy in
+                Color.clear.onAppear { contentWidth = proxy.size.width }
+                    .onChange(of: proxy.size.width) { contentWidth = $0 }
+            }
         }.sheet(item: $shareRequest) { request in DashboardShareSheet(model: model, request: request) }
+    }
+    private func metricGrid(_ metrics: [MetricKind], emphasized: Bool = false) -> some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            ForEach(metrics) { kind in
+                MetricCard(model: model, kind: kind, emphasized: emphasized)
+                    .onDrag { NSItemProvider(object: kind.rawValue as NSString) }
+                    .onDrop(of: [UTType.plainText], isTargeted: nil) { providers in
+                        guard let provider = providers.first else { return false }
+                        _ = provider.loadObject(ofClass: NSString.self) { object, _ in
+                            guard let raw = object as? String, let dragged = MetricKind(rawValue: raw) else { return }
+                            Task { @MainActor in model.dashboardOrder = MetricLayout.moving(dragged, before: kind, in: model.dashboardVisibleMetrics) }
+                        }
+                        return true
+                    }
+                    .contextMenu {
+                        Button(L10n.text("分享这项数值")) { shareRequest = DashboardShareRequest(kinds: [kind], valueOnly: true) }
+                        Button(L10n.text("分享这张卡片")) { shareRequest = DashboardShareRequest(kinds: [kind]) }
+                        Button(L10n.text("移到最前")) { model.dashboardOrder = [kind.rawValue] + model.dashboardVisibleMetrics.filter { $0 != kind }.map(\.rawValue) }
+                        Button(L10n.text("从健康看板隐藏")) { model.dashboardMetrics.remove(kind) }
+                    }
+            }
+        }
     }
     private var title: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L10n.text("健康看板")).font(PulseTheme.font(size: 27, weight: .semibold))
-            Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+            Text(Date(), format: .dateTime.month().day().weekday())
+                .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
         }
     }
 }
