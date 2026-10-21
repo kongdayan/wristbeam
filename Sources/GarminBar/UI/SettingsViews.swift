@@ -242,60 +242,91 @@ struct WatchPage: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var bluetooth: WatchBluetooth
     @State private var showPairing = false
+    @State private var showDiagnostics = false
+    @State private var showForgetConfirmation = false
     init(model: AppModel) { self.model = model; bluetooth = model.bluetooth }
     var body: some View {
         VStack(alignment: .leading, spacing: 19) {
-            PulseCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.connectionStage(now: model.now).title)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer(); WatchBatteryBadge(model: model) }
-                    if bluetooth.isConnected && !bluetooth.protocolReady {
-                        Button(L10n.text("重新准备数据通道")) { bluetooth.retryProtocol() }.buttonStyle(.bordered)
-                    } else if !bluetooth.isConnected && !bluetooth.isConnecting && bluetooth.hasSavedWatch {
-                        Button(L10n.text("重新连接手表")) { bluetooth.reconnectSaved() }.buttonStyle(.bordered).disabled(model.preview)
-                    }
-                    Text(L10n.text(bluetooth.bluetoothStatus)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
-                    HStack(spacing: 10) {
-                        if bluetooth.isConnected || bluetooth.isConnecting { Button(L10n.text(bluetooth.isConnecting ? "取消连接" : "断开")) { bluetooth.disconnect() }.buttonStyle(.bordered) }
-                        Button(L10n.text("忘记软件中的手表")) { bluetooth.forgetSavedWatch() }.buttonStyle(.bordered).disabled(model.preview)
-                        Spacer()
-                        Button(L10n.text("蓝牙设置")) { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.BluetoothSettings")!) }.buttonStyle(.plain).font(PulseTheme.font(size: 11))
-                    }
-                }
+            if bluetooth.hasSavedWatch || bluetooth.isConnected || bluetooth.isConnecting {
+                connectionSummary
             }
             if bluetooth.access != .allowed || !bluetooth.sessionActivated || bluetooth.managerState == 4 {
                 BluetoothPermissionGuide(bluetooth: bluetooth)
             }
-            if bluetooth.protocolReady {
-                DisclosureGroup(L10n.text("一步步连接手表"), isExpanded: $showPairing) {
+            if (bluetooth.hasSavedWatch || bluetooth.canSyncFiles) && !bluetooth.isScanning && !bluetooth.isConnecting {
+                DisclosureGroup(L10n.text("配对与连接帮助"), isExpanded: $showPairing) {
                     PairingGuide(model: model).padding(.top, 10)
                 }.font(PulseTheme.font(size: 13)).padding(.horizontal, 5)
             } else { PairingGuide(model: model) }
-            if bluetooth.nearby.isEmpty && !bluetooth.isConnected {
-                VStack(alignment: .leading, spacing: 9) {
-                    Text(L10n.text("准备你的手表")).font(PulseTheme.font(size: 13, weight: .semibold))
-                    Text(L10n.text("从手表的“手机 → 配对手机”进入正常佳明连接。实时指标与文件都使用佳明服务；扫描结果会出现在这里。"))
-                        .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).lineSpacing(6)
-                }.padding(5)
-            } else if !bluetooth.nearby.isEmpty {
-                VStack(spacing: 9) {
-                    ForEach(bluetooth.nearby) { watch in
-                        PulseCard {
-                            HStack(spacing: 14) {
-                                Image(systemName: "applewatch").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(L10n.text(watch.name)).font(PulseTheme.font(size: 13, weight: .semibold))
-                                    Text(L10n.text("\(watch.serviceSummary) · \(watch.rssi) dBm · \(watch.shortID)")).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                                }
-                                Spacer()
-                                Button(L10n.text("连接")) { bluetooth.connect(watch.id) }.buttonStyle(.bordered).disabled(model.preview || !watch.offersGarmin)
-                            }
+            if !bluetooth.nearby.isEmpty && (!bluetooth.isConnected || bluetooth.isScanning) {
+                nearbyDevices
+            }
+            DisclosureGroup(L10n.text("连接设置")) {
+                BackgroundConnectionGuide(bluetooth: bluetooth).padding(.top, 10)
+            }.font(PulseTheme.font(size: 13))
+            WatchWeatherCard(weather: model.weather, preview: model.preview)
+            DisclosureGroup(L10n.text("诊断与高级选项"), isExpanded: $showDiagnostics) {
+                diagnostics
+            }.font(PulseTheme.font(size: 13))
+        }.confirmationDialog(L10n.text("忘记这只手表？"), isPresented: $showForgetConfirmation, titleVisibility: .visible) {
+            Button(L10n.text("忘记软件中的手表"), role: .destructive) { bluetooth.forgetSavedWatch() }
+            Button(L10n.text("取消"), role: .cancel) { }
+        } message: {
+            Text(L10n.text("下次需要重新连接。已保存的健康数据和账号会保留。"))
+        }
+    }
+    private var connectionSummary: some View {
+        PulseCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack { StatusDot(active: bluetooth.isConnected); Text(L10n.text(bluetooth.connectionStage(now: model.now).title)).font(PulseTheme.font(size: 13, weight: .medium)); Spacer(); WatchBatteryBadge(model: model) }
+                if bluetooth.isConnected {
+                    Text(L10n.text(bluetooth.connectedName)).font(PulseTheme.font(size: 20, weight: .semibold))
+                }
+                if bluetooth.canSyncFiles {
+                    ViewThatFits(in: .horizontal) {
+                        HStack { receiveButton; syncOptionsButton }
+                        VStack(alignment: .leading, spacing: 10) { receiveButton; syncOptionsButton }
+                    }
+                } else if bluetooth.isConnected && !bluetooth.protocolReady {
+                    Button(L10n.text("重新准备数据通道")) { bluetooth.retryProtocol() }.buttonStyle(.bordered)
+                } else if !bluetooth.isConnected && !bluetooth.isConnecting && bluetooth.hasSavedWatch {
+                    Button(L10n.text("重新连接手表")) { bluetooth.reconnectSaved() }
+                        .buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview)
+                }
+                Text(L10n.text(bluetooth.bluetoothStatus)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                HStack(spacing: 10) {
+                    if bluetooth.isConnected || bluetooth.isConnecting { Button(L10n.text(bluetooth.isConnecting ? "取消连接" : "断开")) { bluetooth.disconnect() }.buttonStyle(.bordered) }
+                    Menu {
+                        Button(L10n.text("忘记软件中的手表"), role: .destructive) { showForgetConfirmation = true }
+                            .disabled(model.preview || !bluetooth.hasSavedWatch)
+                    } label: { Image(systemName: "ellipsis") }
+                        .menuStyle(.borderlessButton).fixedSize().accessibilityLabel(L10n.text("设备选项"))
+                    Spacer()
+                    Button(L10n.text("蓝牙设置")) { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.BluetoothSettings")!) }.buttonStyle(.plain).font(PulseTheme.font(size: 11))
+                }
+            }
+        }
+    }
+    private var nearbyDevices: some View {
+        VStack(spacing: 9) {
+            ForEach(bluetooth.nearby) { watch in
+                PulseCard {
+                    HStack(spacing: 14) {
+                        Image(systemName: "applewatch").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(L10n.text(watch.name)).font(PulseTheme.font(size: 13, weight: .semibold))
+                            Text(watch.shortID).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                         }
+                        Spacer()
+                        Button(L10n.text("连接")) { bluetooth.connect(watch.id) }.buttonStyle(.bordered).disabled(model.preview || !watch.offersGarmin || bluetooth.isConnecting)
                     }
                 }
             }
+        }
+    }
+    private var diagnostics: some View {
+        VStack(alignment: .leading, spacing: 14) {
             Toggle(L10n.text("显示其他附近设备"), isOn: $bluetooth.showAllDevices).font(PulseTheme.font(size: 11)).toggleStyle(.checkbox)
-            BackgroundConnectionGuide(bluetooth: bluetooth)
-            WatchWeatherCard(weather: model.weather, preview: model.preview)
             WatchRequestCaptureCard(capture: bluetooth.requestCapture, connected: bluetooth.isConnected, preview: model.preview)
             if bluetooth.isConnected {
                 PulseCard {
@@ -311,6 +342,13 @@ struct WatchPage: View {
                 }
             }
         }
+    }
+    private var receiveButton: some View {
+        Button(L10n.text("接收手表数据")) { model.syncNow() }
+            .buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview)
+    }
+    private var syncOptionsButton: some View {
+        Button(L10n.text("选择同步方式")) { model.openSettings(.sync) }.buttonStyle(.bordered)
     }
 }
 

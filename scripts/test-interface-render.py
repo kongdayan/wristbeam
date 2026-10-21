@@ -103,6 +103,16 @@ import SwiftUI
                         try render(FloatingPulseView(model:model),name:name,dark:dark,output:output)
                     }
                 }
+                model.fontScale = 1.6
+                for step in WatchSetupStep.allCases {
+                    model.bluetooth.isScanning = step == .choose
+                    model.bluetooth.isConnecting = step == .confirm
+                    model.bluetooth.isConnected = step == .sync
+                    model.bluetooth.canSyncFiles = step == .sync
+                    try render(PairingGuide(model:model).padding(24).frame(width:640),name:"pairing-\(step.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                }
+                model.bluetooth.isScanning = false; model.bluetooth.isConnecting = false
+                model.bluetooth.isConnected = false; model.bluetooth.canSyncFiles = false
                 model.fontScale = 1.15
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.developer,.updates,.about] {
                     model.openSettings(page)

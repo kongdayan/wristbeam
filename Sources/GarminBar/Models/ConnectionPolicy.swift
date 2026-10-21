@@ -48,3 +48,21 @@ enum WatchConnectionStage: String, CaseIterable {
         return discovered ? .discovered : .idle
     }
 }
+
+/// Setup progress follows transport readiness, not the arrival of optional sensors.
+enum WatchSetupStep: Int, CaseIterable {
+    case prepare, choose, confirm, sync
+    var title: String {
+        switch self {
+        case .prepare: return "准备手表"
+        case .choose: return "选择设备"
+        case .confirm: return "确认连接"
+        case .sync: return "选择同步方式"
+        }
+    }
+    static func resolve(scanning: Bool, discovered: Bool, connecting: Bool, connected: Bool, filesReady: Bool) -> Self {
+        if connected { return filesReady ? .sync : .confirm }
+        if connecting { return .confirm }
+        return scanning || discovered ? .choose : .prepare
+    }
+}
