@@ -1,10 +1,10 @@
 {
-  "head": "0ba238d311cabb3ae7050b91c7102baaf015e304",
-  "ciRun": 39543187105,
+  "head": "4d762f4efd58c649d1c3a8d5c78018ead7fa2768",
+  "ciRun": 39545246634,
   "images": [
     {
       "file": "page-sync-en-light.png",
-      "sha256": "4db4162783326019b7a862f7e16204572fc1b58f8bc96f94624ca12e4131831e",
+      "sha256": "84f6a4e22e5d1f865311ff0cb29b59e2325de5b1d4851254a3ee5a5cf21d0a14",
       "pixels": [
         1020,
         768
@@ -12,7 +12,7 @@
     },
     {
       "file": "page-sync-zh-dark.png",
-      "sha256": "5893886e7afefc60575b4698de49aebff9463069695f8eef65537e6ae50a8515",
+      "sha256": "dfed642950fb8bca1fe18a83852555e09263d41729c2220b13c0fc51784f2d48",
       "pixels": [
         1020,
         768
@@ -36,7 +36,7 @@
     },
     {
       "file": "menu-en-dark.png",
-      "sha256": "7c3d36a16134349c538df993538be5d8c5362d01042e3403353d577c057f39d6",
+      "sha256": "5dbe2a8b11ab0bce602cec739557a3e9799aa89b135db0b5b64178182521bd76",
       "pixels": [
         420,
         500
@@ -44,7 +44,7 @@
     },
     {
       "file": "menu-zh-light.png",
-      "sha256": "118ca3536ad1155a886b5a577b46a7bc976e8969c744697e8b59281eb0ea44d9",
+      "sha256": "206580a9ade73423d7b4380589037eefa3d6d838ea4f8ac43b67994793a296cd",
       "pixels": [
         420,
         500
@@ -52,7 +52,7 @@
     },
     {
       "file": "dashboard-narrow-en-light.png",
-      "sha256": "b0c1d3639fb75ec555106dd4c08b64f340687b64a8ea37f3e2e47e8b673e4fd7",
+      "sha256": "8bb695c9d6c54d1787b1064a63d64941a51c0c160f483ae9567e61f6ab47683f",
       "pixels": [
         880,
         640
