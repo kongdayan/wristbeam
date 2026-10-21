@@ -105,33 +105,53 @@ import SwiftUI
         navigationHost.frame = NSRect(x:0,y:0,width:1020,height:768)
         let navigationWindow = NSWindow(contentRect:navigationHost.frame,styleMask:.borderless,backing:.buffered,defer:false)
         navigationWindow.contentView = navigationHost
-        func settle() { navigationHost.layoutSubtreeIfNeeded(); RunLoop.main.run(until:Date().addingTimeInterval(0.3)) }
+        func settle() { navigationHost.layoutSubtreeIfNeeded(); RunLoop.main.run(until:Date().addingTimeInterval(0.1)) }
+        func descendants(_ view:NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
         func scrollViews(_ view:NSView) -> [NSScrollView] {
             (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap(scrollViews)
         }
         func contentScroll() -> NSScrollView { scrollViews(navigationHost).max { $0.frame.width < $1.frame.width }! }
+        func trace(_ message:String) { FileHandle.standardOutput.write(Data((message + "\n").utf8)) }
+        func readyForRoute(scrollable:Bool = false) {
+            let deadline = Date().addingTimeInterval(8)
+            var stable = 0, lastHeight:CGFloat = -1
+            while Date() < deadline {
+                settle()
+                guard let probe = descendants(navigationHost).compactMap({ $0 as? ScrollPositionKeeper.Probe }).first(where: { $0.key == model.mainScrollKey && !$0.stopped }), probe.ready,
+                      let view = probe.scroll else { continue }
+                let height = view.documentView?.bounds.height ?? 0
+                stable = abs(height-lastHeight) < 1 ? stable+1 : 0; lastHeight = height
+                if stable >= 2 && (!scrollable || height-view.contentView.bounds.height > 100) { return }
+            }
+            let view = contentScroll()
+            trace("Layout timeout route=\(model.mainScrollKey) document=\(view.documentView?.bounds.height ?? -1) viewport=\(view.contentView.bounds.height)")
+            preconditionFailure("Native route did not finish scroll layout")
+        }
         func moveDown() -> CGFloat {
+            readyForRoute(scrollable:true)
             let view = contentScroll()
             view.contentView.scroll(to:NSPoint(x:0,y:500)); view.reflectScrolledClipView(view.contentView); settle()
             let y = view.contentView.bounds.origin.y
+            trace("Scroll fixture route=\(model.mainScrollKey) y=\(y) document=\(view.documentView?.bounds.height ?? -1) viewport=\(view.contentView.bounds.height)")
             precondition(y > 100,"Fixture must scroll before checking restoration")
             return y
         }
-        settle()
         let listY = moveDown()
         let selected = model.activityBrowsing.visible(model.activities.index.activities)[4].id
-        model.selectActivity(selected); settle()
+        model.selectActivity(selected); readyForRoute()
         precondition(contentScroll().contentView.bounds.origin.y < 2,"New activity detail starts at top")
-        model.goBack(); settle()
+        model.goBack(); readyForRoute(scrollable:true)
         precondition(model.activityBrowsing.search == "Synthetic" && model.activityBrowsing.page == 1)
+        trace("Returned list y=\(contentScroll().contentView.bounds.origin.y), expected=\(listY)")
         precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Return restores actual list scroll offset")
         model.openSettings(.appearance); settle()
         precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Preferences preserve list position")
-        model.page = .overview; settle()
+        model.page = .overview
         let dashboardY = moveDown()
-        model.openMetric(.heartRate); settle()
+        model.openMetric(.heartRate); readyForRoute()
         precondition(contentScroll().contentView.bounds.origin.y < 2,"New metric detail starts at top")
-        model.goBack(); settle()
+        model.goBack(); readyForRoute(scrollable:true)
+        trace("Returned dashboard y=\(contentScroll().contentView.bounds.origin.y), expected=\(dashboardY)")
         precondition(abs(contentScroll().contentView.bounds.origin.y-dashboardY) < 3,"Return restores dashboard offset")
         let modalSheet = NSWindow(contentRect:NSRect(x:0,y:0,width:240,height:120),styleMask:.titled,backing:.buffered,defer:false)
         modalSheet.isReleasedWhenClosed = false
