@@ -33,6 +33,23 @@ final class DisplayTests: XCTestCase {
         let moved = MetricLayout.moving(.steps, before: .solarIntensity, in: result)
         XCTAssertEqual(MetricLayout.ordered(selection: selection, order: moved), [.steps, .solarIntensity, .stress, .heartRate])
     }
+    func testDashboardSectionsPreserveHighlightsAndEverySelectedMetric() {
+        let metrics: [MetricKind] = [.steps, .bodyBattery, .stress, .hrvNight, .heartRate, .solarIntensity]
+        let sections = MetricLayout.dashboardSections(metrics)
+        XCTAssertEqual(sections.first?.metrics, [.steps, .bodyBattery, .stress])
+        XCTAssertEqual(sections.map(\.id), ["focus", "heart", "solar"])
+        XCTAssertEqual(sections[1].metrics, [.hrvNight, .heartRate])
+        let flattened = sections.flatMap(\.metrics)
+        XCTAssertEqual(Set(flattened), Set(metrics))
+        XCTAssertEqual(flattened.count, metrics.count)
+    }
+    func testDashboardSectionsHandleEmptyAndDeviceOnlySelections() {
+        XCTAssertTrue(MetricLayout.dashboardSections([]).isEmpty)
+        XCTAssertTrue(MetricLayout.dashboardSections([.watchBattery]).isEmpty)
+        let sections = MetricLayout.dashboardSections([.heartRate, .watchBattery, .steps])
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.metrics, [.heartRate, .steps])
+    }
     func testIndependentSelectionsPreserveExplicitEmptyAndLegacyFallback() {
         let prefix = "display-test-\(UUID().uuidString)"
         let keys = [prefix + ".dashboard", prefix + ".floating", prefix + ".widget"]

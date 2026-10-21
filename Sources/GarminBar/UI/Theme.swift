@@ -44,6 +44,8 @@ struct MetricCard: View {
     @ObservedObject var model: AppModel
     let kind: MetricKind
     var compact = false
+    var emphasized = false
+    @State private var hovered = false
     var body: some View {
         Button { model.openMetric(kind) } label: {
         VStack(alignment: .leading, spacing: compact ? 9 : 10) {
@@ -82,15 +84,13 @@ struct MetricCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: compact ? 12 : 18)
-                .fill(PulseTheme.surface.gradient)
-                .overlay(alignment: .topLeading) {
+                .fill(PulseTheme.surface)
+                .overlay {
                     RoundedRectangle(cornerRadius: compact ? 12 : 18)
-                        .fill(LinearGradient(colors: [PulseTheme.color(kind).opacity(0.09), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .stroke(hovered ? PulseTheme.mint.opacity(0.5) : emphasized ? PulseTheme.color(kind).opacity(0.25) : Color.primary.opacity(0.07), lineWidth: 1)
                 }
-                .overlay(RoundedRectangle(cornerRadius: compact ? 12 : 18)
-                    .stroke(LinearGradient(colors: [.white.opacity(0.25), Color.primary.opacity(0.07)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1))
-                .shadow(color: .black.opacity(compact ? 0.03 : 0.08), radius: 7, x: 0, y: 4)
         }
-        }.buttonStyle(.plain).help(L10n.text("点击查看\(kind.title)的详细记录"))
+        }.buttonStyle(.plain).onHover { hovered = $0 }
+            .help(L10n.text("点击查看\(kind.title)的详细记录"))
     }
 }
