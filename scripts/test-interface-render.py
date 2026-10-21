@@ -110,7 +110,10 @@ import SwiftUI
         func scrollViews(_ view:NSView) -> [NSScrollView] {
             (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap(scrollViews)
         }
-        func contentScroll() -> NSScrollView { scrollViews(navigationHost).max { $0.frame.width < $1.frame.width }! }
+        func contentScroll() -> NSScrollView {
+            if let view = descendants(navigationHost).compactMap({ $0 as? ScrollPositionKeeper.Probe }).first(where: { $0.key == model.mainScrollKey && !$0.stopped })?.scroll { return view }
+            return scrollViews(navigationHost).max { $0.frame.width < $1.frame.width }!
+        }
         func trace(_ message:String) { FileHandle.standardOutput.write(Data((message + "\n").utf8)) }
         func readyForRoute(scrollable:Bool = false) {
             let deadline = Date().addingTimeInterval(8)
