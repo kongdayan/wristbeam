@@ -80,6 +80,12 @@ extension MetricKind {
     }
 }
 
+struct DashboardMetricSection: Identifiable {
+    let id: String
+    let title: String
+    let metrics: [MetricKind]
+}
+
 enum MetricLayout {
     /// Availability is evidence based. Missing or invalid readings alone cannot
     /// advertise a capability, and temporary disconnects do not erase choices.
@@ -96,6 +102,21 @@ enum MetricLayout {
         }
         result += MetricKind.allCases.filter { selection.contains($0) && !seen.contains($0) }
         return result
+    }
+    /// Promote the user's first three selections, then group remaining metrics
+    /// without changing saved order or implying a common measurement time.
+    static func dashboardSections(_ ordered: [MetricKind]) -> [DashboardMetricSection] {
+        let metrics = ordered.filter { !$0.isDeviceStatus }
+        guard !metrics.isEmpty else { return [] }
+        var sections = [DashboardMetricSection(id: "focus", title: L10n.text("重点指标"), metrics: Array(metrics.prefix(3)))]
+        let remaining = Array(metrics.dropFirst(3))
+        for category in MetricCategory.allCases {
+            let items = remaining.filter { $0.category == category }
+            if !items.isEmpty {
+                sections.append(DashboardMetricSection(id: category.rawValue, title: category.title, metrics: items))
+            }
+        }
+        return sections
     }
     static func moving(_ kind: MetricKind, before target: MetricKind, in items: [MetricKind]) -> [String] {
         guard kind != target, items.contains(kind), items.contains(target) else { return items.map(\.rawValue) }

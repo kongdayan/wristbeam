@@ -87,6 +87,98 @@ import SwiftUI
             precondition(panel.nameFieldStringValue == expected && !panel.isExtensionHidden)
         }
         print("PASS native export save panels preserve one JSON/TCX/GPX/ZIP extension")
+        // Exercise the actual NSScrollView through list/detail reconstruction, not just model fields.
+        let browsingScope = "china:workflow-fixture"
+        let browsingStore = GarminActivityStore(root: AppPaths.directory("CloudActivities"), scope: browsingScope)
+        var browsingIndex = GarminActivityIndex()
+        browsingIndex.activities = [activity] + (1002...1060).map { id in
+            GarminActivity(id: String(id), name: "Synthetic run \(id)", type: "running",
+                startTimeLocal: "2026-01-02 10:00:00", statistics: ["duration":1800], fetchedAt: Date())
+        }
+        try browsingStore.saveIndex(browsingIndex)
+        if let detail = model.activities.detail("1001") { try browsingStore.save(detail) }
+        AppPreferences.shared.set(GarminPrivateFile.digest(Data(browsingScope.utf8)),forKey:"activities.scope.china")
+        model.activities.reconcile()
+        model.page = .activities; model.detailMetric = nil; model.selectedActivityID = nil
+        model.activityBrowsing = ActivityBrowsingState(search:"Synthetic",page:1)
+        let navigationHost = NSHostingView(rootView: SettingsRootView(model:model).frame(width:1020,height:768))
+        navigationHost.frame = NSRect(x:0,y:0,width:1020,height:768)
+        let navigationWindow = NSWindow(contentRect:navigationHost.frame,styleMask:.borderless,backing:.buffered,defer:false)
+        navigationWindow.contentView = navigationHost
+        func settle() { navigationHost.layoutSubtreeIfNeeded(); RunLoop.main.run(until:Date().addingTimeInterval(0.1)) }
+        func descendants(_ view:NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+        func scrollViews(_ view:NSView) -> [NSScrollView] {
+            (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap(scrollViews)
+        }
+        func contentScroll() -> NSScrollView {
+            if let view = descendants(navigationHost).compactMap({ $0 as? ScrollPositionKeeper.Probe }).first(where: { $0.key == model.mainScrollKey && !$0.stopped })?.scroll { return view }
+            return scrollViews(navigationHost).max { $0.frame.width < $1.frame.width }!
+        }
+        func trace(_ message:String) { FileHandle.standardOutput.write(Data((message + "\n").utf8)) }
+        func readyForRoute(scrollable:Bool = false) {
+            let deadline = Date().addingTimeInterval(8)
+            var stable = 0, lastHeight:CGFloat = -1
+            while Date() < deadline {
+                settle()
+                guard let probe = descendants(navigationHost).compactMap({ $0 as? ScrollPositionKeeper.Probe }).first(where: { $0.key == model.mainScrollKey && !$0.stopped }), probe.ready,
+                      let view = probe.scroll else { continue }
+                let height = view.documentView?.bounds.height ?? 0
+                stable = abs(height-lastHeight) < 1 ? stable+1 : 0; lastHeight = height
+                if stable >= 2 && (!scrollable || height-view.contentView.bounds.height > 100) { return }
+            }
+            let view = contentScroll()
+            trace("Layout timeout route=\(model.mainScrollKey) document=\(view.documentView?.bounds.height ?? -1) viewport=\(view.contentView.bounds.height)")
+            preconditionFailure("Native route did not finish scroll layout")
+        }
+        func moveDown() -> CGFloat {
+            readyForRoute(scrollable:true)
+            let view = contentScroll()
+            view.contentView.scroll(to:NSPoint(x:0,y:500)); view.reflectScrolledClipView(view.contentView); settle()
+            let y = view.contentView.bounds.origin.y
+            trace("Scroll fixture route=\(model.mainScrollKey) y=\(y) document=\(view.documentView?.bounds.height ?? -1) viewport=\(view.contentView.bounds.height)")
+            precondition(y > 100,"Fixture must scroll before checking restoration")
+            return y
+        }
+        let listY = moveDown()
+        let selected = model.activityBrowsing.visible(model.activities.index.activities)[4].id
+        model.selectActivity(selected); readyForRoute()
+        precondition(contentScroll().contentView.bounds.origin.y < 2,"New activity detail starts at top")
+        model.goBack(); readyForRoute(scrollable:true)
+        precondition(model.activityBrowsing.search == "Synthetic" && model.activityBrowsing.page == 1)
+        trace("Returned list y=\(contentScroll().contentView.bounds.origin.y), expected=\(listY)")
+        precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Return restores actual list scroll offset")
+        model.openSettings(.appearance); settle()
+        precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Preferences preserve list position")
+        model.page = .overview
+        let dashboardY = moveDown()
+        model.openMetric(.heartRate); readyForRoute()
+        precondition(contentScroll().contentView.bounds.origin.y < 2,"New metric detail starts at top")
+        model.goBack(); readyForRoute(scrollable:true)
+        trace("Returned dashboard y=\(contentScroll().contentView.bounds.origin.y), expected=\(dashboardY)")
+        precondition(abs(contentScroll().contentView.bounds.origin.y-dashboardY) < 3,"Return restores dashboard offset")
+        let modalSheet = NSWindow(contentRect:NSRect(x:0,y:0,width:240,height:120),styleMask:.titled,backing:.buffered,defer:false)
+        modalSheet.isReleasedWhenClosed = false
+        precondition(NavigationWindowPolicy.allowsNavigation(key:navigationWindow,main:navigationWindow,preferences:nil,modal:nil))
+        navigationWindow.beginSheet(modalSheet); settle()
+        precondition(modalSheet.sheetParent === navigationWindow,"Fixture must attach a real AppKit sheet")
+        precondition(!NavigationWindowPolicy.allowsNavigation(key:modalSheet,main:nil,preferences:nil,modal:nil),"Key sheet alone blocks navigation")
+        precondition(!NavigationWindowPolicy.allowsNavigation(key:nil,main:navigationWindow,preferences:nil,modal:nil),"Sheet owner blocks navigation during focus changes")
+        precondition(!NavigationWindowPolicy.allowsNavigation(key:nil,main:nil,preferences:navigationWindow,modal:nil),"Preferences sheet also blocks navigation")
+        navigationWindow.endSheet(modalSheet); modalSheet.orderOut(nil); settle()
+        precondition(NavigationWindowPolicy.allowsNavigation(key:navigationWindow,main:navigationWindow,preferences:nil,modal:nil))
+        precondition(!NavigationWindowPolicy.allowsNavigation(key:navigationWindow,main:navigationWindow,preferences:nil,modal:modalSheet))
+        print("PASS native sheet-parent, owner-window and application-modal keyboard navigation gates")
+        navigationWindow.contentView = nil
+        model.selectedActivityID = selected
+        model.activityBrowsing = ActivityBrowsingState(search:"Synthetic",page:1)
+        AppPreferences.shared.set(GarminPrivateFile.digest(Data("china:empty-workflow-fixture".utf8)),forKey:"activities.scope.china")
+        model.activities.reconcile()
+        precondition(model.selectedActivityID == nil && model.activityBrowsing == ActivityBrowsingState(),"Changing account clears list/detail context")
+        precondition(!model.scrollPositions.offsets.keys.contains { $0.hasPrefix("activity.") || $0 == "page.activities" })
+        AppPreferences.shared.set(GarminPrivateFile.digest(Data(browsingScope.utf8)),forKey:"activities.scope.china")
+        model.activities.reconcile()
+        model.scrollPositions.offsets = [:]; model.activityBrowsing = ActivityBrowsingState()
+        print("PASS native list/detail and dashboard/detail scroll restoration, search/page retention and independent preferences")
         for english in [false,true] {
             model.language = english ? .en : .zhHans
             let language = english ? "en" : "zh"
@@ -103,6 +195,16 @@ import SwiftUI
                         try render(FloatingPulseView(model:model),name:name,dark:dark,output:output)
                     }
                 }
+                model.fontScale = 1.6
+                for step in WatchSetupStep.allCases {
+                    model.bluetooth.isScanning = step == .choose
+                    model.bluetooth.isConnecting = step == .confirm
+                    model.bluetooth.isConnected = step == .sync
+                    model.bluetooth.canSyncFiles = step == .sync
+                    try render(PairingGuide(model:model).padding(24).frame(width:640),name:"pairing-\(step.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                }
+                model.bluetooth.isScanning = false; model.bluetooth.isConnecting = false
+                model.bluetooth.isConnected = false; model.bluetooth.canSyncFiles = false
                 model.fontScale = 1.15
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.developer,.updates,.about] {
                     model.openSettings(page)
@@ -112,6 +214,20 @@ import SwiftUI
                         try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                     }
                 }
+                model.openSettings(.overview)
+                model.dashboardGrouped = false
+                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
+                model.dashboardGrouped = true
+                model.fontScale = 1.6
+                try render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
+                try render(PreferencesRootView(model:model).frame(width:820,height:600),name:"preferences-narrow-\(language)-\(theme)",dark:dark,output:output)
+                model.fontScale = 1.15
+                model.activityBrowsing.search = "no-such-fixture"
+                model.page = .activities
+                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activities-no-results-\(language)-\(theme)",dark:dark,output:output)
+                model.activityBrowsing.search = ""
+                model.lastLocalSavedAt = Date()
+                precondition(model.workflow.transferTitle == "已保存到本机")
                 try render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
                 model.page = .overview; model.detailMetric = .hrvNight
                 try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)

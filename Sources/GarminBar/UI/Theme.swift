@@ -3,6 +3,8 @@ import AppKit
 
 enum PulseTheme {
     static var textScale: Double = 1.1
+    static let sectionSpacing: CGFloat = 20
+    static let warning = Color.orange
     static func adaptive(_ light: NSColor, _ dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light })
     }
@@ -44,6 +46,8 @@ struct MetricCard: View {
     @ObservedObject var model: AppModel
     let kind: MetricKind
     var compact = false
+    var emphasized = false
+    @State private var hovered = false
     var body: some View {
         Button { model.openMetric(kind) } label: {
         VStack(alignment: .leading, spacing: compact ? 9 : 10) {
@@ -82,15 +86,92 @@ struct MetricCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: compact ? 12 : 18)
-                .fill(PulseTheme.surface.gradient)
-                .overlay(alignment: .topLeading) {
+                .fill(PulseTheme.surface)
+                .overlay {
                     RoundedRectangle(cornerRadius: compact ? 12 : 18)
-                        .fill(LinearGradient(colors: [PulseTheme.color(kind).opacity(0.09), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .stroke(hovered ? PulseTheme.mint.opacity(0.5) : emphasized ? PulseTheme.color(kind).opacity(0.25) : Color.primary.opacity(0.07), lineWidth: 1)
                 }
-                .overlay(RoundedRectangle(cornerRadius: compact ? 12 : 18)
-                    .stroke(LinearGradient(colors: [.white.opacity(0.25), Color.primary.opacity(0.07)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1))
-                .shadow(color: .black.opacity(compact ? 0.03 : 0.08), radius: 7, x: 0, y: 4)
         }
-        }.buttonStyle(.plain).help(L10n.text("点击查看\(kind.title)的详细记录"))
+        }.buttonStyle(PulseRowButtonStyle()).onHover { hovered = $0 }
+            .help(L10n.text("点击查看\(kind.title)的详细记录"))
+    }
+}
+
+
+/// Shared row feedback; native bordered controls remain the default for actions.
+struct PulseRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { Row(configuration: configuration) }
+    private struct Row: View {
+        let configuration: Configuration
+        @Environment(\.isEnabled) private var enabled
+        @Environment(\.isFocused) private var focused
+        @State private var hovered = false
+        var body: some View {
+            configuration.label.contentShape(RoundedRectangle(cornerRadius: 10))
+                .background(PulseTheme.mint.opacity(enabled && (hovered || configuration.isPressed) ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(focused ? PulseTheme.mint : .clear, lineWidth: 2))
+                .opacity(enabled ? 1 : 0.5).onHover { hovered = $0 }
+        }
+    }
+}
+
+struct PulseBackButton: View {
+    let title: String
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Label(L10n.text(title), systemImage: "chevron.left")
+                .font(PulseTheme.font(size: 14, weight: .medium)).padding(.vertical, 4)
+        }.buttonStyle(PulseButtonStyle()).controlSize(.large).help(L10n.text("返回") + " · ⌘[")
+    }
+}
+
+struct PulseEmptyState<Actions: View>: View {
+    let title: String
+    let detail: String
+    let symbol: String
+    @ViewBuilder var actions: () -> Actions
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: symbol).font(PulseTheme.font(size: 26)).foregroundStyle(PulseTheme.secondary)
+            Text(L10n.text(title)).font(PulseTheme.font(size: 16, weight: .semibold))
+            if !detail.isEmpty { Text(L10n.text(detail)).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).multilineTextAlignment(.center) }
+            HStack(spacing: 10) { actions() }.buttonStyle(.bordered)
+        }.padding(24).frame(maxWidth: .infinity)
+    }
+}
+
+/// Shared action styling with quiet hover, keyboard focus and reduced-motion support.
+struct PulseButtonStyle: ButtonStyle {
+    var prominent = false
+    var card = false
+    func makeBody(configuration: Configuration) -> some View {
+        StyledButton(configuration: configuration, prominent: prominent, card: card)
+    }
+    private struct StyledButton: View {
+        let configuration: Configuration
+        let prominent: Bool
+        let card: Bool
+        @State private var hovered = false
+        @Environment(\.isEnabled) private var enabled
+        @Environment(\.isFocused) private var focused
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        private var shape: RoundedRectangle {
+            RoundedRectangle(cornerRadius: card ? 18 : 12, style: .continuous)
+        }
+        var body: some View {
+            configuration.label
+                .font(PulseTheme.font(size: 12, weight: card ? .regular : .medium))
+                .foregroundStyle(prominent ? PulseTheme.onAccent : Color.primary)
+                .padding(.horizontal, 14).padding(.vertical, card ? 14 : 9)
+                .background(prominent ? PulseTheme.mint : Color.primary.opacity(hovered && enabled ? 0.075 : 0.035), in: shape)
+                .overlay(shape.strokeBorder(prominent ? Color.clear : Color.primary.opacity(hovered && enabled ? 0.12 : 0.045), lineWidth: 1))
+                .overlay(shape.strokeBorder(focused ? PulseTheme.mint : .clear, lineWidth: 2))
+                .contentShape(shape)
+                .opacity(enabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)
+                .onHover { hovered = $0 }
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: hovered)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
+        }
     }
 }

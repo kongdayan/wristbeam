@@ -37,7 +37,7 @@ struct DashboardConnectionStatus: View {
             Button { model.page = .watch } label: {
                 HStack(spacing: 7) {
                     Image(systemName: "applewatch")
-                    Text(L10n.text(model.bluetooth.isConnected ? "手表已连接" : "连接手表"))
+                    Text(L10n.text(model.workflow.connectionTitle))
                     WatchBatteryBadge(model: model)
                     StatusDot(active: model.bluetooth.isConnected)
                 }
@@ -45,9 +45,9 @@ struct DashboardConnectionStatus: View {
             Divider().frame(height: 16).padding(.horizontal, 4)
             Button { model.page = .account } label: {
                 HStack(spacing: 7) {
-                    Image(systemName: "cloud")
-                    Text(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "云账号已连接" : "连接账户"))
-                    StatusDot(active: model.cloud.isAuthenticated)
+                    Image(systemName: model.workflow.accountSymbol)
+                    Text(L10n.text(model.workflow.accountTitle))
+                    StatusDot(active: model.workflow.cloudActive)
                 }
             }.help(L10n.text(model.cloud.region.title))
         }.buttonStyle(.plain).font(PulseTheme.font(size: 11, weight: .medium))
@@ -73,6 +73,9 @@ struct DashboardStylePanel: View {
             Picker(L10n.text("卡片"), selection: $model.cardSize) {
                 ForEach(PulseCardSize.allCases) { Text(L10n.text($0.title)).tag($0) }
             }.pickerStyle(.segmented)
+            Toggle(L10n.text("按类别分组"), isOn: $model.dashboardGrouped).toggleStyle(.switch)
+            Text(L10n.text("前三项为重点指标；其余按类别显示。关闭分组可自由排序。"))
+                .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
             Divider()
             HStack {
                 Text(L10n.text("看板指标")).font(PulseTheme.font(size: 13, weight: .semibold))

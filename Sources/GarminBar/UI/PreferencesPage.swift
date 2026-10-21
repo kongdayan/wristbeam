@@ -61,6 +61,7 @@ struct PreferencesPage: View {
                 PreferenceLine(title:"指标选择",note:"点击图标切换指标，横向滚动查看更多。") { Button(L10n.text("选择指标")) { model.openSettings(.metricSelection) } }
             }
             PreferenceBlock(title:"健康看板") {
+                PreferenceLine(title:"按类别分组") { Toggle("",isOn:$model.dashboardGrouped).labelsHidden().toggleStyle(.switch) }
                 PreferenceLine(title:"看板每行") {
                     Picker("",selection:$model.dashboardColumns) { Text(L10n.text("自动适应")).tag(0); ForEach(1...4,id:\.self) { Text(L10n.text("\($0) 张")).tag($0) } }.labelsHidden()
                 }
