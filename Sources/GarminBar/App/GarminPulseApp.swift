@@ -33,6 +33,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var settingsWindow: NSWindow?
+    private var preferencesWindow: NSWindow?
     private var floatingPanel: NSPanel?
     private var subscriptions: Set<AnyCancellable> = []
     private var controlObserver: NSObjectProtocol?
@@ -52,6 +53,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
             self.togglePopover(nil)
         }
         model.onQuit = { NSApplication.shared.terminate(nil) }
+        configureApplicationMenu()
         model.updater.canInstall = { [weak self] in self?.model.uploads.isSyncing == false && self?.model.bluetooth.isTransferringFiles == false && self?.model.preview == false }
         model.updater.onConfirmation = { [weak self] in self?.confirmUpdate() }
         controlObserver = DistributedNotificationCenter.default().addObserver(forName: PulseLocalControl.notification, object: nil, queue: .main) { [weak self] notification in
@@ -179,7 +181,9 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showSettings(_ page: AppPage) {
-        model.page = page; popover?.performClose(nil)
+        popover?.performClose(nil)
+        if page.isSettings { showPreferences(page); return }
+        model.page = page
         if settingsWindow == nil {
             let window = PulseSettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 1020, height: 740), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
             window.title = model.preview ? "WristBeam Demo" : L10n.text("腕映")
@@ -196,6 +200,45 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
             settingsWindow = window
         }
         applyAppearance(); settingsWindow?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func openPreferences() { showPreferences(model.settingsPage) }
+
+    private func configureApplicationMenu() {
+        let menu = NSMenu()
+        let appItem = NSMenuItem()
+        menu.addItem(appItem)
+        let appMenu = NSMenu(title: "WristBeam")
+        let settings = NSMenuItem(title: L10n.text("设置") + "…", action: #selector(openPreferences), keyEquivalent: ",")
+        settings.target = self
+        appMenu.addItem(settings)
+        appMenu.addItem(.separator())
+        appMenu.addItem(NSMenuItem(title: L10n.text("退出"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        appItem.submenu = appMenu
+        let editItem = NSMenuItem()
+        menu.addItem(editItem)
+        let editMenu = NSMenu(title: L10n.text("编辑"))
+        for (title, action, key) in [("撤销", "undo:", "z"), ("剪切", "cut:", "x"), ("复制", "copy:", "c"), ("粘贴", "paste:", "v"), ("全选", "selectAll:", "a")] {
+            editMenu.addItem(NSMenuItem(title: L10n.text(title), action: Selector(action), keyEquivalent: key))
+        }
+        editItem.submenu = editMenu
+        NSApp.mainMenu = menu
+    }
+
+    private func showPreferences(_ page: AppPage) {
+        model.settingsPage = page
+        if preferencesWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 680), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+            window.minSize = NSSize(width: 820, height: 600)
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(rootView: PreferencesRootView(model: model))
+            window.setFrameAutosaveName("WristBeamPreferences")
+            window.center()
+            preferencesWindow = window
+        }
+        applyAppearance()
+        preferencesWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func setFloating(_ enabled: Bool) {
@@ -226,7 +269,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
     private func confirmUpdate() {
         guard let release = model.updater.release, model.updater.available, !model.updater.isInstalling else { return }
         showSettings(.updates)
-        guard let window = settingsWindow, window.attachedSheet == nil else { return }
+        guard let window = preferencesWindow, window.attachedSheet == nil else { return }
         let alert = NSAlert()
         alert.messageText = L10n.format("发现新版本 {0}", release.tagName)
         alert.informativeText = L10n.text(model.updater.installable ? "确认后下载并校验安装包，完成后自动重启。账户授权、显示设置和本地数据会保留。" : "此版本没有适合本机的安装包，请在 GitHub 查看详情。")
@@ -245,6 +288,9 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
     private func applyAppearance() {
         let appearance = model.appearance == .system ? nil : NSAppearance(named: model.appearance == .light ? .aqua : .darkAqua)
         settingsWindow?.appearance = appearance; settingsWindow?.title = model.preview ? "WristBeam Demo" : L10n.text("腕映"); floatingPanel?.appearance = appearance
+        preferencesWindow?.appearance = appearance
+        preferencesWindow?.title = L10n.text("设置")
+        configureApplicationMenu()
         popover?.appearance = appearance
         refreshStatusItem()
         floatingPanel?.title = L10n.text("WristBeam 浮动指标")

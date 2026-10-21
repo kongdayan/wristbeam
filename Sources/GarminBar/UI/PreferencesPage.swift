@@ -6,7 +6,7 @@ struct PreferencesPage: View {
     init(model: AppModel) { self.model = model; self.bluetooth = model.bluetooth }
     var body: some View {
         VStack(alignment:.leading,spacing:23) {
-            switch model.page {
+            switch model.settingsPage {
             case .appearance: appearance
             case .metricSelection: MetricSelectionPage(model:model)
             case .refresh: refresh
@@ -34,9 +34,9 @@ struct PreferencesPage: View {
             }
             PreferenceBlock(title:"同步与本地数据") {
                 PreferenceLine(title:"同步设置",note:"在同步记录中管理自动上传、同步间隔与原始文件；在设备中管理配对和云账号。") {
-                    Button(L10n.text("同步记录")) { model.page = .sync }
+                    Button(L10n.text("同步记录")) { model.openSettings(.sync) }
                 }
-                PreferenceLine(title:"设备账号") { Button(L10n.text("设备账号")) { model.page = .account } }
+                PreferenceLine(title:"设备账号") { Button(L10n.text("设备账号")) { model.openSettings(.account) } }
             }
         }
     }
@@ -58,7 +58,7 @@ struct PreferencesPage: View {
                 PreferenceLine(title:"浮窗尺寸") {
                     Picker("",selection:$model.floatingSize) { ForEach(PulsePanelSize.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.segmented).labelsHidden()
                 }
-                PreferenceLine(title:"指标选择",note:"点击图标切换指标，横向滚动查看更多。") { Button(L10n.text("选择指标")) { model.page = .metricSelection } }
+                PreferenceLine(title:"指标选择",note:"点击图标切换指标，横向滚动查看更多。") { Button(L10n.text("选择指标")) { model.openSettings(.metricSelection) } }
             }
             PreferenceBlock(title:"健康看板") {
                 PreferenceLine(title:"看板每行") {
@@ -87,7 +87,7 @@ struct PreferencesPage: View {
                 PreferenceLine(title:"源代码") { Link("GitHub ↗",destination:URL(string:"https://github.com/kongdayan/wristbeam")!) }
                 PreferenceLine(title:"提交反馈 ↗") { Link(L10n.text("提交反馈 ↗"),destination:URL(string:"https://github.com/kongdayan/wristbeam/issues")!) }
                 PreferenceLine(title:"开源许可") { Link("MIT License ↗",destination:URL(string:"https://github.com/kongdayan/wristbeam/blob/main/LICENSE")!) }
-                PreferenceLine(title:"软件更新") { Button(L10n.text("检查更新")) { model.page = .updates } }
+                PreferenceLine(title:"软件更新") { Button(L10n.text("检查更新")) { model.openSettings(.updates) } }
             }
         }
     }

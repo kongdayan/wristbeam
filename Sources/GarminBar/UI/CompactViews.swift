@@ -33,6 +33,9 @@ struct MenuPopover: View {
             HStack {
                 Button(L10n.text("立即同步")) { model.syncNow() }.disabled(model.preview || (!model.bluetooth.canSyncFiles && model.uploads.pendingCount == 0))
                 Spacer()
+                Button { model.openSettings(model.settingsPage) } label: { Image(systemName: "gearshape") }
+                    .help(L10n.text("设置")).accessibilityLabel(L10n.text("设置"))
+                    .keyboardShortcut(",", modifiers: .command)
                 Button(L10n.text("退出")) { model.onQuit?() }
             }.buttonStyle(.plain).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
         }
