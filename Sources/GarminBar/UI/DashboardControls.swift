@@ -73,6 +73,9 @@ struct DashboardStylePanel: View {
             Picker(L10n.text("卡片"), selection: $model.cardSize) {
                 ForEach(PulseCardSize.allCases) { Text(L10n.text($0.title)).tag($0) }
             }.pickerStyle(.segmented)
+            Toggle(L10n.text("按类别分组"), isOn: $model.dashboardGrouped).toggleStyle(.switch)
+            Text(L10n.text("前三项为重点指标；其余按类别显示。关闭分组可自由排序。"))
+                .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
             Divider()
             HStack {
                 Text(L10n.text("看板指标")).font(PulseTheme.font(size: 13, weight: .semibold))

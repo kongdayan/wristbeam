@@ -53,6 +53,9 @@ final class AppModel: ObservableObject {
     @Published var dashboardColumns = AppPreferences.shared.object(forKey: "dashboardColumns") as? Int ?? 0 {
         didSet { AppPreferences.shared.set(dashboardColumns, forKey: "dashboardColumns") }
     }
+    @Published var dashboardGrouped = AppPreferences.shared.object(forKey: "dashboardGrouped") as? Bool ?? true {
+        didSet { AppPreferences.shared.set(dashboardGrouped, forKey: "dashboardGrouped") }
+    }
     @Published var dashboardMetrics = MetricLayout.selected("dashboardMetrics", fallback: MetricSelection.load("floatingMetrics", includeSolar: true)) {
         didSet { MetricSelection.save(dashboardMetrics, key: "dashboardMetrics") }
     }

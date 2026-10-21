@@ -112,6 +112,14 @@ import SwiftUI
                         try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                     }
                 }
+                model.openSettings(.overview)
+                model.dashboardGrouped = false
+                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
+                model.dashboardGrouped = true
+                model.fontScale = 1.6
+                try render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
+                try render(PreferencesRootView(model:model).frame(width:820,height:600),name:"preferences-narrow-\(language)-\(theme)",dark:dark,output:output)
+                model.fontScale = 1.15
                 try render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
                 model.page = .overview; model.detailMetric = .hrvNight
                 try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)

@@ -1390,5 +1390,8 @@
   "编辑": "Edit",
   "撤销": "Undo",
   "剪切": "Cut",
-  "复制": "Copy"
+  "复制": "Copy",
+  "按类别分组": "Group by category",
+  "前三项为重点指标；其余按类别显示。关闭分组可自由排序。": "Your first three metrics appear first; the rest are grouped by category. Turn grouping off for a free-form order.",
+  "重点指标": "Highlights"
 }
