@@ -14,7 +14,7 @@ All packages target macOS 13+. CI builds/tests on macOS 14, 15 and 26, with nati
 
 ## Maintainer steps
 
-1. Update `VERSION`, the fallback version in `SoftwareUpdater.swift`, `project.yml` marketing/build versions, and `CHANGELOG.md`. Regenerate the Xcode project with `xcodegen generate --spec project.yml`.
+1. Update `VERSION`, the fallback version in `SoftwareUpdater.swift`, `project.yml` marketing/build versions, the matching `PULSE_BUILD_NUMBER` default in `scripts/build.sh`, and `CHANGELOG.md`. Regenerate the Xcode project with `xcodegen generate --spec project.yml`.
 2. Run local checks listed in [CONTRIBUTING.md](../CONTRIBUTING.md), then open a focused PR. Wait for `CI passed` before merging.
 3. From a clean, updated main branch, push a stable tag matching `VERSION`:
 
