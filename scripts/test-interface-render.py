@@ -133,6 +133,18 @@ import SwiftUI
         precondition(contentScroll().contentView.bounds.origin.y < 2,"New metric detail starts at top")
         model.goBack(); settle()
         precondition(abs(contentScroll().contentView.bounds.origin.y-dashboardY) < 3,"Return restores dashboard offset")
+        let modalSheet = NSWindow(contentRect:NSRect(x:0,y:0,width:240,height:120),styleMask:.titled,backing:.buffered,defer:false)
+        modalSheet.isReleasedWhenClosed = false
+        precondition(NavigationWindowPolicy.allowsNavigation(key:navigationWindow,main:navigationWindow,preferences:nil,modal:nil))
+        navigationWindow.beginSheet(modalSheet); settle()
+        precondition(modalSheet.sheetParent === navigationWindow,"Fixture must attach a real AppKit sheet")
+        precondition(!NavigationWindowPolicy.allowsNavigation(key:modalSheet,main:nil,preferences:nil,modal:nil),"Key sheet alone blocks navigation")
+        precondition(!NavigationWindowPolicy.allowsNavigation(key:nil,main:navigationWindow,preferences:nil,modal:nil),"Sheet owner blocks navigation during focus changes")
+        precondition(!NavigationWindowPolicy.allowsNavigation(key:nil,main:nil,preferences:navigationWindow,modal:nil),"Preferences sheet also blocks navigation")
+        navigationWindow.endSheet(modalSheet); modalSheet.orderOut(nil); settle()
+        precondition(NavigationWindowPolicy.allowsNavigation(key:navigationWindow,main:navigationWindow,preferences:nil,modal:nil))
+        precondition(!NavigationWindowPolicy.allowsNavigation(key:navigationWindow,main:navigationWindow,preferences:nil,modal:modalSheet))
+        print("PASS native sheet-parent, owner-window and application-modal keyboard navigation gates")
         navigationWindow.contentView = nil
         model.selectedActivityID = selected
         model.activityBrowsing = ActivityBrowsingState(search:"Synthetic",page:1)

@@ -245,7 +245,8 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
     @objc private func refreshPage() { model.refreshCurrentPage() }
     @objc private func searchActivities() { model.activitySearchRequest += 1 }
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        if NSApp.keyWindow?.attachedSheet != nil { return false }
+        guard NavigationWindowPolicy.allowsNavigation(key: NSApp.keyWindow, main: settingsWindow,
+            preferences: preferencesWindow, modal: NSApp.modalWindow) else { return false }
         let mainActive = settingsWindow?.isKeyWindow == true
         switch menuItem.action {
         case #selector(goBack): return mainActive && model.canGoBack

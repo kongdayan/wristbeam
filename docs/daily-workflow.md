@@ -22,4 +22,4 @@ Commands appear in the macOS **Go** menu. Actions that do not apply to the activ
 
 ## Regression coverage
 
-`WorkflowTests` covers local/cloud/storage presentation, empty-state priority, search/pagination and account-scoped offset cleanup. `scripts/test-interface-render.py` checks actual native scroll positions through activity/detail and dashboard/detail transitions, and renders the production sync, menu and empty-search views in Chinese/English and light/dark modes with synthetic data. Build, native tests, package checks and rendering run in GitHub Actions.
+`WorkflowTests` covers local/cloud/storage presentation, empty-state priority, search/pagination and account-scoped offset cleanup. `scripts/test-interface-render.py` checks actual native scroll positions through activity/detail and dashboard/detail transitions, checks native sheet-parent/owner/modal shortcut gating, and renders the production sync, menu and empty-search views in Chinese/English and light/dark modes with synthetic data. Build, native tests, package checks and rendering run in GitHub Actions.
