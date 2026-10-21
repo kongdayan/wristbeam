@@ -34,6 +34,7 @@ final class AppModel: ObservableObject {
     @Published var events: [ActivityLog] = []
     var now = Date()
     @Published var page = AppPage.overview
+    @Published var settingsPage = AppPage.settings
     @Published var selectedActivityID: String?
     @Published var showLogin = false
     @Published var language = PulseLanguage(rawValue: AppPreferences.shared.string(forKey: "language") ?? "system") ?? .system {
@@ -409,7 +410,11 @@ final class AppModel: ObservableObject {
         detailDay = day ?? Date(); openSettings(.overview); detailMetric = kind
         Task { await refreshSeries(day: detailDay) }
     }
-    func openSettings(_ page: AppPage = .overview) { detailMetric = nil; self.page = page; onOpenSettings?(page) }
+    func openSettings(_ page: AppPage = .overview) {
+        if page.isSettings { settingsPage = page }
+        else { detailMetric = nil; self.page = page }
+        onOpenSettings?(page)
+    }
     func enablePreview() {
         preview = true; cloud.setNetworkEnabled(false); uploads.automaticSyncEnabled = false
         log("已进入演示预览；蓝牙与上传暂停")
@@ -459,9 +464,10 @@ final class AppModel: ObservableObject {
 }
 
 enum AppPage: String, CaseIterable, Identifiable {
-    static var navigationPages: [Self] { [.overview, .activities, .watch, .connectIQ, .sync, .settings] }
+    static var navigationPages: [Self] { [.overview, .activities, .connectIQ, .watch, .sync] }
     static var settingsPages: [Self] { [.settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about] }
-    var navigationPage: Self { self == .account ? .watch : Self.settingsPages.contains(self) ? .settings : self }
+    var isSettings: Bool { Self.settingsPages.contains(self) }
+    var navigationPage: Self { self == .account ? .watch : isSettings ? .settings : self }
     case overview, activities, watch, account, connectIQ, sync, settings, appearance, metricSelection, refresh, developer, updates, about
     var id: String { rawValue }
     var title: String {

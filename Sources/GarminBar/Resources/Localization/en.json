@@ -1386,5 +1386,9 @@
   "请输入 1–128 个字符的表盘名称、关键词或有效的佳明商店链接": "Enter a watch-face name or keyword (1–128 characters), or a valid Garmin Store link",
   "搜索结果": "Search results",
   "未找到匹配的表盘，试试其他关键词": "No matching watch faces. Try another keyword.",
-  "请输入 1–128 个字符的表盘名称或关键词": "Enter a watch-face name or keyword (1–128 characters)"
+  "请输入 1–128 个字符的表盘名称或关键词": "Enter a watch-face name or keyword (1–128 characters)",
+  "编辑": "Edit",
+  "撤销": "Undo",
+  "剪切": "Cut",
+  "复制": "Copy"
 }

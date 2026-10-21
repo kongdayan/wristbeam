@@ -14,35 +14,25 @@ struct SettingsRootView: View {
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
                 }.padding(.top, 20)
-                VStack(spacing: 5) {
-                    ForEach(AppPage.navigationPages) { page in
-                        Button { model.detailMetric = nil; model.page = page } label: {
-                            HStack(spacing: 12) { Image(systemName: page.symbol).frame(width: 18); Text(L10n.text(page.title)); Spacer() }
-                                .font(PulseTheme.font(size: 12, weight: model.page.navigationPage == page ? .semibold : .regular))
-                                .padding(.horizontal, 12).padding(.vertical, 12)
-                                .foregroundStyle(model.page.navigationPage == page ? PulseTheme.mint : Color.primary.opacity(0.55))
-                                .background(model.page.navigationPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                        }.buttonStyle(.plain)
-                    }
-                }
-                if model.page.navigationPage == .settings {
-                    VStack(alignment: .leading, spacing: 5) {
-                        ForEach(AppPage.settingsPages) { page in
-                            Button { model.page = page } label: {
-                                HStack(spacing: 9) {
-                                    Image(systemName: page.symbol).frame(width: 17)
-                                    Text(page == .settings ? L10n.text("常规设置") : page.title)
-                                    Spacer(minLength: 0)
-                                }.font(PulseTheme.font(size: 12))
-                                    .padding(.horizontal, 10).padding(.vertical, 8)
-                                    .background(model.page == page ? PulseTheme.mint.opacity(0.12) : .clear)
-                                    .clipShape(RoundedRectangle(cornerRadius: 7))
+                ScrollView {
+                    VStack(spacing: 5) {
+                        ForEach(AppPage.navigationPages) { page in
+                            Button { model.detailMetric = nil; model.page = page } label: {
+                                HStack(spacing: 12) { Image(systemName: page.symbol).frame(width: 18); Text(L10n.text(page.title)); Spacer() }
+                                    .font(PulseTheme.font(size: 12, weight: model.page.navigationPage == page ? .semibold : .regular))
+                                    .padding(.horizontal, 12).padding(.vertical, 12)
+                                    .foregroundStyle(model.page.navigationPage == page ? PulseTheme.mint : Color.primary.opacity(0.55))
+                                    .background(model.page.navigationPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
                             }.buttonStyle(.plain)
+                                .accessibilityValue(model.page.navigationPage == page ? L10n.text("已选择") : L10n.text("未选择"))
                         }
                     }
                 }
                 Spacer()
+                Button { model.openSettings(model.settingsPage) } label: {
+                    Label(L10n.text("设置"), systemImage: "gearshape").frame(maxWidth: .infinity, alignment: .leading)
+                }.buttonStyle(.bordered).keyboardShortcut(",", modifiers: .command)
                 Button { model.onShowMenu?() } label: {
                     Label(L10n.text("打开菜单栏"), systemImage: "menubar.rectangle")
                 }.buttonStyle(.bordered).frame(maxWidth: .infinity)
@@ -70,7 +60,8 @@ struct SettingsRootView: View {
                     case .connectIQ: ConnectIQPage(model: model)
                     case .watch, .account: DevicePage(model: model)
                     case .sync: SyncPage(model: model)
-                    case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about: PreferencesPage(model: model)
+                    case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about:
+                        Button(L10n.text("设置")) { model.openSettings(model.page) }
                     }
                     }
                 }.id("settings-top").padding(32).frame(maxWidth: .infinity, alignment: .leading)
@@ -87,6 +78,42 @@ struct SettingsRootView: View {
     private var pageHeader: some View {
         Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title))
             .font(PulseTheme.font(size: 27, weight: .semibold))
+    }
+}
+
+struct PreferencesRootView: View {
+    @ObservedObject var model: AppModel
+    var body: some View {
+        HStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: 5) {
+                    ForEach(AppPage.settingsPages) { page in
+                        Button { model.settingsPage = page } label: {
+                            Label(page == .settings ? L10n.text("常规设置") : page.title, systemImage: page.symbol)
+                                .font(PulseTheme.font(size: 12))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .foregroundStyle(model.settingsPage == page ? PulseTheme.mint : Color.primary)
+                                .background(model.settingsPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }.buttonStyle(.plain)
+                            .accessibilityValue(model.settingsPage == page ? L10n.text("已选择") : L10n.text("未选择"))
+                    }
+                }.padding(12)
+            }.frame(width: 190).background(Color.primary.opacity(0.025))
+            Divider()
+            ScrollViewReader { scroll in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        Text(model.settingsPage == .settings ? L10n.text("常规设置") : model.settingsPage.title)
+                            .font(PulseTheme.font(size: 24, weight: .semibold))
+                        PreferencesPage(model: model)
+                    }.padding(24).frame(maxWidth: .infinity, alignment: .leading).id("preferences-top")
+                }.onChange(of: model.settingsPage) { _ in scroll.scrollTo("preferences-top", anchor: .top) }
+            }
+        }.id(model.language).background(PulseTheme.background)
+            .foregroundStyle(.primary).font(PulseTheme.font(size: 13))
+            .preferredColorScheme(model.preferredColorScheme).environment(\.locale, L10n.locale)
     }
 }
 

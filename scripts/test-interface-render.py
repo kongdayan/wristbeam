@@ -38,6 +38,14 @@ import SwiftUI
         let battery = (catalog["metrics"] as! [[String:Any]]).first { $0["id"] as? String == "watchBattery" }!
         precondition(battery["deviceStatus"] as? Bool == true && battery["timeline"] as? Bool == false)
         print("PASS device battery stays current without health history, selection or timeline")
+        model.page = .activities
+        model.detailMetric = .heartRate
+        model.openSettings(.appearance)
+        precondition(model.page == .activities && model.detailMetric == .heartRate && model.settingsPage == .appearance)
+        model.openSettings(.account)
+        precondition(model.page == .account && model.detailMetric == nil && model.settingsPage == .appearance)
+        precondition(AppPage.navigationPages.allSatisfy { !$0.isSettings })
+        print("PASS preferences routing preserves main content and device links return to the main window")
         model.autoSync = true; model.cloudSyncEnabled = true; model.autoUpload = true
         model.cloudSyncEnabled = false
         precondition(model.autoSync && !model.autoUpload && !model.cloud.networkEnabled)
@@ -97,8 +105,12 @@ import SwiftUI
                 }
                 model.fontScale = 1.15
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.developer,.updates,.about] {
-                    model.page = page
-                    try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    model.openSettings(page)
+                    if page.isSettings {
+                        try render(PreferencesRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    } else {
+                        try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    }
                 }
                 try render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
                 model.page = .overview; model.detailMetric = .hrvNight
