@@ -68,11 +68,10 @@ struct FirstConnectionGuide: View {
                 Text(L10n.text("从设备连接开始")).font(PulseTheme.font(size: 18, weight: .semibold))
                 Text(L10n.text("打开软件不会自动申请蓝牙或连接手表。按下面的顺序设置，完成后即可在菜单栏和浮窗查看数据。"))
                     .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
-                HStack(spacing: 10) {
-                    Button { model.openSettings(.watch) } label: { Label(L10n.text("授权与配对"), systemImage: "1.circle") }
-                    Button { model.openSettings(.account) } label: { Label(L10n.text("设备账号"), systemImage: "2.circle") }
-                    Button { model.openSettings(.sync) } label: { Label(L10n.text("选择同步方式"), systemImage: "3.circle") }
-                }.buttonStyle(.bordered).font(PulseTheme.font(size: 13))
+                Button { model.openSettings(.watch) } label: { Label(L10n.text("连接手表"), systemImage: "applewatch") }
+                    .buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
+                Text(L10n.text("接收手表数据不需要云账号。"))
+                    .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
             }
         }
     }

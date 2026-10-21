@@ -1393,5 +1393,16 @@
   "复制": "Copy",
   "按类别分组": "Group by category",
   "前三项为重点指标；其余按类别显示。关闭分组可自由排序。": "Your first three metrics appear first; the rest are grouped by category. Turn grouping off for a free-form order.",
-  "重点指标": "Highlights"
+  "重点指标": "Highlights",
+  "设备选项": "Device options",
+  "配对与连接帮助": "Pairing and connection help",
+  "诊断与高级选项": "Diagnostics and advanced options",
+  "忘记这只手表？": "Forget this watch?",
+  "下次需要重新连接。已保存的健康数据和账号会保留。": "You will need to reconnect next time. Saved health data and accounts will be kept.",
+  "接收手表数据不需要云账号。": "A cloud account is optional for receiving watch data.",
+  "当前步骤": "Current step",
+  "手表已就绪。可直接接收数据，也可按需连接云账号。": "Your watch is ready. Receive data locally or connect a cloud account if needed.",
+  "连接详情": "Connection details",
+  "选择设备": "Choose a device",
+  "确认连接": "Confirm connection"
 }
