@@ -24,7 +24,13 @@ import Foundation
     }
     func refreshCurrentPage() {
         guard !preview else { return }
-        if detailMetric != nil || page == .overview { refreshMetricsNow() }
+        if let kind = detailMetric {
+            let day = detailDay
+            Task {
+                if kind.isOvernightHRV { await refreshHealthMetrics(force: true); await loadHRVNight(day) }
+                else { await refreshSeries(day: day, force: true) }
+            }
+        } else if page == .overview { refreshMetricsNow() }
         else if page == .activities {
             guard activities.online, !activities.busy else { return }
             Task {

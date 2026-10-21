@@ -145,7 +145,10 @@ struct HRVDetailView: View {
                     }
                 }
             }
-        }.task(id: day) { if report?.nights[GarminHealthMetrics.calendarDate(day)] == nil { await model.loadHRVNight(day) } }
+        }.task(id: day) {
+            model.detailDay = day
+            if report?.nights[GarminHealthMetrics.calendarDate(day)] == nil { await model.loadHRVNight(day) }
+        }
     }
     private var nightSegments: [[MetricSeriesPoint]] {
         var result: [[MetricSeriesPoint]] = [], current: [MetricSeriesPoint] = []
