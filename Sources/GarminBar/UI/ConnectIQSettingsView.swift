@@ -52,7 +52,7 @@ struct ConnectIQSettingsSheet: View {
                 Text(L10n.text(controller.status)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
             }
         }
-        .buttonStyle(ConnectIQButtonStyle())
+        .buttonStyle(PulseButtonStyle())
         .padding(20).frame(width: 700, height: 680)
         .background(PulseTheme.background)
         .interactiveDismissDisabled()
@@ -87,7 +87,7 @@ struct ConnectIQSettingsView: View {
                 Spacer()
                 if !commands.nested {
                     Button(L10n.text(saving ? "正在保存…" : "保存到手表")) { submit() }
-                        .buttonStyle(ConnectIQButtonStyle(prominent: true))
+                        .buttonStyle(PulseButtonStyle(prominent: true))
                         .disabled(saving || !commands.ready || commands.loading || commands.error != nil)
                 }
             }
