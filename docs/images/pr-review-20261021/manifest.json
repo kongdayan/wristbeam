@@ -1,0 +1,191 @@
+{
+  "captureDate": "2026-10-21",
+  "commits": {
+    "base": "dba7b37fb7ef5e5b29ed6292ffd146937b14c31a",
+    "pr14": "5a8c849f9505a3fdeaf3aadfe669726f590a9a77",
+    "pr15": "5ab958aed0c2b9da20e1afb447fb9242ceb0f3b1",
+    "pr16": "9424d54ccb0c390d14aa1573273d70d2f3c63a00"
+  },
+  "images": [
+    {
+      "file": "pr14-before-page-settings-en-light.png",
+      "snapshot": "base",
+      "sha256": "81197a495fd1e620fa298172239388c7cfeed1229e81c568ed361332e2a72b3e",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr14-before-settings-main-context-en-light.png",
+      "snapshot": "base",
+      "sha256": "81197a495fd1e620fa298172239388c7cfeed1229e81c568ed361332e2a72b3e",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr14-before-page-settings-zh-dark.png",
+      "snapshot": "base",
+      "sha256": "e8b2babfa5d1c3698e4b500a2b7d623ebfa5f73a6f1932ada1a7bf9272a29b04",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr14-after-page-settings-en-light.png",
+      "snapshot": "pr14",
+      "sha256": "fc434a4ad30130af48c60d57ed63e9ea4024267e47b42d86e191ced817c770b5",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr14-after-settings-main-context-en-light.png",
+      "snapshot": "pr14",
+      "sha256": "e95e6a92bc847bb2d0fd5eb42396d43d4d899bb55c7870e3349058a22879f18d",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr14-after-page-settings-zh-dark.png",
+      "snapshot": "pr14",
+      "sha256": "a9fb7757141b59a236668bfcff21941dd32834baeb3ad2796fc3c68da28c0aa9",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr15-before-page-overview-en-light.png",
+      "snapshot": "pr14",
+      "sha256": "9e8a35c2be8c77ebb70f8bcd3d751e9f5761e3b4ae590ea2efbfd9ae99ead341",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr15-before-page-overview-zh-dark.png",
+      "snapshot": "pr14",
+      "sha256": "d37af773c8eec567a2236b08ebf77952f6948b315f70a8ebfa7e8378272bb628",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr15-before-dashboard-narrow-en-light.png",
+      "snapshot": "pr14",
+      "sha256": "3e49263d4413888902e978a493da287f9ab7a5bb5b917b66617c60ccb3bf2325",
+      "pixels": [
+        1760,
+        1280
+      ]
+    },
+    {
+      "file": "pr15-after-page-overview-en-light.png",
+      "snapshot": "pr15",
+      "sha256": "a1b618f6f0ad4df7dfdc0a00d646e7136b945c83f76012a003c33654ea256e4c",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr15-after-page-overview-zh-dark.png",
+      "snapshot": "pr15",
+      "sha256": "5b2f9743c373a6741ff1fa76d30ce2eb5ed12dcb9102d5c69ce9dfb0a2fbc536",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr15-after-dashboard-narrow-en-light.png",
+      "snapshot": "pr15",
+      "sha256": "b080e18e43b9efb47751f33d904e57d6929460c2d5e627afb8d7d5020f4c1cd7",
+      "pixels": [
+        1760,
+        1280
+      ]
+    },
+    {
+      "file": "pr16-before-page-watch-en-light.png",
+      "snapshot": "pr15",
+      "sha256": "e67354bec646e3dcf7214f55ffb6f7e7994a3a780a91c859d0e79ee7893640b8",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr16-before-page-watch-zh-dark.png",
+      "snapshot": "pr15",
+      "sha256": "0ab77461ad60f5c1ff985681c9372e5aea6450b63ba04887592a42cdca73d5ef",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr16-after-page-watch-en-light.png",
+      "snapshot": "pr16",
+      "sha256": "888f9db0898d793b2edb8962797639377a5d8e841cfb91ee91b6d4c2538a3a5b",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr16-after-page-watch-zh-dark.png",
+      "snapshot": "pr16",
+      "sha256": "2bc9ac168ca88baf76faa2e8891d2ce26337a265161e837bc27a404994795e21",
+      "pixels": [
+        2040,
+        1536
+      ]
+    },
+    {
+      "file": "pr16-after-pairing-0-en-dark.png",
+      "snapshot": "pr16",
+      "sha256": "aa12a17e3ccf2fd3b9fcca460b315f5d0fc85a3970249f8b63cf5c015be579ab",
+      "pixels": [
+        1280,
+        760
+      ]
+    },
+    {
+      "file": "pr16-after-pairing-1-en-dark.png",
+      "snapshot": "pr16",
+      "sha256": "d9f6d08b526787072eafb4328315abf550d638195a4555cb515a74de67cbc3f1",
+      "pixels": [
+        1280,
+        864
+      ]
+    },
+    {
+      "file": "pr16-after-pairing-2-en-dark.png",
+      "snapshot": "pr16",
+      "sha256": "18e8af5441837bba70569c383d4d488f6b80693ae66f55dbfe17caaae2586e11",
+      "pixels": [
+        1280,
+        782
+      ]
+    },
+    {
+      "file": "pr16-after-pairing-3-en-dark.png",
+      "snapshot": "pr16",
+      "sha256": "61882994602d64d0861fe4e7284dbcb4d65dee5c3d96a2aea8eeaf6bfe7027cc",
+      "pixels": [
+        1280,
+        672
+      ]
+    }
+  ]
+}
