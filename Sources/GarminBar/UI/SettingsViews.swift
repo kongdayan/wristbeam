@@ -14,7 +14,7 @@ struct SettingsRootView: View {
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
                 }.padding(.top, 20)
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: 5) {
                         ForEach(AppPage.navigationPages) { page in
                             Button { model.detailMetric = nil; model.page = page } label: {
@@ -50,7 +50,7 @@ struct SettingsRootView: View {
                 .background(Color.primary.opacity(0.025))
             Rectangle().fill(Color.primary.opacity(0.06)).frame(width: 1)
             ScrollViewReader { scroll in
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: PulseTheme.sectionSpacing) {
                     if let kind = model.detailMetric {
                         if kind.isOvernightHRV { HRVDetailView(model: model, kind: kind) } else { MetricDetailView(model: model, kind: kind) }
@@ -96,7 +96,7 @@ struct PreferencesRootView: View {
     @ObservedObject var model: AppModel
     var body: some View {
         HStack(spacing: 0) {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 5) {
                     ForEach(AppPage.settingsPages) { page in
                         Button { model.settingsPage = page } label: {
@@ -114,7 +114,7 @@ struct PreferencesRootView: View {
             }.frame(width: 190).background(Color.primary.opacity(0.025))
             Divider()
             ScrollViewReader { scroll in
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 24) {
                         Text(model.settingsPage == .settings ? L10n.text("常规设置") : model.settingsPage.title)
                             .font(PulseTheme.font(size: 24, weight: .semibold))

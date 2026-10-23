@@ -88,7 +88,7 @@ struct DashboardStylePanel: View {
                 Button(L10n.text("全取消")) { model.dashboardMetrics = [] }
             }.buttonStyle(.bordered).controlSize(.small)
             TextField(L10n.text("搜索指标"), text: $search).textFieldStyle(.roundedBorder)
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 6) {
                     ForEach(MetricCategory.allCases) { category in
                         let items = available.filter { $0.category == category }

@@ -173,7 +173,7 @@ struct MetricDetailView: View {
                             TableColumn(L10n.text("时间")) { point in Text(L10n.text(intervalLabel(point))).monospacedDigit() }
                             TableColumn(L10n.text("\(canonical.title)（\(canonical.seriesUnit)）")) { point in Text(L10n.text(point.value.map { formatted($0) } ?? "不可测 / 缺测")).monospacedDigit() }
                             TableColumn(L10n.text("记录类型")) { point in Text(L10n.text(point.origin == .watch ? "Mac 接收" : point.label ?? (point.charging == true ? "太阳能充电中" : model.cloud.region.title))) }
-                        }.frame(height: 230)
+                        }.scrollIndicators(.hidden).frame(height: 230)
                         Text(L10n.text("点击一条记录，将在图表中定位到对应时间。")).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                     }.font(PulseTheme.font(size: 12))
                 }

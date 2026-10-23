@@ -14,7 +14,7 @@ struct MenuPopover: View {
                 WatchBatteryBadge(model: model)
                 StatusDot(active: model.bluetooth.isConnected || model.preview)
             }
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
                     ForEach(model.menuVisibleMetrics) { MetricCard(model: model, kind: $0, compact: true) }
                 }

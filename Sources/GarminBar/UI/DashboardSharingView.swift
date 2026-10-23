@@ -48,7 +48,7 @@ struct DashboardShareSheet: View {
                         Button(L10n.text("全部")) { selected = Set(metrics.map(\.kind)); valueOnly = false }
                         Button(L10n.text("清空")) { selected = [] }
                     }.buttonStyle(.bordered)
-                    ScrollView {
+                    ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(metrics) { metric in
                                 Button {
@@ -72,7 +72,7 @@ struct DashboardShareSheet: View {
                     Text(L10n.text("图片保留此刻的数据；关闭后重新打开可获取最新读数。"))
                         .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                 }.frame(width: 200)
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     if let image = currentImage { Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).frame(width: 490) }
                     else { Text(L10n.text(selected.isEmpty ? "选择至少一个指标以预览。" : "正在生成图片…")).frame(width: 490, height: 250) }
                 }.frame(width: 490, height: 445).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 16))

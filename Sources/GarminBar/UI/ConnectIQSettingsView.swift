@@ -181,6 +181,7 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
+        configuration.hideScrollIndicators()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         let view = WKWebView(frame: .zero, configuration: configuration)
