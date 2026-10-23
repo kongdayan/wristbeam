@@ -66,7 +66,7 @@ extension ConnectIQSettingsCloudTests {
     @MainActor
     func testProductionEditorResourceRulesCompileInWebKitForBothRegions() async throws {
         for host in ["apps.garmin.cn", "apps.garmin.com"] {
-            let json = try ConnectIQSettingsWebEditor.contentRuleListJSON(host: host)
+            let json = try ConnectIQSettingsEditorPolicy.contentRuleListJSON(host: host)
             let identifier = "WristBeam.Tests.ConnectIQ." + UUID().uuidString
             let store = WKContentRuleListStore.default()!
             let list: WKContentRuleList = try await withCheckedThrowingContinuation { continuation in
@@ -77,7 +77,7 @@ extension ConnectIQSettingsCloudTests {
                 }
             }
             XCTAssertEqual(list.identifier, identifier)
-            store.removeContentRuleList(forIdentifier: identifier) { _ in }
+            try await store.removeContentRuleList(forIdentifier: identifier)
         }
     }
 
@@ -85,7 +85,7 @@ extension ConnectIQSettingsCloudTests {
         let base = "https://apps.garmin.cn/zh-CN/appSettings2/"
         let route = "00112233-4455-6677-8899-aabbccddeeff/versions/7/devices/006-B9999-00/edit"
         let initial = try XCTUnwrap(URL(string: base + "android/" + route))
-        let policy = try XCTUnwrap(ConnectIQSettingsWebEditor.NavigationPolicy(initial))
+        let policy = try XCTUnwrap(ConnectIQSettingsEditorPolicy.NavigationPolicy(initial))
         XCTAssertTrue(policy.allowsPage(URL(string: base + route)!))
         XCTAssertTrue(policy.allowsPage(URL(string: base + route + "?editGroup=display")!))
         XCTAssertFalse(policy.allowsPage(URL(string: base + route.replacingOccurrences(of: "/versions/7/", with: "/versions/8/"))!))
