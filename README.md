@@ -31,6 +31,8 @@ Your AI can already count tokens. Now it can ask how *you're* doing.
 
 [Download](https://github.com/kongdayan/wristbeam/releases/latest) · [Issues & device reports](https://github.com/kongdayan/wristbeam/issues) · [Contribute](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
+**New in 0.3.10:** larger click targets, full-row expandable sections, better large-text layouts and clean, scrollbar-free pages. [Release notes](CHANGELOG.md#0310--2026-10-23).
+
 ## A closer look
 
 ![Menu bar and click-to-open panel](docs/images/showcase-menu.png)
@@ -45,6 +47,7 @@ Real app UI with isolated demo data. [Original captures and artwork notes](docs/
 
 ## Features
 
+- **Settings that stay out of the way.** A separate preferences window groups appearance, metric selection, refresh, developer integrations and updates. Click an entire section header to expand it; scroll normally without visible scrollbars.
 - **Keep it on your Mac.** Watch data works without a cloud account. Pause all Garmin cloud access, keep local files, then export FIT + CSV or upload later. [Local mode](docs/SETUP.md).
 - **Let your AI remember your workouts.** Browse the Activities sidebar, open a workout to load its statistics and charts, export JSON / TCX / GPX / original files, and query cached workouts over MCP. Optional scheduled summary refresh. [Activity API](docs/developer/API.md#activity-library).
 - Compact dimensional cards with timestamps beside the title. Customize layout and essentials in one panel; share the dashboard, selected cards or a single value as a framed image in light or dark, with copy, save and native sharing.
@@ -96,6 +99,8 @@ The catalog has **60 health metrics and one device-status field**. Only metrics 
 | Apple Silicon | [arm64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-arm64.zip) |
 | Intel | [x86_64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-x86_64.zip) |
 | Either architecture | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
+
+Existing users: **Settings → Software updates → Check for updates**. Cloud login is optional; connect an account only when you want Garmin cloud access.
 
 Requires macOS 13+. Extract and move the app to a writable Applications folder. Open Devices → Connection, prepare the watch with heart-rate broadcast off, then click a connection button to allow Bluetooth. Choose China/Global in Device account and sign in on Garmin's official page; choose manual or automatic uploads in Sync records. Connecting at launch is off by default and can be enabled after pairing.
 
