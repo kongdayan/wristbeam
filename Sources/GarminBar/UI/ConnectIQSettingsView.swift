@@ -217,14 +217,7 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
         }
         func start(_ view: WKWebView) {
             guard let policy else { fail(); return }
-            let rules: [[String: Any]] = [
-                ["trigger": ["url-filter": ".*"], "action": ["type": "block"]],
-                ["trigger": ["url-filter": "^https://" + NSRegularExpression.escapedPattern(for: policy.host) + "/([^/]+/)?appSettings2/"], "action": ["type": "ignore-previous-rules"]],
-                ["trigger": ["url-filter": "^https://cdn\\.jsdelivr\\.net/npm/bootstrap@5\\.0\\.1/dist/css/bootstrap\\.min\\.css$", "resource-type": ["style-sheet"]], "action": ["type": "ignore-previous-rules"]],
-                ["trigger": ["url-filter": "^data:image/", "resource-type": ["image"]], "action": ["type": "ignore-previous-rules"]],
-                ["trigger": ["url-filter": "^data:application/x-font-(woff|ttf);", "resource-type": ["font"]], "action": ["type": "ignore-previous-rules"]]
-            ]
-            guard let data = try? JSONSerialization.data(withJSONObject: rules), let json = String(data: data, encoding: .utf8) else { fail(); return }
+            guard let json = try? ConnectIQSettingsWebEditor.contentRuleListJSON(host: policy.host) else { fail(); return }
             WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "WristBeam.ConnectIQ.Settings." + policy.host, encodedContentRuleList: json) { [weak self, weak view] list, _ in
                 Task { @MainActor in
                     guard let self, self.active, let view else { return }
@@ -327,6 +320,20 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
             alert.informativeText = message
             return alert
         }
+    }
+
+    // WebKit URL filters reject alternation (woff|ttf); keep each font rule separate.
+    static func contentRuleListJSON(host: String) throws -> String {
+        let rules: [[String: Any]] = [
+            ["trigger": ["url-filter": ".*"], "action": ["type": "block"]],
+            ["trigger": ["url-filter": "^https://" + NSRegularExpression.escapedPattern(for: host) + "/([^/]+/)?appSettings2/"], "action": ["type": "ignore-previous-rules"]],
+            ["trigger": ["url-filter": "^https://cdn\\.jsdelivr\\.net/npm/bootstrap@5\\.0\\.1/dist/css/bootstrap\\.min\\.css$", "resource-type": ["style-sheet"]], "action": ["type": "ignore-previous-rules"]],
+            ["trigger": ["url-filter": "^data:image/", "resource-type": ["image"]], "action": ["type": "ignore-previous-rules"]],
+            ["trigger": ["url-filter": "^data:application/x-font-woff;", "resource-type": ["font"]], "action": ["type": "ignore-previous-rules"]],
+            ["trigger": ["url-filter": "^data:application/x-font-ttf;", "resource-type": ["font"]], "action": ["type": "ignore-previous-rules"]]
+        ]
+        let data = try JSONSerialization.data(withJSONObject: rules)
+        return String(decoding: data, as: UTF8.self)
     }
 
     struct NavigationPolicy {

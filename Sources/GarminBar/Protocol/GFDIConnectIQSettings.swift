@@ -104,7 +104,11 @@ enum GFDIMonkeyCodec {
         }
         guard tag == 0xda7ada7a else { throw reader.failure("object-marker") }
         let objectSize = Int(try reader.number(4))
-        guard objectSize == reader.remaining else { throw reader.failure("object-size-\(objectSize)") }
+        guard objectSize <= reader.remaining else { throw reader.failure("object-size-\(objectSize)") }
+        // Official d55.h decodes only the declared object section. Some watch
+        // properties include trailing bytes; they are not additional Monkey C values.
+        // Bound the reader so a truncated value cannot consume bytes from that tail.
+        reader = Reader(data: Array(try reader.take(objectSize)))
         if objectSize == 0 { return .dictionary([:]) } // ahc.m also accepts an empty object list.
         var nodes: [Node] = []
         while reader.remaining > 0 {
