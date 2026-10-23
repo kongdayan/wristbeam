@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 25
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(inputs.full-matrix && '{"include":[{"runner":"macos-14","label":"macOS 14 · Apple Silicon","arch":"arm64","artifact":"package-macos14-arm64"},{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"},{"runner":"macos-15-intel","label":"macOS 15 · Intel","arch":"x86_64","artifact":"release-x86_64"},{"runner":"macos-26","label":"macOS 26 · Apple Silicon","arch":"arm64","artifact":"package-macos26-arm64"}]}' || '{"include":[{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"},{"runner":"macos-15-intel","label":"macOS 15 · Intel","arch":"x86_64","artifact":"release-x86_64"}]}') }}
+      matrix: ${{ fromJSON(inputs.full-matrix && '{"include":[{"runner":"macos-14","label":"macOS 14 · Apple Silicon","arch":"arm64","artifact":"package-macos14-arm64"},{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"},{"runner":"macos-15-intel","label":"macOS 15 · Intel","arch":"x86_64","artifact":"release-x86_64"},{"runner":"macos-26","label":"macOS 26 · Apple Silicon","arch":"arm64","artifact":"package-macos26-arm64"}]}' || '{"include":[{"runner":"macos-14","label":"macOS 14 · Apple Silicon","arch":"arm64","artifact":"package-macos14-arm64"},{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"},{"runner":"macos-15-intel","label":"macOS 15 · Intel","arch":"x86_64","artifact":"release-x86_64"}]}') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,6 +47,14 @@ jobs:
       - name: Native settings and floating render smoke checks
         if: matrix.arch == 'arm64'
         run: python3 scripts/test-interface-render.py dist/interface-renders
+      - name: Preserve native interaction failure screenshot
+        if: failure() && matrix.arch == 'arm64'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-interaction-failure-${{ matrix.runner }}
+          path: dist/interface-renders/interaction-failure.png
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Render showcase images
         if: matrix.runner == 'macos-15'
         run: |

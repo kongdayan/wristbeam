@@ -25,10 +25,13 @@ import SwiftUI
     @MainActor static func main() throws {
         precondition(PulseRuntime.isPreview)
         _ = NSApplication.shared
+        // Initialize AppKit normally even though this is a command-line fixture.
+        NSApp.setActivationPolicy(.regular)
+        NSApp.finishLaunching()
         let output = URL(fileURLWithPath:CommandLine.arguments[1],isDirectory:true)
         let model = AppModel()
         model.enablePreview()
-        verifyDisclosureHitTargets()
+        verifyDisclosureHitTargets(output: output)
         model.receive(MetricSample(kind:.watchBattery,value:77,source:"fixture"))
         precondition(model.metrics[.watchBattery]?.value == 77)
         precondition(model.history[.watchBattery] == nil && model.series(for:.watchBattery) == nil)
@@ -252,13 +255,23 @@ import SwiftUI
         precondition(model.cloud.requestCount == 0)
         print("PASS: production-view renders including cached activity detail and Connect IQ; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font; no cloud requests")
     }
-    @MainActor static func verifyDisclosureHitTargets() {
+    @MainActor static func verifyDisclosureHitTargets(output: URL) {
         let fixture = DisclosureInteractionState()
-        let host = NSHostingView(rootView: DisclosureInteractionFixture(state: fixture))
+        let host = InteractionHostingView(rootView: DisclosureInteractionFixture(state: fixture))
         host.frame = NSRect(x:0,y:0,width:600,height:400)
         let window = NSWindow(contentRect:host.frame,styleMask:[.titled],backing:.buffered,defer:false)
         window.contentView = host
         window.makeKeyAndOrderFront(nil)
+        // Hosted macOS 14 may deny foreground activation to a command-line process.
+        // Dispatch to our own window; AppKit still hit-tests the real SwiftUI controls.
+        func require(_ condition: Bool, _ message: String) {
+            if !condition, let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                host.cacheDisplay(in: host.bounds, to: bitmap)
+                try? bitmap.representation(using: .png, properties: [:])?.write(to: output.appendingPathComponent("interaction-failure.png"))
+                FileHandle.standardOutput.write(Data(("Interaction fixture: active=\(NSApp.isActive) key=\(window.isKeyWindow) bounds=\(host.bounds)\n").utf8))
+            }
+            precondition(condition, message)
+        }
         func settle() { host.layoutSubtreeIfNeeded(); RunLoop.main.run(until:Date().addingTimeInterval(0.1)) }
         func click(_ x:CGFloat,_ yFromTop:CGFloat) {
             settle()
@@ -269,22 +282,25 @@ import SwiftUI
                     windowNumber:window.windowNumber,context:nil,eventNumber:0,clickCount:1,pressure:type == .leftMouseDown ? 1 : 0)!
                 NSApp.postEvent(event,atStart:false)
             }
-            while let event = NSApp.nextEvent(matching:.any,until:Date().addingTimeInterval(0.1),inMode:.default,dequeue:true) { NSApp.sendEvent(event) }
+            while let event = NSApp.nextEvent(matching:.any,until:Date().addingTimeInterval(0.1),inMode:.default,dequeue:true) {
+                if event.windowNumber == window.windowNumber { window.sendEvent(event) }
+                else { NSApp.sendEvent(event) }
+            }
             settle()
         }
         settle()
         click(480,24)
-        precondition(fixture.expanded,"Disclosure whitespace must expand the section")
+        require(fixture.expanded,"Disclosure whitespace must expand the section")
         click(480,85)
-        precondition(fixture.contentClicks == 1 && fixture.expanded,"Content buttons must act without collapsing the section")
+        require(fixture.contentClicks == 1 && fixture.expanded,"Content buttons must act without collapsing the section")
         click(578,24)
-        precondition(!fixture.expanded,"Chevron must collapse the section")
+        require(!fixture.expanded,"Chevron must collapse the section")
         click(480,82)
-        precondition(fixture.selected && !fixture.expanded,"Checkbox cell whitespace must toggle without opening the disclosure")
+        require(fixture.selected && !fixture.expanded,"Checkbox cell whitespace must toggle without opening the disclosure")
         click(65,24)
-        precondition(fixture.expanded,"Label must expand the section")
+        require(fixture.expanded,"Label must expand the section")
         fixture.disabled = true; settle(); click(480,24)
-        precondition(fixture.expanded,"Disabled disclosure must not toggle")
+        require(fixture.expanded,"Disabled disclosure must not toggle")
         window.orderOut(nil)
         print("PASS native mouse events: disclosure label, whitespace, chevron, independent content, selection cell and disabled state")
     }
@@ -304,6 +320,9 @@ import SwiftUI
         try data.write(to:output.appendingPathComponent(name + ".png"))
         print("PASS \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh)")
     }
+}
+@MainActor final class InteractionHostingView: NSHostingView<DisclosureInteractionFixture> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 @MainActor final class DisclosureInteractionState: ObservableObject {
     @Published var expanded = false

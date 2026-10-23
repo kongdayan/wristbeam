@@ -59,7 +59,7 @@ The old 0.3.0 updater pins the former repository path and cannot interpret GitHu
 
 ## CI tiers and artifact reuse
 
-PR checks cover native Apple Silicon and Intel builds, tests, UI rendering on ARM and CodeQL. Main, merge-queue and full release fallback cover macOS 14/15/26 ARM plus Intel. Cancelled workflows skip the aggregate gate rather than reporting a secondary failure.
+PR checks cover macOS 14/15 Apple Silicon and macOS 15 Intel builds, tests, UI rendering on ARM and CodeQL. The oldest hosted macOS target stays in the PR matrix to catch native interaction differences before merge. Main, merge-queue and full release fallback cover macOS 14/15/26 ARM plus Intel. Cancelled workflows skip the aggregate gate rather than reporting a secondary failure.
 
 Release first looks for a successful `ci.yml` main-push run for the exact tag commit. If that run is still active it waits up to 35 minutes; without a usable run/artifact it executes full release checks. Reuse verifies GitHub's artifact SHA-256, allowed archive members, embedded source commit/run ID/version/architecture, and package SHA-256. Existing native signature, architecture and version validation still runs before universal packaging and publication. PR artifacts and artifacts from another commit are never reusable. API contract: [GitHub artifact endpoints](https://docs.github.com/en/rest/actions/artifacts).
 
