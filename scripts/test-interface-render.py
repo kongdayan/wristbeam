@@ -280,7 +280,11 @@ import SwiftUI
             for type in [NSEvent.EventType.leftMouseDown,.leftMouseUp] {
                 let event = NSEvent.mouseEvent(with:type,location:point,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,
                     windowNumber:window.windowNumber,context:nil,eventNumber:0,clickCount:1,pressure:type == .leftMouseDown ? 1 : 0)!
-                window.sendEvent(event)
+                NSApp.postEvent(event,atStart:false)
+            }
+            while let event = NSApp.nextEvent(matching:.any,until:Date().addingTimeInterval(0.1),inMode:.default,dequeue:true) {
+                if event.windowNumber == window.windowNumber { window.sendEvent(event) }
+                else { NSApp.sendEvent(event) }
             }
             settle()
         }
