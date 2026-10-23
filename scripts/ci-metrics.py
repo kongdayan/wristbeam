@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import platform
 import resource
+import re
 import statistics
 import subprocess
 import time
@@ -87,6 +88,9 @@ def markdown(report):
         lines.append('| ' + ' | '.join([cell(row['name']), cell(row['conclusion'] or row['status']),
                                        elapsed(row['elapsedSeconds']), elapsed(row['baselineMedianSeconds']), change,
                                        str(row['baselineSamples'])]) + ' |')
+    if report.get('baselineWarnings'):
+        lines += ['', 'Historical comparison is incomplete:']
+        lines += ['- ' + cell(warning) for warning in report['baselineWarnings']]
     lines += ['', 'Baseline: up to five recent successful runs of the same workflow and event. Runner/toolchain changes and small samples can affect comparisons.', '',
               '### Slowest steps', '', '| Job / step | Elapsed |', '| --- | ---: |']
     steps = [(s['elapsedSeconds'], row['name'], s['name']) for row in report['jobs'] for s in row['steps']]
@@ -95,8 +99,37 @@ def markdown(report):
     return '\n'.join(lines) + '\n'
 
 
+class GitHubAPIError(RuntimeError):
+    """Bounded metadata only: never expose command stderr or response bodies."""
+    def __init__(self, status=None, retryable=False):
+        self.status = status
+        self.retryable = retryable
+        super().__init__(f'GitHub API HTTP {status}' if status else 'GitHub API request timed out')
+
+
 def api(path):
-    return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
+    for attempt in range(3):
+        try:
+            result = subprocess.run(['gh', 'api', path], text=True, capture_output=True, timeout=20)
+        except subprocess.TimeoutExpired:
+            error = GitHubAPIError(retryable=True)
+        else:
+            if result.returncode == 0:
+                return json.loads(result.stdout)
+            match = re.search(r'HTTP (\d{3})', result.stderr)
+            status = int(match.group(1)) if match else None
+            error = GitHubAPIError(status, status in (429, 500, 502, 503, 504))
+            if status is None:
+                error = RuntimeError('GitHub API command failed')
+        if not isinstance(error, GitHubAPIError) or not error.retryable or attempt == 2:
+            raise error
+        time.sleep(2 ** attempt)
+
+
+def optional_history_error(error):
+    # Deleted historical runs and exhausted transient failures affect comparisons,
+    # not the measurements for this run. Authentication/schema errors stay fatal.
+    return isinstance(error, GitHubAPIError) and (error.retryable or error.status == 404)
 
 
 def jobs_for(repo, run):
@@ -112,11 +145,28 @@ def jobs_for(repo, run):
 def report_run(repo, run_id, output):
     run = api(f'repos/{repo}/actions/runs/{run_id}')
     jobs = jobs_for(repo, run)
-    past = api(f'repos/{repo}/actions/workflows/{run["workflow_id"]}/runs?status=success&event={run["event"]}&per_page=6')
+    warnings, baselines, baseline_ids = [], [], []
+    try:
+        past = api(f'repos/{repo}/actions/workflows/{run["workflow_id"]}/runs?status=success&event={run["event"]}&per_page=6')
+    except GitHubAPIError as error:
+        if not optional_history_error(error):
+            raise
+        past = {'workflow_runs': []}
+        warnings.append(f'Historical run listing unavailable: {error}.')
     candidates = [r for r in past['workflow_runs'] if r['id'] != run['id'] and r['created_at'] < run['created_at']][:5]
-    baselines = [jobs_for(repo, old) for old in candidates]
+    for old in candidates:
+        try:
+            baseline = jobs_for(repo, old)
+        except GitHubAPIError as error:
+            if not optional_history_error(error):
+                raise
+            warnings.append(f'Historical run {old["id"]} omitted: {error}.')
+        else:
+            baselines.append(baseline)
+            baseline_ids.append(old['id'])
     result = summarize(run, jobs, baselines)
-    result['baselineRunIDs'] = [r['id'] for r in candidates]
+    result['baselineRunIDs'] = baseline_ids
+    result['baselineWarnings'] = warnings
     target = Path(output)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(result, indent=2) + '\n')

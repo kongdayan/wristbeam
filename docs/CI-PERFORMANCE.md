@@ -30,3 +30,12 @@ The [Intel Debug/no-index probe](https://github.com/kongdayan/wristbeam/actions/
 The same 28 Swift security rules completed with no reported analysis errors or warnings. The extracted database and source archive sizes were nearly identical; these sizes are supporting evidence, not proof of exact file/line coverage. Source review found one `#if DEBUG` block adding updater fixture handling, with no Release-only alternative. The benchmark uses a manual dispatch while the baseline is a PR run; hosted machine variability and event-specific analysis make this a directional comparison, not a guaranteed percentage improvement.
 
 CI now uses Debug/no-index for Swift extraction on the existing Intel runner. This avoids Release whole-module optimization and IDE indexing for a job whose output is a source-analysis database. Actual Release packaging, ARM/Intel functional checks, and the security-extended query suite remain unchanged. Review new compilation-condition branches when changing this configuration. An Apple Silicon Release probe is retained as a separate experiment; it has not been adopted.
+
+### API availability
+
+Timing reports retry transient GitHub API errors and timeouts up to three attempts,
+with a 20-second timeout per request. Current-run metadata and jobs are required.
+Historical comparison is optional: an unavailable or deleted historical run is
+omitted after retries, and the JSON/Markdown report explicitly records the gap.
+Only successfully retrieved runs contribute to sample counts and medians.
+Authentication, schema and other unexpected errors still fail the report.
