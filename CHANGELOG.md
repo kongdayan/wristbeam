@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.10 — 2026-10-23
+
+- Expand Sync settings, Files and uploads, and other sections by clicking anywhere on their header. Keep controls inside expanded sections independent, with consistent borders and hover/focus feedback.
+- Align Settings and Open menu bar actions, enlarge utility buttons, and make metric-selection cells easier to click. Scale checkboxes with text size.
+- Keep preference controls aligned beside wrapping descriptions and adapt developer actions to narrow windows and larger text. Simplify expanded connection and sync settings.
+- Hide scroll indicators across pages, preferences, menu popovers, sharing, Connect IQ, raw metric tables and embedded web pages while preserving scrolling and saved positions.
+- Validate native disclosure/selection click targets and scrolling, and include native before/after screenshots in the UI review.
+- Update the pinned checkout and artifact-download GitHub Actions.
+
 ## 0.3.9 — 2026-10-21
 
 - Add Connect IQ watch-face management on Mac: text search, store details, package download/install, installed apps and device settings. Updates and reinstalls transfer the package even when the app UUID is already present. Chinese and English interface text follows the app language.
