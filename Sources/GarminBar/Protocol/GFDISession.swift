@@ -41,6 +41,7 @@ final class GFDISession {
     var onDeviceInfo: ((GFDIDeviceInfo) -> Void)?
     var onRealtimeData: ((UInt16, Data) -> Void)?
     var onConnectIQSettingsStatus: ((String, Bool) -> Void)?
+    var onConnectIQSettingsDiagnostic: ((String) -> Void)?
     private(set) var connectIQSettingsBusy = false
     private var settingsOperationID: UUID?
     private var settingsAppID = ""
@@ -1044,6 +1045,7 @@ final class GFDISession {
             completion(.failure(GFDIConnectIQSettingsError.stale)); return
         }
         let id = uuid.uuidString.lowercased()
+        onConnectIQSettingsDiagnostic?("starting-read")
         guard installedWatchFaceInventory?.apps.contains(where: { $0.id == id && $0.unitID == expectedUnitID }) == true else {
             completion(.failure(GFDIConnectIQSettingsError.notInstalled)); return
         }
@@ -1122,7 +1124,9 @@ final class GFDISession {
         ciqCompletion = nil; ciqDeadline = nil; ciqTransfer = nil; ciqQueryID = nil; ciqOutgoingData = Data()
         switch result {
         case .success(let snapshot): onConnectIQSettingsStatus?(snapshot.savedAndVerified ? "手表已保存并回读确认设置" : "已读取手表表盘设置", false)
-        case .failure(let error): onConnectIQSettingsStatus?(error is CancellationError ? "已取消表盘设置操作" : error.localizedDescription, false)
+        case .failure(let error):
+            if let parse = error as? GFDISettingsParseError { onConnectIQSettingsDiagnostic?(parse.diagnostic) }
+            onConnectIQSettingsStatus?(error is CancellationError ? "已取消表盘设置操作" : error.localizedDescription, false)
         }
         callback?(result)
     }
@@ -1145,6 +1149,7 @@ final class GFDISession {
                 guard !fragment.duplicate, connectIQSettingsBusy, pushed.appID == settingsAppID,
                       let operationID = settingsOperationID else { return }
                 do {
+                    onConnectIQSettingsDiagnostic?("decoding-properties: bytes=\(pushed.data.count)")
                     settingsReceived = (try GFDIMonkeyCodec.decode(pushed.data), pushed.data)
                     completeSettingsReadIfReady(operationID: operationID)
                 } catch { finishSettings(.failure(error)) }

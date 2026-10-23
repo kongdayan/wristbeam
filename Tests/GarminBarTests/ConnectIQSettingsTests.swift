@@ -3,6 +3,17 @@ import XCTest
 @testable import GarminBar
 
 final class ConnectIQSettingsTests: XCTestCase {
+    func testMalformedPropertiesReportStructureWithoutValues() throws {
+        let privateValue = "synthetic-secret-do-not-log"
+        let bytes = try GFDIMonkeyCodec.encode(.dictionary(["private-key": .string(privateValue)]))
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(bytes + Data([0]))) { error in
+            guard let diagnostic = error as? GFDISettingsParseError else { return XCTFail("Missing structural diagnostic") }
+            XCTAssertTrue(diagnostic.stage.hasPrefix("object-size-"))
+            XCTAssertFalse(diagnostic.diagnostic.contains(privateValue))
+            XCTAssertFalse(diagnostic.diagnostic.contains("private-key"))
+            XCTAssertEqual(diagnostic.localizedDescription, GFDIConnectIQSettingsError.malformed.localizedDescription)
+        }
+    }
     func testBreadthFirstMonkeyValuesRoundTripWithoutLosingTypes() throws {
         let value: GFDIMonkeyValue = .dictionary([
             "text": .string("中文 ✓"), "bool": .bool(true), "null": .null,

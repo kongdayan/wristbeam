@@ -42,6 +42,7 @@ private enum RuntimeStateWriter {
             "connectIQInstallBusy": bluetooth.connectIQInstallBusy,
             "connectIQInstallProgress": bluetooth.connectIQInstallProgress,
             "connectIQSettingsStatus": bluetooth.connectIQSettingsStatus,
+            "connectIQSettingsDiagnostic": bluetooth.connectIQSettingsDiagnostic,
             "connectIQSettingsBusy": bluetooth.connectIQSettingsBusy,
             "connectIQSettingsBytes": bluetooth.connectIQSettingsSnapshot?.rawData.count ?? 0,
             "connectIQSettingsVerified": bluetooth.connectIQSettingsSnapshot?.savedAndVerified ?? false,
