@@ -34,8 +34,8 @@ struct WatchWeatherCard: View {
                 ForEach(Array(weather.candidates.enumerated()), id: \.offset) { _, candidate in
                     Button { weather.select(candidate) } label: {
                         HStack { Image(systemName: "mappin.and.ellipse"); Text(candidate.name); Spacer(); Image(systemName: "checkmark.circle") }
-                            .contentShape(Rectangle())
-                    }.buttonStyle(.plain).padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, minHeight: 40).contentShape(Rectangle())
+                    }.buttonStyle(PulseRowButtonStyle())
                 }
                 if let location = weather.location {
                     Label(location.name, systemImage: "mappin.circle.fill").font(PulseTheme.font(size: 12, weight: .medium))

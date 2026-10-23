@@ -11,6 +11,7 @@ struct GarminLoginWebView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
+        configuration.hideScrollIndicators()
         configuration.userContentController.add(context.coordinator, name: "GMNEventHandler")
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator

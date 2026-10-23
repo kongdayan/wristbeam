@@ -121,7 +121,7 @@ struct ConnectIQPage: View {
                     Button(L10n.text("关闭")) { showDetail = false }
                         .keyboardShortcut(.cancelAction)
                 }
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     if let app = library.selected { detail(app) }
                     else {
                         VStack(spacing: 14) {
@@ -453,7 +453,7 @@ struct ConnectIQPage: View {
                     Text(L10n.text("先下载到 Mac，再安装到手表")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                 }
                 if !app.screenshotURLs.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: true) {
+                    ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(Array(app.screenshotURLs.enumerated()), id: \.offset) { _, url in
                                 ConnectIQArtwork(url: model.preview ? nil : url, width: 200, height: 230)

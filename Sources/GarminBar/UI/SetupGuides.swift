@@ -28,14 +28,14 @@ struct BluetoothPermissionGuide: View {
                 if bluetooth.access == .denied {
                     Button(L10n.text("打开蓝牙隐私设置")) {
                         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth")!)
-                    }.buttonStyle(.bordered)
+                    }.buttonStyle(PulseButtonStyle())
                 }
                 if bluetooth.managerState == 4 {
                     Text(L10n.text("Mac 蓝牙当前关闭。请在系统蓝牙设置中开启，再返回此页连接。"))
                         .font(PulseTheme.font(size: 13)).foregroundStyle(.orange)
                     Button(L10n.text("打开系统蓝牙设置")) {
                         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.BluetoothSettings")!)
-                    }.buttonStyle(.bordered)
+                    }.buttonStyle(PulseButtonStyle())
                 }
             }
         }
@@ -45,18 +45,15 @@ struct BluetoothPermissionGuide: View {
 struct BackgroundConnectionGuide: View {
     @ObservedObject var bluetooth: WatchBluetooth
     var body: some View {
-        PulseCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(L10n.text("连接设置")).font(PulseTheme.font(size: 16, weight: .semibold))
-                Toggle(L10n.text("启动时连接已配对手表"), isOn: $bluetooth.connectsOnLaunch)
+        VStack(spacing: 0) {
+            PreferenceLine(title: "启动时连接已配对手表", note: "默认关闭。完成授权和首次配对后，可主动开启；以后启动只恢复已保存的手表，不会弹出首次授权。") {
+                Toggle("", isOn: $bluetooth.connectsOnLaunch).labelsHidden()
                     .disabled(bluetooth.access != .allowed || !bluetooth.hasSavedWatch)
-                Text(L10n.text("默认关闭。完成授权和首次配对后，可主动开启；以后启动只恢复已保存的手表，不会弹出首次授权。"))
-                    .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
-                Toggle(L10n.text("连接后断线自动重连"), isOn: $bluetooth.autoReconnect)
-                Text(L10n.text("只恢复本次主动建立的连接。手动断开后停止重连；关闭主窗口仍在菜单栏运行，退出应用或 Mac 休眠会暂停同步。"))
-                    .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
-            }.font(PulseTheme.font(size: 13)).toggleStyle(.switch)
-        }
+            }
+            PreferenceLine(title: "连接后断线自动重连", note: "只恢复本次主动建立的连接。手动断开后停止重连；关闭主窗口仍在菜单栏运行，退出应用或 Mac 休眠会暂停同步。") {
+                Toggle("", isOn: $bluetooth.autoReconnect).labelsHidden()
+            }
+        }.toggleStyle(.switch)
     }
 }
 
@@ -69,7 +66,7 @@ struct FirstConnectionGuide: View {
                 Text(L10n.text("打开软件不会自动申请蓝牙或连接手表。按下面的顺序设置，完成后即可在菜单栏和浮窗查看数据。"))
                     .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
                 Button { model.openSettings(.watch) } label: { Label(L10n.text("连接手表"), systemImage: "applewatch") }
-                    .buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
+                    .buttonStyle(PulseButtonStyle(prominent: true)).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
                 Text(L10n.text("接收手表数据不需要云账号。"))
                     .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
             }
@@ -80,29 +77,30 @@ struct FirstConnectionGuide: View {
 struct SyncSetupGuide: View {
     @ObservedObject var model: AppModel
     var body: some View {
-        PulseCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(L10n.text("选择如何同步")).font(PulseTheme.font(size: 17, weight: .semibold))
-                Text(L10n.text("接收手表数据不需要云账号。原始 FIT 和实时读数暂存在本机，云同步可在设备账号中开启。"))
-                    .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
-                HStack {
-                    Label(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "当前目标：\(model.cloud.region.title)" : "登录后可选择云端补传"), systemImage: "cloud")
-                    Spacer()
-                    Button(L10n.text("设备账号")) { model.openSettings(.account) }.buttonStyle(.bordered)
-                }.font(PulseTheme.font(size: 13))
-                Toggle(L10n.text("自动接收手表文件"), isOn: $model.autoSync)
+        VStack(alignment: .leading, spacing: 14) {
+            Text(L10n.text("接收手表数据不需要云账号。原始 FIT 和实时读数暂存在本机，云同步可在设备账号中开启。"))
+                .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
+            VStack(spacing: 0) {
+                PreferenceLine(title: !model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "当前目标：\(model.cloud.region.title)" : "登录后可选择云端补传") {
+                    Button(L10n.text("设备账号")) { model.openSettings(.account) }
+                }
+                PreferenceLine(title: "自动接收手表文件") { Toggle("", isOn: $model.autoSync).labelsHidden() }
                 if model.cloudSyncEnabled {
-                    Toggle(L10n.text("自动上传暂存文件"), isOn: $model.autoUpload).disabled(!model.cloud.isAuthenticated)
+                    PreferenceLine(title: "自动上传暂存文件") {
+                        Toggle("", isOn: $model.autoUpload).labelsHidden().disabled(!model.cloud.isAuthenticated)
+                    }
                 }
-                Picker(L10n.text("检查新文件的间隔"), selection: $model.syncInterval) {
-                    Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15); Text(L10n.text("30 分钟")).tag(30)
-                }.frame(maxWidth: 300).disabled(!model.autoSync)
-                Text(L10n.text("自动接收只负责下载到 Mac。云上传单独控制，也可以稍后手动上传暂存文件。"))
-                    .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
-                if !model.bluetooth.canSyncFiles {
-                    Button(L10n.text("按引导连接手表")) { model.openSettings(.watch) }.buttonStyle(.bordered)
+                PreferenceLine(title: "检查新文件的间隔") {
+                    Picker("", selection: $model.syncInterval) {
+                        Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15); Text(L10n.text("30 分钟")).tag(30)
+                    }.labelsHidden().disabled(!model.autoSync)
                 }
-            }.font(PulseTheme.font(size: 13)).toggleStyle(.switch)
-        }
+            }
+            Text(L10n.text("自动接收只负责下载到 Mac。云上传单独控制，也可以稍后手动上传暂存文件。"))
+                .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
+            if !model.bluetooth.canSyncFiles {
+                Button(L10n.text("按引导连接手表")) { model.openSettings(.watch) }
+            }
+        }.font(PulseTheme.font(size: 13)).toggleStyle(.switch).buttonStyle(PulseButtonStyle())
     }
 }

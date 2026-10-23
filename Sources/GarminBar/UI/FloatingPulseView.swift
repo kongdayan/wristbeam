@@ -13,7 +13,7 @@ struct FloatingPulseView: View {
                 Picker(L10n.text("显示方式"),selection:$model.floatingDetailed) {
                     Text(L10n.text("紧凑")).tag(false); Text(L10n.text("详细")).tag(true)
                 }.labelsHidden().pickerStyle(.segmented).frame(width:145 * min(1.2,model.fontScale)).controlSize(.small)
-                Button { model.floatingEnabled = false } label: { Image(systemName:"xmark").frame(width:24,height:24) }.buttonStyle(.plain).help(L10n.text("隐藏浮窗"))
+                Button { model.floatingEnabled = false } label: { Image(systemName:"xmark") }.buttonStyle(PulseButtonStyle(compact: true)).help(L10n.text("隐藏浮窗")).accessibilityLabel(L10n.text("隐藏浮窗"))
             }
             ScrollView(.horizontal,showsIndicators:false) {
                 HStack(spacing:9) {
@@ -44,7 +44,7 @@ struct FloatingPulseView: View {
                 Spacer()
                 Button { if let kind { model.openMetric(kind) } else { model.openSettings(.overview) } } label: {
                     Label(L10n.text("查看详情"),systemImage:"arrow.up.right")
-                }.buttonStyle(.plain)
+                }.buttonStyle(PulseButtonStyle(compact: true))
             }.font(PulseTheme.font(size:10)).foregroundStyle(PulseTheme.secondary)
         }.padding(18).frame(width:model.floatingWidth,height:model.floatingHeight)
             .background(PulseTheme.background.opacity(0.98))
