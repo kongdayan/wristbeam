@@ -42,7 +42,7 @@ struct SyncPage: View {
                     if !model.localExportStatus.isEmpty { Text(L10n.text(model.localExportStatus)).font(PulseTheme.font(size: 12)) }
                 }
             }
-            PulseDisclosure(L10n.text("同步设置"), isExpanded: $showSettings) { SyncSetupGuide(model: model).padding(.top, 12) }
+            PulseDisclosure(L10n.text("同步设置"), isExpanded: $showSettings) { SyncSetupGuide(model: model) }
             PulseDisclosure(L10n.text("文件与上传记录"), isExpanded: $showFiles) {
                 VStack(alignment: .leading, spacing: 14) {
                     ViewThatFits(in: .horizontal) {
@@ -77,7 +77,7 @@ struct SyncPage: View {
                             }.font(PulseTheme.font(size: 11))
                         }
                     }
-                }.padding(.top, 12)
+                }
             }
             PulseDisclosure(L10n.text("诊断与日志")) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -90,7 +90,7 @@ struct SyncPage: View {
                             Text(L10n.text(event.message)).textSelection(.enabled)
                         }
                     }
-                }.font(PulseTheme.font(size: 11)).padding(.top, 12)
+                }.font(PulseTheme.font(size: 11))
             }
         }.font(PulseTheme.font(size: 13))
     }

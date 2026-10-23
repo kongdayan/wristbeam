@@ -8,12 +8,9 @@ struct DeveloperSettingsPage: View {
     var body: some View {
         VStack(alignment:.leading,spacing:23) {
             VStack(alignment:.leading,spacing:10) {
-                HStack {
-                    StatusDot(active:access.running)
-                    Text(L10n.text(access.status))
-                    Spacer()
-                    Button(L10n.text("应用接口配置")) { access.apply() }.buttonStyle(PulseButtonStyle(prominent: true)).tint(PulseTheme.mint).disabled(access.isApplying || access.isManagingKey)
-                    Button(L10n.text("立即停止全部接口")) { access.stopAll() }
+                ViewThatFits(in: .horizontal) {
+                    HStack { serverStatus; Spacer(); serverActions }
+                    VStack(alignment: .leading, spacing: 12) { serverStatus; serverActions }
                 }
                 if access.running { Text(L10n.text(access.authenticationStatus)).foregroundStyle(PulseTheme.secondary) }
                 if access.isApplying {
@@ -89,6 +86,17 @@ struct DeveloperSettingsPage: View {
             Text(L10n.text("修改后点击应用。关闭应用或 Mac 休眠时，接口暂停。")).font(PulseTheme.font(size:11)).foregroundStyle(PulseTheme.secondary)
         }.buttonStyle(PulseButtonStyle()).controlSize(.regular)
     }
+    private var serverStatus: some View {
+        HStack { StatusDot(active: access.running); Text(L10n.text(access.status)) }
+    }
+    private var serverActions: some View {
+        HStack {
+            Button(L10n.text("应用接口配置")) { access.apply() }
+                .buttonStyle(PulseButtonStyle(prominent: true)).disabled(access.isApplying || access.isManagingKey)
+            Button(L10n.text("立即停止全部接口")) { access.stopAll() }
+        }
+    }
+
 }
 
 
@@ -101,20 +109,9 @@ private struct DeveloperKeyControls: View {
     @State private var importError = ""
     var body: some View {
         VStack(alignment:.leading, spacing:10) {
-            HStack {
-                Text(L10n.text(title)).font(PulseTheme.font(size:13,weight:.medium))
-                Spacer()
-                Button(L10n.text(access.revealedKeys[name] == nil ? "显示密钥" : "隐藏密钥")) {
-                    if access.revealedKeys[name] == nil { access.manageKey(name,action:.reveal) } else { access.hideKey(name) }
-                }
-                Button(L10n.text("复制密钥")) { access.copyKey(name) }
-                Menu(L10n.text("管理密钥")) {
-                    Button(L10n.text("导入密钥…")) { draft = ""; importError = ""; importing = true }
-                    Button(L10n.text("导出密钥…")) { access.manageKey(name,action:.export) }
-                    Button(L10n.text("重新生成密钥")) { access.rotate(name) }
-                    Divider()
-                    Button(L10n.text("从旧版钥匙串导入")) { access.manageKey(name,action:.legacy) }
-                }.fixedSize()
+            ViewThatFits(in: .horizontal) {
+                HStack { keyTitle; Spacer(); keyActions }
+                VStack(alignment: .leading, spacing: 10) { keyTitle; keyActions }
             }.disabled(access.isApplying || access.isManagingKey)
             if let key = access.revealedKeys[name] {
                 Text(key).font(PulseTheme.font(size:12,design:.monospaced)).textSelection(.enabled)
@@ -145,4 +142,21 @@ private struct DeveloperKeyControls: View {
             }.padding(24).frame(width:470)
         }
     }
+    private var keyTitle: some View { Text(L10n.text(title)).font(PulseTheme.font(size: 13, weight: .medium)) }
+    private var keyActions: some View {
+        HStack {
+            Button(L10n.text(access.revealedKeys[name] == nil ? "显示密钥" : "隐藏密钥")) {
+                if access.revealedKeys[name] == nil { access.manageKey(name,action:.reveal) } else { access.hideKey(name) }
+            }
+            Button(L10n.text("复制密钥")) { access.copyKey(name) }
+            Menu(L10n.text("管理密钥")) {
+                Button(L10n.text("导入密钥…")) { draft = ""; importError = ""; importing = true }
+                Button(L10n.text("导出密钥…")) { access.manageKey(name,action:.export) }
+                Button(L10n.text("重新生成密钥")) { access.rotate(name) }
+                Divider()
+                Button(L10n.text("从旧版钥匙串导入")) { access.manageKey(name,action:.legacy) }
+            }.fixedSize()
+        }
+    }
+
 }

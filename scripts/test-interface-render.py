@@ -215,7 +215,7 @@ import SwiftUI
                         try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                     }
                 }
-                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
+                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760).background(PulseTheme.background),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
                 model.openSettings(.overview)
                 model.dashboardGrouped = false
                 try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
@@ -226,7 +226,7 @@ import SwiftUI
                     model.settingsPage = page
                     try render(PreferencesRootView(model:model).frame(width:820,height:600),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
-                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
+                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600).background(PulseTheme.background),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
                 model.fontScale = 1.15
                 model.activityBrowsing.search = "no-such-fixture"
                 model.page = .activities
@@ -279,12 +279,14 @@ import SwiftUI
         precondition(fixture.contentClicks == 1 && fixture.expanded,"Content buttons must act without collapsing the section")
         click(578,24)
         precondition(!fixture.expanded,"Chevron must collapse the section")
+        click(480,82)
+        precondition(fixture.selected && !fixture.expanded,"Checkbox cell whitespace must toggle without opening the disclosure")
         click(65,24)
         precondition(fixture.expanded,"Label must expand the section")
         fixture.disabled = true; settle(); click(480,24)
         precondition(fixture.expanded,"Disabled disclosure must not toggle")
         window.orderOut(nil)
-        print("PASS native mouse events: disclosure label, whitespace, chevron, independent content and disabled state")
+        print("PASS native mouse events: disclosure label, whitespace, chevron, independent content, selection cell and disabled state")
     }
     @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL) throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))
@@ -306,15 +308,19 @@ import SwiftUI
 @MainActor final class DisclosureInteractionState: ObservableObject {
     @Published var expanded = false
     @Published var disabled = false
+    @Published var selected = false
     var contentClicks = 0
 }
 struct DisclosureInteractionFixture: View {
     @ObservedObject var state: DisclosureInteractionState
     var body: some View {
+        VStack(spacing:12) {
         PulseDisclosure("Sync settings",isExpanded:$state.expanded) {
             Button { state.contentClicks += 1 } label: {
                 Text("Content action").frame(maxWidth:.infinity,minHeight:44)
             }.buttonStyle(PulseRowButtonStyle())
+        }
+        Toggle("Selection",isOn:$state.selected).labelsHidden().toggleStyle(PulseSelectionToggleStyle())
         }.disabled(state.disabled).frame(width:600,height:400,alignment:.topLeading)
     }
 }

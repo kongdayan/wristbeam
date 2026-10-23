@@ -155,7 +155,7 @@ struct OverviewPage: View {
                     .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineLimit(1)
                     .help(L10n.text(model.healthStatus))
                 Spacer(minLength: 8)
-                Button { model.refreshMetricsNow() } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(PulseButtonStyle(compact: true))
+                Button { model.refreshMetricsNow() } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(PulseButtonStyle())
                     .help(L10n.text("刷新同步指标")).accessibilityLabel(L10n.text("刷新同步指标"))
                     .disabled(model.preview || model.isRefreshingHealth)
                 Button { shareRequest = DashboardShareRequest(kinds: model.dashboardVisibleMetrics) } label: {
@@ -234,7 +234,7 @@ struct DevicePage: View {
             Picker(L10n.text("设备"), selection: Binding(get: { model.page == .account ? AppPage.account : .watch }, set: { model.page = $0 })) {
                 Text(L10n.text("连接")).tag(AppPage.watch)
                 Text(L10n.text("设备账号")).tag(AppPage.account)
-            }.pickerStyle(.segmented).controlSize(.large)
+            }.labelsHidden().pickerStyle(.segmented).controlSize(.large)
             if model.page == .account {
                 PulseCard {
                     VStack(alignment: .leading, spacing: 8) {
@@ -273,7 +273,7 @@ struct WatchPage: View {
                 nearbyDevices
             }
             PulseDisclosure(L10n.text("连接设置")) {
-                BackgroundConnectionGuide(bluetooth: bluetooth).padding(.top, 10)
+                BackgroundConnectionGuide(bluetooth: bluetooth)
             }.font(PulseTheme.font(size: 13))
             WatchWeatherCard(weather: model.weather, preview: model.preview)
             PulseDisclosure(L10n.text("诊断与高级选项"), isExpanded: $showDiagnostics) {
@@ -313,7 +313,7 @@ struct WatchPage: View {
                     } label: { Image(systemName: "ellipsis") }
                         .menuStyle(.borderlessButton).fixedSize().accessibilityLabel(L10n.text("设备选项"))
                     Spacer()
-                    Button(L10n.text("蓝牙设置")) { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.BluetoothSettings")!) }.buttonStyle(.plain).font(PulseTheme.font(size: 11))
+                    Button(L10n.text("蓝牙设置")) { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.BluetoothSettings")!) }.buttonStyle(PulseButtonStyle(compact: true)).font(PulseTheme.font(size: 11))
                 }
             }
         }
@@ -348,7 +348,7 @@ struct WatchPage: View {
                         }
                         Divider().overlay(Color.primary.opacity(0.07))
                         Text(L10n.text(bluetooth.transferStatus)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
-                        Button(L10n.text("导出连接诊断")) { NSWorkspace.shared.activateFileViewerSelecting([bluetooth.diagnosticsURL()]) }.buttonStyle(.plain).font(PulseTheme.font(size: 11))
+                        Button(L10n.text("导出连接诊断")) { NSWorkspace.shared.activateFileViewerSelecting([bluetooth.diagnosticsURL()]) }.buttonStyle(PulseButtonStyle(compact: true)).font(PulseTheme.font(size: 11))
                     }
                 }
             }
@@ -404,7 +404,7 @@ struct AccountPage: View {
                         HStack {
                             Button(L10n.text("刷新账户")) { Task { await cloud.refreshAccount() } }.buttonStyle(PulseButtonStyle())
                             Spacer()
-                            Button(L10n.text("退出账户")) { cloud.logout() }.buttonStyle(.plain).foregroundStyle(PulseTheme.secondary)
+                            Button(L10n.text("退出账户")) { cloud.logout() }.buttonStyle(PulseButtonStyle(compact: true)).foregroundStyle(PulseTheme.secondary)
                         }
                     } else {
                         Text(L10n.text("点击登录后，在佳明官方页面输入账号、密码和验证码。软件仅保存可续期的授权令牌，不保存密码；上传方式由你在同步记录中选择。"))
@@ -525,7 +525,7 @@ struct MetricSelectionPage: View {
                                     }.buttonStyle(.plain).help(L10n.text("点击名称切换健康看板；右侧分别选择显示位置"))
                                     ForEach(MetricDestination.allCases) { destination in
                                         Toggle(L10n.text(kind.title), isOn: Binding(get: { model.selectedMetrics(for: destination).contains(kind) }, set: { model.select([kind], enabled: $0, destination: destination) }))
-                                            .labelsHidden().toggleStyle(.checkbox).frame(width: columnWidth, height: 44)
+                                            .labelsHidden().toggleStyle(PulseSelectionToggleStyle()).frame(width: columnWidth)
                                             .accessibilityLabel(L10n.text("\(kind.title) · \(destination.title)"))
                                     }
                                 }
@@ -604,8 +604,8 @@ struct WatchRequestCaptureCard: View {
                         Spacer()
                         Text(L10n.text(capture.isCapturing ? "正在捕获" : "已停止"))
                         Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                    }.font(PulseTheme.font(size: 14, weight: .semibold)).contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                    }.font(PulseTheme.font(size: 14, weight: .semibold)).frame(maxWidth: .infinity, minHeight: 48).contentShape(Rectangle())
+                }.buttonStyle(PulseRowButtonStyle()).accessibilityValue(L10n.text(expanded ? "已展开" : "已收起"))
                 Text(L10n.text(connected ? "打开手表天气页面或切换表盘，查看本连接收到的消息。" : "连接手表后打开天气页面；也可先开始捕获，再连接手表。"))
                     .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
                 HStack {

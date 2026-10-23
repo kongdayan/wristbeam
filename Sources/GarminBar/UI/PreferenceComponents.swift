@@ -22,7 +22,7 @@ struct PreferenceLine<Control: View>: View {
     var body: some View {
         PreferenceRowLayout {
             label
-            control()
+            control().accessibilityLabel(L10n.text(title))
         }
         .controlSize(.regular).font(PulseTheme.font(size:12))
         .padding(.horizontal,15).padding(.vertical,13)
