@@ -211,20 +211,13 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
         var parent: ConnectIQSettingsWebEditor
         var active = true
         private var navigationRevision = 0
-        private let policy: NavigationPolicy?
+        private let policy: ConnectIQSettingsEditorPolicy.NavigationPolicy?
         init(_ parent: ConnectIQSettingsWebEditor) {
-            self.parent = parent; policy = parent.request.url.flatMap(NavigationPolicy.init)
+            self.parent = parent; policy = parent.request.url.flatMap(ConnectIQSettingsEditorPolicy.NavigationPolicy.init)
         }
         func start(_ view: WKWebView) {
             guard let policy else { fail(); return }
-            let rules: [[String: Any]] = [
-                ["trigger": ["url-filter": ".*"], "action": ["type": "block"]],
-                ["trigger": ["url-filter": "^https://" + NSRegularExpression.escapedPattern(for: policy.host) + "/([^/]+/)?appSettings2/"], "action": ["type": "ignore-previous-rules"]],
-                ["trigger": ["url-filter": "^https://cdn\\.jsdelivr\\.net/npm/bootstrap@5\\.0\\.1/dist/css/bootstrap\\.min\\.css$", "resource-type": ["style-sheet"]], "action": ["type": "ignore-previous-rules"]],
-                ["trigger": ["url-filter": "^data:image/", "resource-type": ["image"]], "action": ["type": "ignore-previous-rules"]],
-                ["trigger": ["url-filter": "^data:application/x-font-(woff|ttf);", "resource-type": ["font"]], "action": ["type": "ignore-previous-rules"]]
-            ]
-            guard let data = try? JSONSerialization.data(withJSONObject: rules), let json = String(data: data, encoding: .utf8) else { fail(); return }
+            guard let json = try? ConnectIQSettingsEditorPolicy.contentRuleListJSON(host: policy.host) else { fail(); return }
             WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "WristBeam.ConnectIQ.Settings." + policy.host, encodedContentRuleList: json) { [weak self, weak view] list, _ in
                 Task { @MainActor in
                     guard let self, self.active, let view else { return }
@@ -329,28 +322,4 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
         }
     }
 
-    struct NavigationPolicy {
-        let host: String
-        let appPrefix: [String]
-        init?(_ url: URL) {
-            guard url.scheme == "https", let host = url.host?.lowercased(), ["apps.garmin.cn", "apps.garmin.com"].contains(host),
-                  url.user == nil, url.password == nil, url.port == nil || url.port == 443,
-                  let path = Self.settingsPath(url), path.count >= 6,
-                  UUID(uuidString: path[0]) != nil, path[1] == "versions", Int(path[2]) != nil,
-                  path[3] == "devices", !path[4].isEmpty else { return nil }
-            self.host = host; appPrefix = Array(path.prefix(5))
-        }
-        private static func settingsPath(_ url: URL) -> [String]? {
-            let path = url.pathComponents.filter { $0 != "/" }
-            guard let start = path.firstIndex(of: "appSettings2") else { return nil }
-            var settings = Array(path.dropFirst(start + 1))
-            if settings.first == "android" { settings.removeFirst() }
-            return settings
-        }
-        func allowsPage(_ url: URL) -> Bool {
-            guard url.scheme == "https", url.host?.lowercased() == host, url.user == nil, url.password == nil,
-                  url.port == nil || url.port == 443, let path = Self.settingsPath(url), path.count >= 6 else { return false }
-            return Array(path.prefix(5)) == appPrefix
-        }
-    }
 }

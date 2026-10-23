@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import WebKit
 @testable import GarminBar
 
 final class ConnectIQSettingsCloudTests: XCTestCase {
@@ -57,5 +58,38 @@ final class ConnectIQSettingsCloudTests: XCTestCase {
         XCTAssertThrowsError(try context.binaryRequest(settingsJSON: Data("[]".utf8)))
         XCTAssertThrowsError(try context.binaryRequest(settingsJSON: Data("<html>error</html>".utf8)))
         XCTAssertThrowsError(try context.binaryRequest(settingsJSON: Data(repeating: 32, count: ConnectIQSettingsContext.maximumBytes + 1)))
+    }
+}
+
+
+extension ConnectIQSettingsCloudTests {
+    @MainActor
+    func testProductionEditorResourceRulesCompileInWebKitForBothRegions() async throws {
+        for host in ["apps.garmin.cn", "apps.garmin.com"] {
+            let json = try ConnectIQSettingsEditorPolicy.contentRuleListJSON(host: host)
+            let identifier = "WristBeam.Tests.ConnectIQ." + UUID().uuidString
+            let store = WKContentRuleListStore.default()!
+            let list: WKContentRuleList = try await withCheckedThrowingContinuation { continuation in
+                store.compileContentRuleList(forIdentifier: identifier, encodedContentRuleList: json) { list, error in
+                    if let error { continuation.resume(throwing: error) }
+                    else if let list { continuation.resume(returning: list) }
+                    else { continuation.resume(throwing: ConnectIQSettingsCloudError.invalidResponse) }
+                }
+            }
+            XCTAssertEqual(list.identifier, identifier)
+            try await store.removeContentRuleList(forIdentifier: identifier)
+        }
+    }
+
+    func testEditorNavigationStaysBoundToInstalledAppVersionAndDevice() throws {
+        let base = "https://apps.garmin.cn/zh-CN/appSettings2/"
+        let route = "00112233-4455-6677-8899-aabbccddeeff/versions/7/devices/006-B9999-00/edit"
+        let initial = try XCTUnwrap(URL(string: base + "android/" + route))
+        let policy = try XCTUnwrap(ConnectIQSettingsEditorPolicy.NavigationPolicy(initial))
+        XCTAssertTrue(policy.allowsPage(URL(string: base + route)!))
+        XCTAssertTrue(policy.allowsPage(URL(string: base + route + "?editGroup=display")!))
+        XCTAssertFalse(policy.allowsPage(URL(string: base + route.replacingOccurrences(of: "/versions/7/", with: "/versions/8/"))!))
+        XCTAssertFalse(policy.allowsPage(URL(string: "https://example.org/zh-CN/appSettings2/" + route)!))
+        XCTAssertFalse(policy.allowsPage(URL(string: "http://apps.garmin.cn/zh-CN/appSettings2/" + route)!))
     }
 }

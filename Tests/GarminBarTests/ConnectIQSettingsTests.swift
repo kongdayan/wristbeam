@@ -3,6 +3,33 @@ import XCTest
 @testable import GarminBar
 
 final class ConnectIQSettingsTests: XCTestCase {
+    func testMalformedPropertiesReportStructureWithoutValues() throws {
+        let privateValue = "synthetic-secret-do-not-log"
+        let bytes = try GFDIMonkeyCodec.encode(.dictionary(["private-key": .string(privateValue)]))
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(bytes.dropLast())) { error in
+            guard let diagnostic = error as? GFDISettingsParseError else { return XCTFail("Missing structural diagnostic") }
+            XCTAssertTrue(diagnostic.stage.hasPrefix("object-size-"))
+            XCTAssertFalse(diagnostic.diagnostic.contains(privateValue))
+            XCTAssertFalse(diagnostic.diagnostic.contains("private-key"))
+            XCTAssertEqual(diagnostic.localizedDescription, GFDIConnectIQSettingsError.malformed.localizedDescription)
+        }
+    }
+    func testDeclaredObjectSectionIgnoresWatchTrailerWithoutReadingIntoIt() throws {
+        // Independent wire fixture: {"a": 7}, followed by 20 synthetic trailer bytes.
+        let header = Data([0xab,0xcd,0xab,0xcd,0,0,0,4, 0,2,0x61,0,
+                           0xda,0x7a,0xda,0x7a,0,0,0,15])
+        let objects = Data([11,0,0,0,1, 3,0,0,0,0, 1,0,0,0,7])
+        let trailer = Data(repeating: 0xff, count: 20)
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(header + objects + trailer),
+                       .dictionary(["a": .int32(7)]))
+        var shortenedHeader = header
+        shortenedHeader[19] = 14
+        // The final integer byte exists physically, but is outside the section.
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(shortenedHeader + objects + trailer))
+        var oversizedHeader = header
+        oversizedHeader[19] = 36
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(oversizedHeader + objects + trailer))
+    }
     func testBreadthFirstMonkeyValuesRoundTripWithoutLosingTypes() throws {
         let value: GFDIMonkeyValue = .dictionary([
             "text": .string("中文 ✓"), "bool": .bool(true), "null": .null,
@@ -20,7 +47,6 @@ final class ConnectIQSettingsTests: XCTestCase {
     func testMonkeyBoundsUnknownTagsAndBadStringReferencesFailClosed() throws {
         let bytes = try GFDIMonkeyCodec.encode(.dictionary(["a": .int32(3)]))
         XCTAssertThrowsError(try GFDIMonkeyCodec.decode(bytes.dropLast()))
-        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(bytes + Data([0])))
         XCTAssertThrowsError(try GFDIMonkeyCodec.decode(Data([0xda,0x7a,0xda,0x7a,0,0,0,1,0xff])))
         XCTAssertThrowsError(try GFDIMonkeyCodec.decode(Data([0xda,0x7a,0xda,0x7a,0,0,0,5,3,0,0,0,0])))
         XCTAssertThrowsError(try GFDIMonkeyCodec.encode(.dictionary(["bad": .double(.nan)])))

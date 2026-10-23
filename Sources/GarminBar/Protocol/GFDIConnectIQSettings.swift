@@ -53,6 +53,15 @@ enum GFDIConnectIQSettingsError: LocalizedError {
 /// Monkey C settings serialization, APK d55.h/y + sh2, u27 and scalar classes.
 /// Container children are breadth-first, not recursive on the wire. Integers are BE.
 /// String keys are required for JSON settings; no unknown property is silently dropped.
+/// Structural diagnostics only: never include property names, values or raw bytes.
+struct GFDISettingsParseError: LocalizedError {
+    let stage: String
+    let offset: Int
+    let remaining: Int
+    var errorDescription: String? { GFDIConnectIQSettingsError.malformed.errorDescription }
+    var diagnostic: String { "\(stage): offset=\(offset), remaining=\(remaining)" }
+}
+
 enum GFDIMonkeyCodec {
     static let maximumBytes = 256 * 1024
     private final class Node {
@@ -66,8 +75,11 @@ enum GFDIMonkeyCodec {
         let data: [UInt8]
         var offset = 0
         var remaining: Int { data.count - offset }
+        func failure(_ stage: String) -> GFDISettingsParseError {
+            GFDISettingsParseError(stage: stage, offset: offset, remaining: remaining)
+        }
         mutating func take(_ count: Int) throws -> Data {
-            guard count >= 0, count <= remaining else { throw GFDIConnectIQSettingsError.malformed }
+            guard count >= 0, count <= remaining else { throw failure("truncated-value") }
             defer { offset += count }; return Data(data[offset..<offset + count])
         }
         mutating func byte() throws -> UInt8 { guard remaining > 0 else { throw GFDIConnectIQSettingsError.malformed }; defer { offset += 1 }; return data[offset] }
@@ -83,16 +95,20 @@ enum GFDIMonkeyCodec {
             var table = Reader(data: Array(try reader.take(size)))
             while table.remaining > 0 {
                 let offset = UInt32(table.offset), length = Int(try table.number(2))
-                guard length > 0, length <= 32767 else { throw GFDIConnectIQSettingsError.malformed }
+                guard length > 0, length <= 32767 else { throw table.failure("string-length") }
                 let bytes = try table.take(length)
-                guard bytes.last == 0, let text = String(data: bytes.dropLast(), encoding: .utf8) else { throw GFDIConnectIQSettingsError.malformed }
+                guard bytes.last == 0, let text = String(data: bytes.dropLast(), encoding: .utf8) else { throw table.failure("string-encoding") }
                 strings[offset] = text
             }
             tag = try reader.number(4)
         }
-        guard tag == 0xda7ada7a else { throw GFDIConnectIQSettingsError.malformed }
+        guard tag == 0xda7ada7a else { throw reader.failure("object-marker") }
         let objectSize = Int(try reader.number(4))
-        guard objectSize == reader.remaining else { throw GFDIConnectIQSettingsError.malformed }
+        guard objectSize <= reader.remaining else { throw reader.failure("object-size-\(objectSize)") }
+        // Official d55.h decodes only the declared object section. Some watch
+        // properties include trailing bytes; they are not additional Monkey C values.
+        // Bound the reader so a truncated value cannot consume bytes from that tail.
+        reader = Reader(data: Array(try reader.take(objectSize)))
         if objectSize == 0 { return .dictionary([:]) } // ahc.m also accepts an empty object list.
         var nodes: [Node] = []
         while reader.remaining > 0 {
@@ -103,10 +119,10 @@ enum GFDIMonkeyCodec {
             case 1: node.value = .int32(Int32(bitPattern: UInt32(try reader.number(4))))
             case 2: node.value = .float(Float(bitPattern: UInt32(try reader.number(4))))
             case 3:
-                guard let text = strings[UInt32(try reader.number(4))] else { throw GFDIConnectIQSettingsError.malformed }
+                guard let text = strings[UInt32(try reader.number(4))] else { throw reader.failure("string-reference") }
                 node.value = .string(text)
             case 5: node.count = Int(try reader.number(4))
-            case 9: let value = try reader.byte(); guard value <= 1 else { throw GFDIConnectIQSettingsError.malformed }; node.value = .bool(value != 0)
+            case 9: let value = try reader.byte(); guard value <= 1 else { throw reader.failure("boolean-value") }; node.value = .bool(value != 0)
             case 11: node.count = Int(try reader.number(4)); node.dictionary = true
             case 14: node.value = .int64(Int64(bitPattern: try reader.number(8)))
             case 15: node.value = .double(Double(bitPattern: try reader.number(8)))
@@ -123,17 +139,17 @@ enum GFDIMonkeyCodec {
         var nextChild = 1
         for node in nodes where node.value == nil {
             let count = node.count * (node.dictionary ? 2 : 1)
-            guard count <= nodes.count - nextChild else { throw GFDIConnectIQSettingsError.malformed }
+            guard count <= nodes.count - nextChild else { throw reader.failure("container-children") }
             node.children = Array(nodes[nextChild..<nextChild + count]); nextChild += count
         }
-        guard nextChild == nodes.count else { throw GFDIConnectIQSettingsError.malformed }
+        guard nextChild == nodes.count else { throw reader.failure("extra-roots") }
         func materialize(_ node: Node, depth: Int) throws -> GFDIMonkeyValue {
             guard depth <= 32 else { throw GFDIProtocolError.oversized }
             if let value = node.value { return value }
             if !node.dictionary { return .array(try node.children.map { try materialize($0, depth: depth + 1) }) }
             var dictionary: [String: GFDIMonkeyValue] = [:]
             for index in stride(from: 0, to: node.children.count, by: 2) {
-                guard case let .string(key) = try materialize(node.children[index], depth: depth + 1), dictionary[key] == nil else { throw GFDIConnectIQSettingsError.malformed }
+                guard case let .string(key) = try materialize(node.children[index], depth: depth + 1), dictionary[key] == nil else { throw reader.failure("dictionary-key") }
                 dictionary[key] = try materialize(node.children[index + 1], depth: depth + 1)
             }
             return .dictionary(dictionary)
@@ -192,10 +208,10 @@ enum GFDIConnectIQSettings {
     }
     static func checkResponse(_ data: Data, appID: String, saving: Bool) throws {
         let root = try Proto(data)
-        guard let serviceData = try root.blob(4), let responseData = try Proto(serviceData).blob(saving ? 4 : 2) else { throw GFDIConnectIQSettingsError.malformed }
+        guard let serviceData = try root.blob(4), let responseData = try Proto(serviceData).blob(saving ? 4 : 2) else { throw GFDISettingsParseError(stage: saving ? "save-response" : "get-response", offset: 0, remaining: data.count) }
         let response = try Proto(responseData)
         guard try response.blob(1) == GFDIConnectIQSDK.uuidBytes(appID) else { throw GFDIConnectIQSettingsError.stale }
-        guard let status = try response.number(2) else { throw GFDIConnectIQSettingsError.malformed }
+        guard let status = try response.number(2) else { throw GFDISettingsParseError(stage: "missing-response-status", offset: 0, remaining: responseData.count) }
         if status == 2 { throw saving ? GFDIConnectIQSettingsError.saveRejected : GFDIConnectIQSettingsError.notInstalled }
         guard status == 1 else { throw GFDIConnectIQSettingsError.malformed }
     }

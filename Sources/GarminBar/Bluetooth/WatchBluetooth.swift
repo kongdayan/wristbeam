@@ -33,6 +33,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
     @Published var gatt: [GATTEntry] = []
     @Published var availableMetrics: Set<MetricKind> = []
     @Published private(set) var connectIQSettingsBusy = false
+    @Published private(set) var connectIQSettingsDiagnostic = ""
     @Published private(set) var connectIQSettingsStatus = ""
     @Published private(set) var connectIQSettingsSnapshot: GFDIConnectIQSettingsSnapshot?
     @Published private(set) var connectIQInstallBusy = false
@@ -534,6 +535,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
         engine.onConnectIQSettingsStatus = { [weak self] text, busy in
             self?.connectIQSettingsStatus = text; self?.connectIQSettingsBusy = busy
         }
+        engine.onConnectIQSettingsDiagnostic = { [weak self] in self?.connectIQSettingsDiagnostic = $0 }
         engine.onConnectIQInstall = { [weak self] text, busy, progress in
             self?.connectIQInstallStatus = text; self?.connectIQInstallBusy = busy; self?.connectIQInstallProgress = progress
         }
