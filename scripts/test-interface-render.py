@@ -25,6 +25,10 @@ import SwiftUI
     @MainActor static func main() throws {
         precondition(PulseRuntime.isPreview)
         _ = NSApplication.shared
+        // A command-line render harness does not receive normal app launch/activation.
+        // On macOS 14 an inactive window consumes the first click for activation.
+        NSApp.setActivationPolicy(.regular)
+        NSApp.finishLaunching()
         let output = URL(fileURLWithPath:CommandLine.arguments[1],isDirectory:true)
         let model = AppModel()
         model.enablePreview()
@@ -259,6 +263,12 @@ import SwiftUI
         let window = NSWindow(contentRect:host.frame,styleMask:[.titled],backing:.buffered,defer:false)
         window.contentView = host
         window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        let activationDeadline = Date().addingTimeInterval(5)
+        while (!NSApp.isActive || !window.isKeyWindow) && Date() < activationDeadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        precondition(NSApp.isActive && window.isKeyWindow, "Interaction fixture must be active before clicks")
         func settle() { host.layoutSubtreeIfNeeded(); RunLoop.main.run(until:Date().addingTimeInterval(0.1)) }
         func click(_ x:CGFloat,_ yFromTop:CGFloat) {
             settle()
