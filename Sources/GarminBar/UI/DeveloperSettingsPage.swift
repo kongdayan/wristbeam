@@ -12,7 +12,7 @@ struct DeveloperSettingsPage: View {
                     StatusDot(active:access.running)
                     Text(L10n.text(access.status))
                     Spacer()
-                    Button(L10n.text("应用接口配置")) { access.apply() }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).disabled(access.isApplying || access.isManagingKey)
+                    Button(L10n.text("应用接口配置")) { access.apply() }.buttonStyle(PulseButtonStyle(prominent: true)).tint(PulseTheme.mint).disabled(access.isApplying || access.isManagingKey)
                     Button(L10n.text("立即停止全部接口")) { access.stopAll() }
                 }
                 if access.running { Text(L10n.text(access.authenticationStatus)).foregroundStyle(PulseTheme.secondary) }
@@ -59,7 +59,7 @@ struct DeveloperSettingsPage: View {
                 VStack(alignment:.leading,spacing:12) {
                     HStack { StatusDot(active:access.running); Text(L10n.text(access.status)); Spacer(); Text(L10n.format("已处理 {0} 次请求",String(access.requestCount))) }.font(PulseTheme.font(size:11))
                     Text(access.baseURL + "/mcp").font(PulseTheme.font(size:12,design:.monospaced)).textSelection(.enabled)
-                    DisclosureGroup(L10n.text("客户端配置示例")) {
+                    PulseDisclosure(L10n.text("客户端配置示例")) {
                         Text(L10n.text(access.configuration.requiresAPIKey ? "支持手动 Bearer 密钥的 Streamable HTTP 客户端；不提供 OAuth 登录。配置格式因 AI 客户端而异。" : "在客户端选择无认证。服务地址需可被客户端访问；不提供 OAuth 登录。"))
                             .font(PulseTheme.font(size:11)).foregroundStyle(PulseTheme.secondary).padding(.vertical,8)
                         Text(access.clientExample).font(PulseTheme.font(size:11,design:.monospaced)).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
@@ -71,7 +71,7 @@ struct DeveloperSettingsPage: View {
                 PreferenceLine(title:"启用数据更新 Webhook",note:"开启后，将所选健康指标与同步状态发送到下方地址。目标服务会获得这些数据，请只填写你信任的接收端。") { Toggle("",isOn:$access.configuration.webhookEnabled).labelsHidden().toggleStyle(.switch) }
                 PreferenceLine(title:"接收地址") { TextField("https://your-service.example/hook",text:$access.configuration.webhookURL).textFieldStyle(.roundedBorder) }
                 PreferenceLine(title:"合并投递间隔") { Picker("",selection:$access.configuration.webhookInterval) { Text(L10n.text("10 秒")).tag(10); Text(L10n.text("1 分钟")).tag(60); Text(L10n.text("5 分钟")).tag(300) }.labelsHidden() }
-                DisclosureGroup(L10n.text("选择发送的指标")) {
+                PulseDisclosure(L10n.text("选择发送的指标")) {
                     LazyVGrid(columns:[GridItem(.adaptive(minimum:180))],alignment:.leading) {
                         ForEach(kinds) { kind in
                             Toggle(L10n.text(kind.title),isOn:Binding(get:{access.configuration.webhookMetrics.contains(kind.rawValue)},set:{ selected in
@@ -87,7 +87,7 @@ struct DeveloperSettingsPage: View {
                 }.font(PulseTheme.font(size:11)).padding(15)
             }
             Text(L10n.text("修改后点击应用。关闭应用或 Mac 休眠时，接口暂停。")).font(PulseTheme.font(size:11)).foregroundStyle(PulseTheme.secondary)
-        }.buttonStyle(.bordered).controlSize(.regular)
+        }.buttonStyle(PulseButtonStyle()).controlSize(.regular)
     }
 }
 

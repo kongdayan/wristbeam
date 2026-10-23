@@ -28,6 +28,7 @@ import SwiftUI
         let output = URL(fileURLWithPath:CommandLine.arguments[1],isDirectory:true)
         let model = AppModel()
         model.enablePreview()
+        verifyDisclosureHitTargets()
         model.receive(MetricSample(kind:.watchBattery,value:77,source:"fixture"))
         precondition(model.metrics[.watchBattery]?.value == 77)
         precondition(model.history[.watchBattery] == nil && model.series(for:.watchBattery) == nil)
@@ -206,7 +207,7 @@ import SwiftUI
                 model.bluetooth.isScanning = false; model.bluetooth.isConnecting = false
                 model.bluetooth.isConnected = false; model.bluetooth.canSyncFiles = false
                 model.fontScale = 1.15
-                for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.developer,.updates,.about] {
+                for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
                     if page.isSettings {
                         try render(PreferencesRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
@@ -214,13 +215,18 @@ import SwiftUI
                         try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                     }
                 }
+                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
                 model.openSettings(.overview)
                 model.dashboardGrouped = false
                 try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
                 model.dashboardGrouped = true
                 model.fontScale = 1.6
                 try render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
-                try render(PreferencesRootView(model:model).frame(width:820,height:600),name:"preferences-narrow-\(language)-\(theme)",dark:dark,output:output)
+                for page in [AppPage.settings,.appearance,.metricSelection,.developer,.updates] {
+                    model.settingsPage = page
+                    try render(PreferencesRootView(model:model).frame(width:820,height:600),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                }
+                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
                 model.fontScale = 1.15
                 model.activityBrowsing.search = "no-such-fixture"
                 model.page = .activities
@@ -246,6 +252,40 @@ import SwiftUI
         precondition(model.cloud.requestCount == 0)
         print("PASS: production-view renders including cached activity detail and Connect IQ; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font; no cloud requests")
     }
+    @MainActor static func verifyDisclosureHitTargets() {
+        let fixture = DisclosureInteractionState()
+        let host = NSHostingView(rootView: DisclosureInteractionFixture(state: fixture))
+        host.frame = NSRect(x:0,y:0,width:600,height:400)
+        let window = NSWindow(contentRect:host.frame,styleMask:[.titled],backing:.buffered,defer:false)
+        window.contentView = host
+        window.makeKeyAndOrderFront(nil)
+        func settle() { host.layoutSubtreeIfNeeded(); RunLoop.main.run(until:Date().addingTimeInterval(0.1)) }
+        func click(_ x:CGFloat,_ yFromTop:CGFloat) {
+            settle()
+            let local = NSPoint(x:x,y:host.isFlipped ? yFromTop : host.bounds.height - yFromTop)
+            let point = host.convert(local,to:nil)
+            for type in [NSEvent.EventType.leftMouseDown,.leftMouseUp] {
+                let event = NSEvent.mouseEvent(with:type,location:point,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,
+                    windowNumber:window.windowNumber,context:nil,eventNumber:0,clickCount:1,pressure:type == .leftMouseDown ? 1 : 0)!
+                NSApp.postEvent(event,atStart:false)
+            }
+            while let event = NSApp.nextEvent(matching:.any,until:Date().addingTimeInterval(0.1),inMode:.default,dequeue:true) { NSApp.sendEvent(event) }
+            settle()
+        }
+        settle()
+        click(480,24)
+        precondition(fixture.expanded,"Disclosure whitespace must expand the section")
+        click(480,85)
+        precondition(fixture.contentClicks == 1 && fixture.expanded,"Content buttons must act without collapsing the section")
+        click(578,24)
+        precondition(!fixture.expanded,"Chevron must collapse the section")
+        click(65,24)
+        precondition(fixture.expanded,"Label must expand the section")
+        fixture.disabled = true; settle(); click(480,24)
+        precondition(fixture.expanded,"Disabled disclosure must not toggle")
+        window.orderOut(nil)
+        print("PASS native mouse events: disclosure label, whitespace, chevron, independent content and disabled state")
+    }
     @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL) throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))
         let size = host.fittingSize
@@ -261,6 +301,21 @@ import SwiftUI
         precondition(bitmap.pixelsWide >= 300 && bitmap.pixelsHigh >= 225 && data.count > 5000)
         try data.write(to:output.appendingPathComponent(name + ".png"))
         print("PASS \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh)")
+    }
+}
+@MainActor final class DisclosureInteractionState: ObservableObject {
+    @Published var expanded = false
+    @Published var disabled = false
+    var contentClicks = 0
+}
+struct DisclosureInteractionFixture: View {
+    @ObservedObject var state: DisclosureInteractionState
+    var body: some View {
+        PulseDisclosure("Sync settings",isExpanded:$state.expanded) {
+            Button { state.contentClicks += 1 } label: {
+                Text("Content action").frame(maxWidth:.infinity,minHeight:44)
+            }.buttonStyle(PulseRowButtonStyle())
+        }.disabled(state.disabled).frame(width:600,height:400,alignment:.topLeading)
     }
 }
 ''')

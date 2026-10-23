@@ -3,6 +3,13 @@ import AppKit
 
 struct SyncPage: View {
     @ObservedObject var model: AppModel
+    @State private var showSettings: Bool
+    @State private var showFiles: Bool
+    init(model: AppModel, initiallyExpanded: Bool = false) {
+        self.model = model
+        _showSettings = State(initialValue: initiallyExpanded)
+        _showFiles = State(initialValue: initiallyExpanded)
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: PulseTheme.sectionSpacing) {
             PulseCard {
@@ -35,8 +42,8 @@ struct SyncPage: View {
                     if !model.localExportStatus.isEmpty { Text(L10n.text(model.localExportStatus)).font(PulseTheme.font(size: 12)) }
                 }
             }
-            DisclosureGroup(L10n.text("同步设置")) { SyncSetupGuide(model: model).padding(.top, 12) }
-            DisclosureGroup(L10n.text("文件与上传记录")) {
+            PulseDisclosure(L10n.text("同步设置"), isExpanded: $showSettings) { SyncSetupGuide(model: model).padding(.top, 12) }
+            PulseDisclosure(L10n.text("文件与上传记录"), isExpanded: $showFiles) {
                 VStack(alignment: .leading, spacing: 14) {
                     ViewThatFits(in: .horizontal) {
                         HStack { fileActions }
@@ -72,7 +79,7 @@ struct SyncPage: View {
                     }
                 }.padding(.top, 12)
             }
-            DisclosureGroup(L10n.text("诊断与日志")) {
+            PulseDisclosure(L10n.text("诊断与日志")) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(L10n.text("手表：\(model.bluetooth.transferStatus)"))
                     if model.cloudSyncEnabled { Text(L10n.text(model.uploads.status)) }

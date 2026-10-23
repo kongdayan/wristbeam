@@ -47,7 +47,7 @@ struct PairingGuide: View {
                         VStack(alignment: .leading, spacing: 10) { syncButton; accountButton }
                     }
                 }
-                DisclosureGroup(L10n.text("连接详情"), isExpanded: $showDetails) {
+                PulseDisclosure(L10n.text("连接详情"), isExpanded: $showDetails) {
                     VStack(alignment: .leading, spacing: 12) {
                         check("蓝牙连接", done: bluetooth.isConnected, detail: bluetooth.status)
                         check("佳明协议协商", done: bluetooth.protocolReady, detail: bluetooth.transferStatus)
@@ -56,12 +56,10 @@ struct PairingGuide: View {
                     }
                     if bluetooth.isConnected {
                         Button(L10n.text("重新建立协议通道")) { bluetooth.retryProtocol() }
-                            .buttonStyle(.bordered).disabled(model.preview)
+                            .buttonStyle(PulseButtonStyle()).disabled(model.preview)
                     }
                 }.font(PulseTheme.font(size: 12))
-                Button(L10n.text(showHelp ? "收起排查说明" : "连接不上 / 没有数据")) { showHelp.toggle() }
-                    .buttonStyle(.plain).foregroundStyle(PulseTheme.secondary).font(PulseTheme.font(size: 12))
-                if showHelp {
+                PulseDisclosure(L10n.text("连接不上 / 没有数据"), isExpanded: $showHelp) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(L10n.text("1. 搜不到：确认 Mac 蓝牙权限已允许；手表停留在手机配对界面，再点“重新扫描”。"))
                         Text(L10n.text("2. 搜到但连不上：暂时关闭手机蓝牙。重配对后，手表的蓝牙标识可能改变，请选择新扫描到的手表。"))
@@ -76,23 +74,23 @@ struct PairingGuide: View {
     private var scanButton: some View {
         Button { bluetooth.beginPairing() } label: {
             Label(L10n.text(bluetooth.access == .notDetermined ? "允许蓝牙并查找手表" : bluetooth.isScanning ? "重新扫描" : "手表已准备，查找设备"), systemImage: "antenna.radiowaves.left.and.right")
-        }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
+        }.buttonStyle(PulseButtonStyle(prominent: true)).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
     }
     @ViewBuilder private var scanSecondaryActions: some View {
         if bluetooth.hasSavedWatch && !bluetooth.isScanning && !bluetooth.isConnecting {
-            Button(L10n.text("连接已配对手表")) { bluetooth.reconnectSaved() }.buttonStyle(.bordered)
+            Button(L10n.text("连接已配对手表")) { bluetooth.reconnectSaved() }.buttonStyle(PulseButtonStyle())
         }
-        if bluetooth.isScanning { Button(L10n.text("停止扫描")) { bluetooth.stopScan() }.buttonStyle(.bordered) }
+        if bluetooth.isScanning { Button(L10n.text("停止扫描")) { bluetooth.stopScan() }.buttonStyle(PulseButtonStyle()) }
     }
     private var syncButton: some View {
         Button(L10n.text("接收手表数据")) { model.syncNow() }
-            .buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
+            .buttonStyle(PulseButtonStyle(prominent: true)).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
             .disabled(model.preview || !bluetooth.canSyncFiles)
     }
     private var accountButton: some View {
         Button(L10n.text(model.cloud.isAuthenticated ? "设置同步方式" : "连接设备账号")) {
             model.openSettings(model.cloud.isAuthenticated ? .sync : .account)
-        }.buttonStyle(.bordered)
+        }.buttonStyle(PulseButtonStyle())
     }
     private func check(_ title: String, done: Bool, detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {

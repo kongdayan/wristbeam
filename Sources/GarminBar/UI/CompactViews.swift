@@ -26,9 +26,9 @@ struct MenuPopover: View {
             }.font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
             HStack(spacing: 9) {
                 Button { model.openSettings(.watch) } label: { Label(L10n.text("连接与配置"), systemImage: "slider.horizontal.3").frame(maxWidth: .infinity) }
-                    .buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
-                Button { model.floatingEnabled.toggle() } label: { Image(systemName: model.floatingEnabled ? "rectangle.slash" : "rectangle.on.rectangle") }.help(L10n.text("显示或隐藏浮动窗口"))
-                    .buttonStyle(.bordered)
+                    .buttonStyle(PulseButtonStyle(prominent: true, compact: true))
+                Button { model.floatingEnabled.toggle() } label: { Image(systemName: model.floatingEnabled ? "rectangle.slash" : "rectangle.on.rectangle") }.help(L10n.text("显示或隐藏浮动窗口")).accessibilityLabel(L10n.text("显示或隐藏浮动窗口"))
+                    .buttonStyle(PulseButtonStyle(compact: true))
             }.controlSize(.regular)
             HStack {
                 Button(L10n.text("接收手表数据")) { model.syncNow() }.disabled(model.preview)
@@ -37,7 +37,7 @@ struct MenuPopover: View {
                     .help(L10n.text("设置")).accessibilityLabel(L10n.text("设置"))
                     .keyboardShortcut(",", modifiers: .command)
                 Button(L10n.text("退出")) { model.onQuit?() }
-            }.buttonStyle(.plain).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
+            }.buttonStyle(PulseButtonStyle(compact: true)).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
         }
         .id(model.language).padding(20).frame(width: 420, height: 500).background(PulseTheme.background).preferredColorScheme(model.preferredColorScheme).environment(\.locale, L10n.locale)
     }

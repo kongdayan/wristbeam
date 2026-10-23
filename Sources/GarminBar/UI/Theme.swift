@@ -33,7 +33,7 @@ struct PulseCard<Content: View>: View {
         content.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .background(PulseTheme.surface)
             .clipShape(RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.primary.opacity(0.06), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.primary.opacity(0.06), lineWidth: 1).allowsHitTesting(false))
     }
 }
 
@@ -98,7 +98,7 @@ struct MetricCard: View {
 }
 
 
-/// Shared row feedback; native bordered controls remain the default for actions.
+/// Shared row feedback for navigation and wide click targets.
 struct PulseRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View { Row(configuration: configuration) }
     private struct Row: View {
@@ -109,7 +109,7 @@ struct PulseRowButtonStyle: ButtonStyle {
         var body: some View {
             configuration.label.contentShape(RoundedRectangle(cornerRadius: 10))
                 .background(PulseTheme.mint.opacity(enabled && (hovered || configuration.isPressed) ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(focused ? PulseTheme.mint : .clear, lineWidth: 2))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(focused ? PulseTheme.mint : .clear, lineWidth: 2).allowsHitTesting(false))
                 .opacity(enabled ? 1 : 0.5).onHover { hovered = $0 }
         }
     }
@@ -145,13 +145,15 @@ struct PulseEmptyState<Actions: View>: View {
 struct PulseButtonStyle: ButtonStyle {
     var prominent = false
     var card = false
+    var compact = false
     func makeBody(configuration: Configuration) -> some View {
-        StyledButton(configuration: configuration, prominent: prominent, card: card)
+        StyledButton(configuration: configuration, prominent: prominent, card: card, compact: compact)
     }
     private struct StyledButton: View {
         let configuration: Configuration
         let prominent: Bool
         let card: Bool
+        let compact: Bool
         @State private var hovered = false
         @Environment(\.isEnabled) private var enabled
         @Environment(\.isFocused) private var focused
@@ -163,15 +165,66 @@ struct PulseButtonStyle: ButtonStyle {
             configuration.label
                 .font(PulseTheme.font(size: 12, weight: card ? .regular : .medium))
                 .foregroundStyle(prominent ? PulseTheme.onAccent : Color.primary)
-                .padding(.horizontal, 14).padding(.vertical, card ? 14 : 9)
+                .padding(.horizontal, compact ? 10 : 14).padding(.vertical, card ? 14 : compact ? 6 : 9)
+                .frame(minWidth: compact ? 32 : 40, minHeight: compact ? 32 : 40)
                 .background(prominent ? PulseTheme.mint : Color.primary.opacity(hovered && enabled ? 0.075 : 0.035), in: shape)
-                .overlay(shape.strokeBorder(prominent ? Color.clear : Color.primary.opacity(hovered && enabled ? 0.12 : 0.045), lineWidth: 1))
-                .overlay(shape.strokeBorder(focused ? PulseTheme.mint : .clear, lineWidth: 2))
+                .overlay(shape.strokeBorder(prominent ? Color.clear : Color.primary.opacity(hovered && enabled ? 0.12 : 0.045), lineWidth: 1).allowsHitTesting(false))
+                .overlay(shape.strokeBorder(focused ? PulseTheme.mint : .clear, lineWidth: 2).allowsHitTesting(false))
                 .contentShape(shape)
                 .opacity(enabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)
                 .onHover { hovered = $0 }
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: hovered)
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
         }
+    }
+}
+
+
+/// Header and chevron share one keyboard-accessible button. Content controls are
+/// siblings of that button, so editing a field never collapses its section.
+struct PulseDisclosure<Content: View>: View {
+    let title: String
+    private let expansion: Binding<Bool>?
+    @State private var expanded: Bool
+    private let content: Content
+    init(_ title: String, isExpanded: Binding<Bool>? = nil, initiallyExpanded: Bool = false,
+         @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.expansion = isExpanded
+        self._expanded = State(initialValue: initiallyExpanded)
+        self.content = content()
+    }
+    var body: some View {
+        DisclosureGroup(isExpanded: expansion ?? $expanded) { content } label: { Text(title) }
+            .disclosureGroupStyle(PulseDisclosureStyle())
+    }
+}
+
+struct PulseDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button { configuration.isExpanded.toggle() } label: {
+                HStack(spacing: 12) {
+                    configuration.label.multilineTextAlignment(.leading)
+                    Spacer(minLength: 8)
+                    Image(systemName: configuration.isExpanded ? "chevron.up" : "chevron.down")
+                        .font(PulseTheme.font(size: 12, weight: .semibold))
+                        .foregroundStyle(PulseTheme.secondary).accessibilityHidden(true)
+                }
+                .font(PulseTheme.font(size: 13, weight: .medium))
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PulseRowButtonStyle())
+            .accessibilityValue(L10n.text(configuration.isExpanded ? "已展开" : "已收起"))
+            if configuration.isExpanded {
+                Divider().padding(.horizontal, 14)
+                VStack(alignment: .leading, spacing: 12) { configuration.content }
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(14)
+            }
+        }
+        .background(PulseTheme.surface, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.primary.opacity(0.08)).allowsHitTesting(false))
     }
 }

@@ -168,7 +168,7 @@ struct MetricDetailView: View {
                 summary
                 Text(L10n.text(canonical.seriesExplanation)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                 if let series, !series.points.isEmpty {
-                    DisclosureGroup(L10n.text("查看原始时间记录（\(series.points.count) 条）")) {
+                    PulseDisclosure(L10n.text("查看原始时间记录（\(series.points.count) 条）")) {
                         Table(series.points, selection: $rowSelection) {
                             TableColumn(L10n.text("时间")) { point in Text(L10n.text(intervalLabel(point))).monospacedDigit() }
                             TableColumn(L10n.text("\(canonical.title)（\(canonical.seriesUnit)）")) { point in Text(L10n.text(point.value.map { formatted($0) } ?? "不可测 / 缺测")).monospacedDigit() }
