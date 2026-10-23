@@ -18,6 +18,7 @@
 		14D3EFCEC953C8734BCED50C /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87AF7893C4D9145A57063C78 /* Localization.swift */; };
 		15A7091F99D3B1ADDFF62769 /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4390F1708BDA4216CCC29F07 /* AppStorage.swift */; };
 		1718AAC07BC8EA52AF55B1D5 /* DeveloperClientsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95B09C189CA5D7FC57A98968 /* DeveloperClientsView.swift */; };
+		174B0230C532A324CE8B568A /* WebScrollAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5BB8EA5EB3F2C5D806EC89B /* WebScrollAppearance.swift */; };
 		251DE8250A9F1E39CCAAA7FD /* PairingGuide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */; };
 		2C14087490EA36173821DC96 /* AppDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 214F49C2661A6675D49A009D /* AppDiagnostics.swift */; };
 		2C33C2A0233FF546A8CE525C /* GarminLoginWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1226B0ECC7A4666D7B18EC44 /* GarminLoginWebView.swift */; };
@@ -221,6 +222,7 @@
 		DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDICoreIdentity.swift; sourceTree = "<group>"; };
 		E187BE3DED6BA0AFD0F55EB7 /* SetupGuides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupGuides.swift; sourceTree = "<group>"; };
 		E25BF5C33DBC96A6FBC28BA0 /* HealthAccountScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthAccountScope.swift; sourceTree = "<group>"; };
+		E5BB8EA5EB3F2C5D806EC89B /* WebScrollAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebScrollAppearance.swift; sourceTree = "<group>"; };
 		E92C7ED151DEA4C42FBA2A85 /* HealthSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSummary.swift; sourceTree = "<group>"; };
 		EC3378D98D83D57B32FB9DA9 /* DashboardSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardSharing.swift; sourceTree = "<group>"; };
 		EC8B1C9BE9DF1A3D0AF2D7A5 /* WidgetSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSharing.swift; sourceTree = "<group>"; };
@@ -287,6 +289,7 @@
 				469332E2E0B648FE64427993 /* SyncProgressView.swift */,
 				051E6225A85174601A16F8F0 /* Theme.swift */,
 				6DBF677771A3C348478B0F88 /* WatchWeatherCard.swift */,
+				E5BB8EA5EB3F2C5D806EC89B /* WebScrollAppearance.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -626,6 +629,7 @@
 				7BA3F89B2ADA63E439997DA8 /* WatchDiscovery.swift in Sources */,
 				94EDDBCFB7C9239C51663120 /* WatchWeatherCard.swift in Sources */,
 				9474DCEC765B379FE05F967A /* WatchWeatherController.swift in Sources */,
+				174B0230C532A324CE8B568A /* WebScrollAppearance.swift in Sources */,
 				0C0BF6D1C7481FB98DCADB2D /* WidgetSharing.swift in Sources */,
 				462B3FB70DC32EE4999528CE /* WorkflowPresentation.swift in Sources */,
 			);
@@ -677,7 +681,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 17;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -691,7 +695,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.9;
+				MARKETING_VERSION = 0.3.10;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -817,7 +821,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 17;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -837,7 +841,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.9;
+				MARKETING_VERSION = 0.3.10;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

@@ -1,46 +1,37 @@
 # Product showcase
 
-Native views and showcase composites are generated in GitHub Actions. The macOS 15 Apple Silicon job uploads `showcase-macos15`; download that artifact to refresh the README images without a local build. The renderer covers 52 combinations, including device status, HRV and the menu popover. Only synthetic preview data enters these artifacts.
+The five READMEs use native WristBeam views with isolated synthetic data. Chinese documentation uses Chinese captures and captions; English, Japanese, Korean and Russian documentation use the English image set. No personal accounts, health records, device identifiers or activity locations enter these assets.
 
-The README uses actual native app views with isolated **WristBeam Demo** data. Its values are simulated, its preferences/storage are separate, and Bluetooth, saved account recovery and uploading are disabled. No user's health data, account identifiers, device IDs or activity locations appear in these assets.
+## 0.3.10 documentation refresh
 
-| Image | What it shows |
-| --- | --- |
-| [Hero](images/showcase-hero.png) | Native dashboard, status item and expanded menu panel |
-| [Menu](images/showcase-menu.png) | Actual icon-only menu readings and the click-to-open panel |
-| [Themes](images/showcase-themes.png) | Native light and dark dashboard captures |
-| [Settings](images/showcase-settings.png) | Grouped three-surface selection matrix |
+The current hero, menu, themes, settings and floating-panel images come from the UI changes in [PR #20](https://github.com/kongdayan/wristbeam/pull/20), application commit `2d2296fdd2960324b0acd4847613f7c3b722a4f3`. They were rendered in [GitHub Actions run 39894382413](https://github.com/kongdayan/wristbeam/actions/runs/39894382413) and copied unchanged from its `showcase-macos15` artifact. The release preparation updates version metadata separately; these images show the UI shipping in 0.3.10.
 
-The Chinese README uses a separate Chinese set: [hero](images/showcase-hero-zh.png), [menu](images/showcase-menu-zh.png), [themes](images/showcase-themes-zh.png), and [settings](images/showcase-settings-zh.png). Both captions and captured app views are Chinese; the English set remains English. Chinese native captures are [dashboard](images/raw-dashboard-zh.png), [light](images/dashboard-light-zh.png), [dark](images/dashboard-dark-zh.png), [settings](images/display-settings-zh.png), and [menu panel](images/raw-menu-popup-zh.png).
+| Image | What it shows | Chinese version |
+| --- | --- | --- |
+| [Hero](images/showcase-hero.png) | Dashboard, icon-only status item and menu panel | [中文](images/showcase-hero-zh.png) |
+| [Menu](images/showcase-menu.png) | Menu readings and click-to-open panel | [中文](images/showcase-menu-zh.png) |
+| [Themes](images/showcase-themes.png) | Light and dark dashboard | [中文](images/showcase-themes-zh.png) |
+| [Settings](images/showcase-settings.png) | Separate preferences window, appearance, text size and layout | [中文](images/showcase-settings-zh.png) |
+| [Floating panels](images/showcase-floating.png) | Compact readings and Detailed trends | [中文](images/showcase-floating-zh.png) |
 
-## Build 10 refresh
+Raw dashboard, menu, floating and display-settings captures in `docs/images/` are refreshed from the same artifact. The icon-only [status item](images/raw-menu-bar.png) remains the earlier computer-use capture; that component was not changed by this UI update. The [sharing examples](images/share-cards-en.png) and [Chinese sharing example](images/share-cards-zh.png) retain their existing synthetic exports.
 
-The dashboard, themes, settings and new [Compact / Detailed floating showcase](images/showcase-floating.png) now use build 10 production views. The [Chinese version](images/showcase-floating-zh.png) includes Chinese captions and controls; all other README languages use English assets.
+## How the images are made
 
-`scripts/test-interface-render.py` constructs the actual `AppModel` in isolated preview mode and renders the real SwiftUI views through `NSHostingView.cacheDisplay`, including native controls. It exercises 52 combinations of language, theme, floating density and font size. These are programmatic native-view renders, **not evidence of click testing**. Live computer-use verification remains separately recorded in VERIFICATION.md.
+`scripts/test-interface-render.py` constructs the real `AppModel` in isolated preview mode, disables Bluetooth/account recovery/uploads and asserts zero cloud requests. It renders production SwiftUI views through `NSHostingView.cacheDisplay`. The current suite exports 152 PNGs covering Chinese/English, light/dark, Compact/Detailed panels, device battery, HRV, activities, expanded sections, narrow windows and 100%/160% text samples.
 
-`scripts/render-floating-showcase.swift` places those unchanged PNGs on an original gradient with frames and shadows. It refreshes the hero, menu, themes, settings and floating composites. The menu status item capture remains from the earlier computer-use session. The expanded menu uses the current production view rendered in Actions, including the device battery badge. The HTML viewer below is retained for interactive capture, but the latest composites are generated by the Swift renderer.
+The same CI harness separately exercises native mouse events for disclosure headers and metric selection, plus list/detail scroll restoration. A screenshot alone does not prove interaction behavior. Local installed-client computer-use checks remain subject to tool availability; see [verification scope](../VERIFICATION.md).
 
-The settings layout and Compact / Detailed presentation were inspired by [Pulse](https://github.com/qunqin24/Pulse); WristBeam's implementation, icons and artwork are independently authored. No Pulse source or artwork is bundled.
+`scripts/render-floating-showcase.swift` arranges unchanged native captures on an original gradient, adding frames and shadows. CI renders the composites; maintainers download the artifact instead of building local demo apps. The earlier [English](showcase/index.html) and [Chinese](showcase/index.zh-CN.html) HTML layouts remain available as historical artwork sources, but the current README composites use the Swift renderer.
 
-## Capture method
+The settings layout and Compact/Detailed presentation were inspired by [Pulse](https://github.com/qunqin24/Pulse). WristBeam's implementation, icons and artwork are independently authored; no Pulse source or artwork is bundled. The human-battery and footprint glyphs are drawn in [MetricIcon.swift](../Sources/GarminBar/UI/MetricIcon.swift); other glyphs use macOS SF Symbols. Body Battery keeps its full name in panels and accessibility descriptions.
 
-Computer-use opens and operates the native demo app. The native computer-use screenshot service returned oversized Retina extents on this Mac. To keep the real UI intact, computer-use invokes the Demo's Save demo screenshot command (⌘S), which exports only its own actual AppKit hosting view at 3× resolution. Native view captures are [raw-dashboard-en.png](images/raw-dashboard-en.png), [dashboard-light.png](images/dashboard-light.png), [dashboard-dark.png](images/dashboard-dark.png) and [display-settings.png](images/display-settings.png).
+## Refresh checklist
 
-Clicking **Open menu bar** opens the real `NSPopover`. Only in Demo mode, the app exports its actual `NSStatusItem` button and hosting view at 3× resolution using AppKit view rendering: [raw-menu-bar.png](images/raw-menu-bar.png), [raw-menu-popup.png](images/raw-menu-popup.png). This avoids global desktop capture and the focus change that closes transient popovers in the computer-use tool. These are actual native components, not generated interface illustrations.
+1. Run CI for the intended UI revision; download `showcase-macos15` and `native-interface-macos15`.
+2. Inspect both language sets, including long pages, large text, menu and floating panels.
+3. Copy the intended PNGs into `docs/images/`; preserve captures without painting over controls or values.
+4. Update the source commit/run above and all five README descriptions; check image links and language selection.
+5. Keep the app icon, original status-item capture and unchanged sharing exports unless those components need a new capture.
 
-The human-battery and footprint glyphs are original code-drawn vectors in [MetricIcon.swift](../Sources/GarminBar/UI/MetricIcon.swift). Other glyphs use macOS SF Symbols. Body Battery keeps its full name in panels and accessibility descriptions; no BB abbreviation is used.
-
-[HTML/CSS artwork](showcase/index.html) places the unmodified native PNGs on a background with rounded frames and shadows. [The local WKWebView viewer](../scripts/showcase-viewer.swift) renders four scenes; keys 1–4 switch scenes. Computer-use operates the resulting viewer and its “Save showcase image” command. The viewer exports its actual WKWebView rectangle through WebKit snapshot rendering, avoiding an incorrect Retina window extent in the native computer-use screenshot service. No AI-generated controls, values or fake product UI are added. Rounded shells and shadows are decorative layout around unchanged captures.
-
-[The Chinese layout](showcase/index.zh-CN.html) uses the same 1280 × 860 canvas. In the viewer, ⌘Z selects Chinese and ⌘E selects English; ⌘S exports the selected scene with a language-specific filename. Native display scale determines PNG pixel dimensions; the Chinese set was captured at 2560 × 1720. The first-use capture comes from a separately stored onboarding Demo with Bluetooth, account restoration and uploading disabled.
-
-## Background brief
-
-The original background brief used the former working name Garmin Pulse; the name is updated here for readability. No brand or product text is rendered into the backdrop.
-
-Only [the abstract backdrop](images/showcase-background.png) was generated with the built-in image generation tool. It was not used to edit the app screenshots.
-
-> Use case: ads-marketing. Background plate for premium independent macOS WristBeam product showcase. Generate only abstract backdrop, no device/interface/text/logos. Wide 16:9, quiet pearl/off-white center, subtle translucent mint-green and warm amber outer halos, frosted glass and very subtle film grain, restrained light, clean negative space for real screenshots. Avoid busy patterns, diagrams, simulated UI, hard borders, stock photos, neon and watermarks.
-
-The background is reused consistently across four native HTML/CSS scenes. The [app icon](images/app-icon.png) comes from the project's own vector drawing script. Project-authored artwork follows [the MIT license](../LICENSE); Garmin and platform marks remain their owners' marks.
+Only the historical [abstract backdrop](images/showcase-background.png) was made with image generation; product screenshots were not generated or retouched. The [app icon](images/app-icon.png) comes from the project's own vector drawing script. Project-authored artwork follows the [MIT license](../LICENSE).

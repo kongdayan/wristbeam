@@ -32,6 +32,8 @@ Mac 有电量条，人也该有。
 
 [下载](https://github.com/kongdayan/wristbeam/releases/latest) · [反馈与设备支持](https://github.com/kongdayan/wristbeam/issues) · [参与贡献](CONTRIBUTING.md) · [版本记录](CHANGELOG.md)
 
+**0.3.10 更新：**按钮更好点，折叠标题整行可展开，大字号布局更舒适，页面统一隐藏滚动条。[版本说明](CHANGELOG.md#0310--2026-10-23)。
+
 ## 展示
 
 ![菜单栏与点击后的弹窗](docs/images/showcase-menu-zh.png)
@@ -46,6 +48,7 @@ Mac 有电量条，人也该有。
 
 ## 功能
 
+- **设置集中，操作省心。** 独立设置窗口按外观、指标选择、刷新、开发者集成和软件更新分组；点击折叠标题整行即可展开，长页面保留正常滚动。
 - 在菜单栏、浮窗和看板独立选择指标，整组选取、搜索、拖动排序，调整字体与布局。
 - **云不是必选项。** 无需云账号也能接收手表数据；可停止全部佳明云访问，在本机暂存，随时导出 FIT + CSV 或以后补传。[本地模式](docs/SETUP.md)。
 - **让 AI 知道你最近练了什么。** 在独立运动记录页浏览云端历史，打开即加载统计和图表，支持导出 JSON、TCX／GPX／原始文件，通过 MCP 查询本地运动库；可设置摘要自动刷新频率。[运动接口](docs/developer/API.md#activity-library)。
@@ -98,6 +101,8 @@ Mac 有电量条，人也该有。
 | Apple Silicon | [arm64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-arm64.zip) |
 | Intel | [x86_64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-x86_64.zip) |
 | 两种架构 | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
+
+已安装用户：**设置 → 软件更新 → 检查更新**。云账号是可选项；仅本地使用时，无需登录佳明。
 
 要求 macOS 13+。解压，将应用放入可写的 Applications 文件夹。打开“设备 → 连接”，按引导准备手表，点击连接按钮后允许蓝牙访问；保持心率广播关闭。到“设备账号”选择中国／国际区域，在佳明官方页面登录，再到“同步记录”选择手动或自动同步。启动自动连接默认关闭，可在首次配对后主动开启。
 

@@ -5,9 +5,9 @@
 1. 打开应用，进入 **设备 → 连接**。打开软件和浏览设备页都不会申请蓝牙或扫描手表。
 2. 首次配对：手表长按 MENU → 手机 → 配对手机，关闭心率广播；手机占用连接时，暂时关闭手机蓝牙。点击 **允许蓝牙并查找手表**，在 macOS 提示中允许访问，再选择手表、核对配对码。已保存的手表可直接点击 **连接已配对手表**，无需每次忘记或重新配对。
 3. 允许蓝牙后，分别检查蓝牙连接、佳明数据通道、实时读数和文件通道。单独显示“已连接”不能证明原始文件同步已经就绪。没有数据时展开 **连接不上 / 没有数据**。
-4. 到 **设备账号** 选择手表绑定的中国或国际账户区域，在佳明官方页面登录。同一区域、同一账户才能核对文件归属；关联设备应与你的手表一致。
+4. 云账号可选。仅本地使用无需登录；需要云端记录或上传时，到 **设备 → 设备账号** 开启云同步，选择中国或国际区域，再在佳明官方页面登录。账户应与你的手表绑定账户一致。
 5. 到 **同步记录** 选择手动或自动上传。实时读数留在本机，云端接收手表生成的原始运动与健康 FIT。新用户默认手动同步；旧版已保存的选择以及已配对用户原先的自动同步默认值保留。
-6. 在 **显示设置** 分别选健康看板、浮窗和菜单栏的指标，调整字体、日夜主题和刷新。新用户默认不弹出空浮窗，按需开启。
+6. 打开独立 **设置** 窗口：在 **显示设置** 调整字体、主题和布局，在 **指标选择** 分别配置看板、浮窗和菜单栏，在 **网络与刷新** 调整刷新频率。新用户默认不弹出空浮窗，按需开启。折叠区的标题整行都可点击；长页面隐藏滚动条，仍支持正常滚动。
 
 **拒绝蓝牙**：在系统设置 → 隐私与安全性 → 蓝牙允许 WristBeam，再回到连接页。受到系统策略限制时需由设备管理员处理；设备账号与 FIT 导入仍可使用。临时签名的新构建可能需要重新允许访问，应用只在主动连接时请求。
 
@@ -33,7 +33,7 @@ In **Sync records**, **Automatically receive watch files** downloads original FI
 
 Cloud backfill uses original watch-generated FIT files, not synthesized FIT made from live readings. CSV is for personal use and analysis; it cannot recreate Garmin's historical cloud-only records. Folder monitoring applies only to the selected directory and can be stopped here.
 
-Connecting at launch is a separate opt-in and requires previously granted access plus a saved watch. Reconnection restores only a connection you started; manual disconnect stops retries. Closing the window keeps the menu bar app running, while quitting or Mac sleep pauses immediate syncing. Configure the floating panel, display metrics, type size, themes and refresh in **Display settings**.
+Connecting at launch is a separate opt-in and requires previously granted access plus a saved watch. Reconnection restores only a connection you started; manual disconnect stops retries. Closing the window keeps the menu bar app running, while quitting or Mac sleep pauses immediate syncing. Open the separate **Settings** window: use **Display settings** for panels, text size, themes and layout; **Metric selection** for dashboard/panel/menu metrics; and **Network and refresh** for refresh intervals. Click anywhere on a section header to expand it. Long pages scroll normally with their indicators hidden.
 
 If Bluetooth is denied, enable WristBeam in System Settings → Privacy & Security → Bluetooth and retry. A system restriction needs the administrator's help. An ad hoc build may need renewed system authorization after an update. Updates ask for confirmation before download and wait for active transfers to finish.
 
