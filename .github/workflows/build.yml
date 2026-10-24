@@ -4,7 +4,19 @@ on:
     inputs:
       full-matrix:
         type: boolean
-        default: true
+        default: false
+      render-ui:
+        type: boolean
+        default: false
+      showcase:
+        type: boolean
+        default: false
+      upload-packages:
+        type: boolean
+        default: false
+      package-retention-days:
+        type: number
+        default: 3
       release-tag:
         type: string
         default: ''
@@ -16,7 +28,7 @@ jobs:
     timeout-minutes: 25
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(inputs.full-matrix && '{"include":[{"runner":"macos-14","label":"macOS 14 · Apple Silicon","arch":"arm64","artifact":"package-macos14-arm64"},{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"},{"runner":"macos-15-intel","label":"macOS 15 · Intel","arch":"x86_64","artifact":"release-x86_64"},{"runner":"macos-26","label":"macOS 26 · Apple Silicon","arch":"arm64","artifact":"package-macos26-arm64"}]}' || '{"include":[{"runner":"macos-14","label":"macOS 14 · Apple Silicon","arch":"arm64","artifact":"package-macos14-arm64"},{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"},{"runner":"macos-15-intel","label":"macOS 15 · Intel","arch":"x86_64","artifact":"release-x86_64"}]}') }}
+      matrix: ${{ fromJSON(inputs.full-matrix && '{"include":[{"runner":"macos-14","label":"macOS 14 · Apple Silicon","arch":"arm64","artifact":"package-macos14-arm64"},{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"},{"runner":"macos-15-intel","label":"macOS 15 · Intel","arch":"x86_64","artifact":"release-x86_64"},{"runner":"macos-26","label":"macOS 26 · Apple Silicon","arch":"arm64","artifact":"package-macos26-arm64"}]}' || '{"include":[{"runner":"macos-15","label":"macOS 15 · Apple Silicon","arch":"arm64","artifact":"release-arm64"}]}') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,26 +49,26 @@ jobs:
       # Hosted Intel VMs abort in MTLLoader (no usable target GPU). Compile
       # the same views there; execute native rendering on all three ARM images.
       - name: Compile native share and settings views on Intel
-        if: matrix.arch == 'x86_64'
+        if: inputs.render-ui && matrix.arch == 'x86_64'
         run: |
           python3 scripts/test-dashboard-render.py --compile-only
           python3 scripts/test-interface-render.py --compile-only
       - name: Native share image rendering
-        if: matrix.arch == 'arm64'
+        if: inputs.render-ui && matrix.arch == 'arm64'
         run: python3 scripts/test-dashboard-render.py
       - name: Native settings and floating render smoke checks
-        if: matrix.arch == 'arm64'
+        if: inputs.render-ui && matrix.arch == 'arm64'
         run: python3 scripts/test-interface-render.py dist/interface-renders
       - name: Preserve native interaction failure screenshot
-        if: failure() && matrix.arch == 'arm64'
+        if: failure() && inputs.render-ui && matrix.arch == 'arm64'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-interaction-failure-${{ matrix.runner }}
           path: dist/interface-renders/interaction-failure.png
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 3
       - name: Render showcase images
-        if: matrix.runner == 'macos-15'
+        if: inputs.showcase && matrix.runner == 'macos-15'
         run: |
           mkdir -p dist/showcase
           cp docs/images/raw-menu-bar.png dist/showcase/
@@ -78,21 +90,21 @@ jobs:
                   shutil.copy2(source / f'floating-{language}-{theme}-{mode}-100.png', target / f'raw-floating-{mode}-{language}.png')
           PY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: matrix.runner == 'macos-15'
+        if: inputs.showcase && matrix.runner == 'macos-15'
         with:
           name: showcase-macos15
           path: dist/showcase/*.png
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: matrix.runner == 'macos-15'
+        if: inputs.showcase && matrix.runner == 'macos-15'
         with:
           name: native-interface-macos15
           path: |
             dist/interface-renders/*.png
             dist/interface-renders/*-timing.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
       - name: Native XCTest suite
         run: swift test
       - name: Build and sign application
@@ -104,14 +116,16 @@ jobs:
       - name: Validate real signed package
         run: python3 scripts/test-updater.py
       - name: Record verified package identity
+        if: inputs.upload-packages
         env:
           WRISTBEAM_ARCH: ${{ matrix.arch }}
         run: python3 scripts/reuse-ci-artifacts.py evidence --directory dist --arch "$WRISTBEAM_ARCH"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.upload-packages
         with:
           name: ${{ matrix.artifact }}
           path: |
             dist/WristBeam-macOS-${{ matrix.arch }}.zip
             dist/build-evidence-${{ matrix.arch }}.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: ${{ inputs.package-retention-days }}
