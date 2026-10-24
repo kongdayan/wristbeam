@@ -25,6 +25,11 @@ class CIReuseTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertFalse(reuse.validate_run({**run, field: value}, 'a' * 40, 'owner/repo'))
 
+    def test_single_arch_audit_does_not_weaken_release_download(self):
+        self.assertEqual(reuse.architectures_for('audit', 'arm64'), ('arm64',))
+        self.assertEqual(reuse.architectures_for('audit', None), ('arm64', 'x86_64'))
+        self.assertEqual(reuse.architectures_for('download', 'arm64'), ('arm64', 'x86_64'))
+
     def artifact(self, evidence_change=None, extra=False):
         package = b'synthetic package; native validation runs separately'
         evidence = dict(schemaVersion=1, commit='a' * 40, runID='123', architecture='arm64',

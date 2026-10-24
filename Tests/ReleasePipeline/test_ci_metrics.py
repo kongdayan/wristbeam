@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[2] / 'scripts/ci-metrics.py'
 SPEC = importlib.util.spec_from_file_location('ci_metrics', SCRIPT)
@@ -69,3 +70,88 @@ class CITimingTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertIn('/attempts/2/jobs?', calls[0])
         self.assertTrue(calls[1].endswith('page=2'))
+
+    def test_transient_api_failure_retries_then_succeeds(self):
+        failed = subprocess.CompletedProcess([], 1, 'private response', 'gh: Server Error (HTTP 502)')
+        success = subprocess.CompletedProcess([], 0, '{"jobs": []}', '')
+        with patch.object(metrics.subprocess, 'run', side_effect=[failed, success]) as run, \
+             patch.object(metrics.time, 'sleep') as sleep:
+            self.assertEqual(metrics.api('fixture'), {'jobs': []})
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args.kwargs['timeout'], 20)
+        sleep.assert_called_once_with(1)
+
+    def test_timeout_retries_are_bounded_and_do_not_expose_output(self):
+        failure = subprocess.TimeoutExpired(['gh', 'api', 'fixture'], 20, output='secret')
+        with patch.object(metrics.subprocess, 'run', side_effect=failure) as run, \
+             patch.object(metrics.time, 'sleep') as sleep:
+            with self.assertRaises(metrics.GitHubAPIError) as caught:
+                metrics.api('fixture')
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+        self.assertTrue(caught.exception.retryable)
+        self.assertNotIn('secret', str(caught.exception))
+
+    def test_authentication_and_malformed_json_are_not_retried(self):
+        for status in (401, 403):
+            failed = subprocess.CompletedProcess([], 1, 'private response', f'secret (HTTP {status})')
+            with patch.object(metrics.subprocess, 'run', return_value=failed) as run, \
+                 patch.object(metrics.time, 'sleep') as sleep:
+                with self.assertRaises(metrics.GitHubAPIError) as caught:
+                    metrics.api('fixture')
+            self.assertFalse(metrics.optional_history_error(caught.exception))
+            self.assertNotIn('secret', str(caught.exception))
+            run.assert_called_once()
+            sleep.assert_not_called()
+        with patch.object(metrics.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'invalid', '')):
+            with self.assertRaises(json.JSONDecodeError):
+                metrics.api('fixture')
+
+    def test_missing_historical_jobs_keep_current_measurements_and_label_gap(self):
+        run = dict(id=123, run_attempt=2, workflow_id=7, head_sha='a' * 40,
+                   event='pull_request', created_at='2026-10-19T00:00:00Z')
+        old = [{**run, 'id': i, 'created_at': '2026-10-18T00:00:00Z'} for i in (121, 122)]
+        for status in (502, 404):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as temp, \
+                 patch.object(metrics, 'api', side_effect=[run, {'workflow_runs': old}]), \
+                 patch.object(metrics, 'jobs_for', side_effect=[
+                     [self.job()], metrics.GitHubAPIError(status, status == 502), [self.job(seconds=30)]]), \
+                 patch.dict(metrics.os.environ, {'GITHUB_STEP_SUMMARY': ''}):
+                output = Path(temp) / 'timing.json'
+                metrics.report_run('owner/repo', 123, output)
+                report = json.loads(output.read_text())
+                self.assertEqual(report['baselineRunIDs'], [122])
+                self.assertEqual(report['jobs'][0]['elapsedSeconds'], 60)
+                self.assertEqual(report['jobs'][0]['baselineSamples'], 1)
+                self.assertEqual(report['jobs'][0]['baselineMedianSeconds'], 30)
+                self.assertIn('121', report['baselineWarnings'][0])
+                self.assertIn('Historical comparison is incomplete', output.with_suffix('.md').read_text())
+
+    def test_current_jobs_and_historical_authentication_failure_remain_fatal(self):
+        run = dict(id=123, run_attempt=1, workflow_id=7, head_sha='a' * 40,
+                   event='pull_request', created_at='2026-10-19T00:00:00Z')
+        old = {**run, 'id': 122, 'created_at': '2026-10-18T00:00:00Z'}
+        for responses in ([metrics.GitHubAPIError(502, True)],
+                          [[self.job()], metrics.GitHubAPIError(403)]):
+            with tempfile.TemporaryDirectory() as temp, \
+                 patch.object(metrics, 'api', side_effect=[run, {'workflow_runs': [old]}]), \
+                 patch.object(metrics, 'jobs_for', side_effect=responses):
+                output = Path(temp) / 'timing.json'
+                with self.assertRaises(metrics.GitHubAPIError):
+                    metrics.report_run('owner/repo', 123, output)
+                self.assertFalse(output.exists())
+
+    def test_unavailable_history_listing_has_no_fabricated_baseline(self):
+        run = dict(id=123, run_attempt=1, workflow_id=7, head_sha='a' * 40,
+                   event='pull_request', created_at='2026-10-19T00:00:00Z')
+        with tempfile.TemporaryDirectory() as temp, \
+             patch.object(metrics, 'api', side_effect=[run, metrics.GitHubAPIError(503, True)]), \
+             patch.object(metrics, 'jobs_for', return_value=[self.job()]), \
+             patch.dict(metrics.os.environ, {'GITHUB_STEP_SUMMARY': ''}):
+            output = Path(temp) / 'timing.json'
+            metrics.report_run('owner/repo', 123, output)
+            report = json.loads(output.read_text())
+            self.assertEqual(report['baselineRunIDs'], [])
+            self.assertEqual(report['jobs'][0]['baselineSamples'], 0)
+            self.assertIsNone(report['jobs'][0]['baselineMedianSeconds'])
+            self.assertTrue(report['baselineWarnings'])

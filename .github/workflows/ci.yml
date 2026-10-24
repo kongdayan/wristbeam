@@ -6,21 +6,66 @@ on:
     branches: [main]
   merge_group:
   workflow_dispatch:
+    inputs:
+      full-validation:
+        description: Run all four macOS compatibility targets
+        type: boolean
+        default: false
+      showcase:
+        description: Generate downloadable README and interface screenshots
+        type: boolean
+        default: false
+      test-package:
+        description: Upload a signed test application
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       release-tag:
         type: string
         default: ''
+      full-validation:
+        type: boolean
+        default: false
+      showcase:
+        type: boolean
+        default: false
+      test-package:
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 jobs:
+  plan:
+    name: Select validation scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.plan.outputs.native }}
+      render: ${{ steps.plan.outputs.render }}
+      full: ${{ steps.plan.outputs.full }}
+      showcase: ${{ steps.plan.outputs.showcase }}
+      packages: ${{ steps.plan.outputs.packages }}
+      swift-security: ${{ steps.plan.outputs.swift-security }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: plan
+        env:
+          CI_FULL_VALIDATION: ${{ inputs.full-validation || false }}
+          CI_SHOWCASE: ${{ inputs.showcase || false }}
+          CI_TEST_PACKAGE: ${{ inputs.test-package || false }}
+          CI_RELEASE_TAG: ${{ inputs.release-tag || '' }}
+        run: python3 scripts/ci-plan.py
   quality:
     name: Quality and secrets
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -39,20 +84,30 @@ jobs:
         run: python3 scripts/check-secrets.py
   build:
     name: Build and test
+    needs: plan
+    if: needs.plan.outputs.native == 'true'
     uses: ./.github/workflows/build.yml
     with:
       release-tag: ${{ inputs.release-tag || '' }}
-      full-matrix: ${{ github.event_name != 'pull_request' }}
+      full-matrix: ${{ needs.plan.outputs.full == 'true' }}
+      render-ui: ${{ needs.plan.outputs.render == 'true' }}
+      showcase: ${{ needs.plan.outputs.showcase == 'true' }}
+      upload-packages: ${{ needs.plan.outputs.packages == 'true' }}
+      package-retention-days: ${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') && 7 || 3 }}
   security:
     name: Code analysis
+    needs: plan
     uses: ./.github/workflows/security.yml
+    with:
+      swift: ${{ needs.plan.outputs.swift-security == 'true' }}
     permissions:
       contents: read
       actions: read
       security-events: write
   artifact-integrity:
     name: Verify uploaded package provenance
-    needs: build
+    needs: [plan, build]
+    if: needs.plan.outputs.packages == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -65,32 +120,42 @@ jobs:
       - name: Download and verify this run's actual artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/reuse-ci-artifacts.py audit --run-id "$GITHUB_RUN_ID" --directory "$RUNNER_TEMP/verified-packages"
+          FULL_MATRIX: ${{ needs.plan.outputs.full }}
+        run: |
+          if [ "$FULL_MATRIX" = true ]; then
+            python3 scripts/reuse-ci-artifacts.py audit --run-id "$GITHUB_RUN_ID" --directory "$RUNNER_TEMP/verified-packages"
+          else
+            python3 scripts/reuse-ci-artifacts.py audit --run-id "$GITHUB_RUN_ID" --directory "$RUNNER_TEMP/verified-packages" --arch arm64
+          fi
   required:
     name: CI passed
     if: ${{ always() && !cancelled() }}
-    needs: [quality, build, security, artifact-integrity]
+    needs: [plan, quality, build, security, artifact-integrity]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Require every check to pass
+      - name: Require every selected check to pass
         env:
           PULSE_JOB_RESULTS: ${{ toJSON(needs) }}
         run: |
           python3 - <<'PY'
           import json, os, sys
           jobs = json.loads(os.environ['PULSE_JOB_RESULTS'])
-          failed = [name for name, job in jobs.items() if job['result'] != 'success']
+          scope = jobs['plan']['outputs']
+          expected = dict(plan='success', quality='success', security='success',
+                          build='success' if scope.get('native') == 'true' else 'skipped',
+                          **{'artifact-integrity': 'success' if scope.get('packages') == 'true' else 'skipped'})
+          failed = [name for name, result in expected.items() if jobs[name]['result'] != result]
           if failed:
-              sys.exit('Required checks did not pass: ' + ', '.join(failed))
-          print('All required checks passed')
+              sys.exit('Selected checks did not pass: ' + ', '.join(failed))
+          print('All selected checks passed; scope:', json.dumps(scope))
           PY
   timings:
     name: CI timing report
     if: ${{ always() && !cancelled() }}
-    needs: [quality, build, security, artifact-integrity]
+    needs: [plan, quality, build, security, artifact-integrity]
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
@@ -108,4 +173,4 @@ jobs:
           path: |
             ci-timings.json
             ci-timings.md
-          retention-days: 30
+          retention-days: 7

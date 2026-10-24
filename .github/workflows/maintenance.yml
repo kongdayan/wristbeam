@@ -1,0 +1,37 @@
+name: Actions artifact maintenance
+on:
+  schedule:
+    - cron: '37 4 * * *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Preview cleanup without deleting artifacts
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: actions-artifact-maintenance
+  cancel-in-progress: false
+jobs:
+  prune:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Remove obsolete screenshots and test packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            python3 scripts/prune-actions-artifacts.py --output "$RUNNER_TEMP/artifact-cleanup-plan.json"
+          else
+            python3 scripts/prune-actions-artifacts.py --apply --output "$RUNNER_TEMP/artifact-cleanup-plan.json"
+          fi

@@ -48,6 +48,11 @@ def unpack_verified(raw, artifact_digest, directory, arch, sha, run_id, version)
         (directory / name).write_bytes(package)
 
 
+def architectures_for(action, arch):
+    # The release download path always verifies both architectures.
+    return (arch,) if action == 'audit' and arch else ('arm64', 'x86_64')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['resolve', 'download', 'evidence', 'audit'])
@@ -103,7 +108,8 @@ def main():
     elif not validate_run(run, sha, repository):
         raise ValueError('Only successful same-commit main CI may be reused')
     artifacts = json.loads(api(f'{prefix}/runs/{args.run_id}/artifacts?per_page=100'))['artifacts']
-    for arch in ('arm64', 'x86_64'):
+    architectures = architectures_for(args.action, args.arch)
+    for arch in architectures:
         matches = [a for a in artifacts if a['name'] == f'release-{arch}' and not a['expired']]
         if len(matches) != 1:
             raise ValueError('Expected exactly one verified architecture artifact')

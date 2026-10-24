@@ -1,6 +1,10 @@
 name: CodeQL
 on:
   workflow_call:
+    inputs:
+      swift:
+        type: boolean
+        default: true
   schedule:
     - cron: '23 3 * * 1'
   workflow_dispatch:
@@ -16,17 +20,7 @@ jobs:
       security-events: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - language: swift
-            runner: macos-15-intel
-            build-mode: manual
-          - language: python
-            runner: ubuntu-24.04
-            build-mode: none
-          - language: actions
-            runner: ubuntu-24.04
-            build-mode: none
+      matrix: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.swift) && '{"include":[{"language":"swift","runner":"macos-15-intel","build-mode":"manual"},{"language":"python","runner":"ubuntu-24.04","build-mode":"none"},{"language":"actions","runner":"ubuntu-24.04","build-mode":"none"}]}' || '{"include":[{"language":"python","runner":"ubuntu-24.04","build-mode":"none"},{"language":"actions","runner":"ubuntu-24.04","build-mode":"none"}]}') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,4 +47,4 @@ jobs:
           name: codeql-swift-timing
           path: codeql-compile-timing.json
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 7
