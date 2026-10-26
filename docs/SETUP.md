@@ -2,10 +2,12 @@
 
 ## 中文
 
+首次使用可按需选择 **连接手表**（实时读数，无需云账号）或 **连接设备账号**（健康与运动历史，无需蓝牙）。下面是手表连接与可选云同步步骤。
+
 1. 打开应用，进入 **设备 → 连接**。打开软件和浏览设备页都不会申请蓝牙或扫描手表。
 2. 首次配对：手表长按 MENU → 手机 → 配对手机，关闭心率广播；手机占用连接时，暂时关闭手机蓝牙。点击 **允许蓝牙并查找手表**，在 macOS 提示中允许访问，再选择手表、核对配对码。已保存的手表可直接点击 **连接已配对手表**，无需每次忘记或重新配对。
 3. 允许蓝牙后，分别检查蓝牙连接、佳明数据通道、实时读数和文件通道。单独显示“已连接”不能证明原始文件同步已经就绪。没有数据时展开 **连接不上 / 没有数据**。
-4. 到 **设备账号** 选择手表绑定的中国或国际账户区域，在佳明官方页面登录。同一区域、同一账户才能核对文件归属；关联设备应与你的手表一致。
+4. 需要云端历史或上传时，到 **设备账号** 选择手表绑定的中国或国际账户区域，在佳明官方页面登录。同一区域、同一账户才能核对文件归属；关联设备应与你的手表一致。
 5. 到 **同步记录** 选择手动或自动上传。实时读数留在本机，云端接收手表生成的原始运动与健康 FIT。新用户默认手动同步；旧版已保存的选择以及已配对用户原先的自动同步默认值保留。
 6. 在 **显示设置** 分别选健康看板、浮窗和菜单栏的指标，调整字体、日夜主题和刷新。新用户默认不弹出空浮窗，按需开启。
 
@@ -38,3 +40,13 @@ Connecting at launch is a separate opt-in and requires previously granted access
 If Bluetooth is denied, enable WristBeam in System Settings → Privacy & Security → Bluetooth and retry. A system restriction needs the administrator's help. An ad hoc build may need renewed system authorization after an update. Updates ask for confirmation before download and wait for active transfers to finish.
 
 See [Apple's Bluetooth authorization states](https://developer.apple.com/documentation/corebluetooth/cbmanagerauthorization) and [Garmin's Instinct 2 pairing instructions](https://www8.garmin.com/manuals/webhelp/GUID-31D23DBB-57C2-4DF7-A0C9-8D1A00AB4BE7/EN-US/GUID-4C14822E-F472-4C3A-B33C-BB50407ADDE5.html).
+
+## 下载与离线 / Downloads and offline access
+
+**运动记录 → 下载管理** 显示当前账号的详情和导出副本、格式及占用空间。已下载数据可离线使用；刷新或网络错误不会清除缓存。运动导出先选择保存位置，取消保存不会启动文件下载。移到废纸篓会先确认，可在 Finder 中恢复；只处理运动缓存，保留运动摘要、账号和手表原始文件。
+
+**Workouts → Downloads** lists the selected account's cached details and exports, formats and disk usage. Downloaded data is available offline; refresh and network errors preserve existing copies. Choose a save destination before downloading an export. Moving a copy to Trash requires confirmation and can be reversed in Finder; summaries, accounts and original watch files are kept.
+
+Use the native sidebar or **Go** menu to navigate; Command-1 through Command-5 open the main sections, Command-comma opens Settings, and Command-W closes the window while keeping the menu bar companion running. With Full Keyboard Access, focus a workout chart and use Left/Right Arrow to inspect readings. Display options retain your preferred column count while fitting fewer columns in a narrow window or at a larger text size.
+
+Experience changes and verification are tracked in the [maintenance record](maintenance/2026-10-26-experience.md).

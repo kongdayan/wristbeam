@@ -88,3 +88,14 @@ Semantic label, secondary label and separator are resolved by macOS and are not 
 ## Delivery boundary
 
 Use a dedicated validation branch for GitHub Actions, without a PR or merge. Retain commits locally. No release workflow, release tag, version bump, installed application change, private data upload or foreground verification. Existing unrelated AGENTS.md and social drafts are excluded from commits.
+
+## Follow-up source review
+
+- Preserve a saved custom dashboard order as one grid; category grouping is the default only when no custom order exists. This keeps drag/reorder actions honest.
+- Bind the displayed workout detail to the cache revision so account changes cannot briefly display an old cached detail for a reused activity ID.
+- Tag update progress callbacks with the request identity; late callbacks cannot update a newer download. Repository edits are disabled during check/install.
+- Add keyboard cursor inspection and accessible values to workout charts; label date-navigation controls and settings controls.
+- Remove the redundant device-platform card, tuck manual device identifiers under a disclosure, add reading origin labels, and use the current date in the dashboard subtitle.
+- Keep existing appearance preferences as a deliberate compatibility/personalization choice; new surfaces still follow system semantic colors and accessibility settings.
+
+First validation: [Actions run for e15944a](https://github.com/kongdayan/wristbeam/actions/runs/40307141672). Quality/catalog/repository/secret analysis passed; native matrix was still running when this entry was written. Follow-up changes require a new exact-commit run.

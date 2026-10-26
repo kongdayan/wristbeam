@@ -342,7 +342,10 @@ final class AppModel: ObservableObject {
     func refreshHealthMetrics(force: Bool = false) async {
         guard !preview, cloud.isAuthenticated, !isRefreshingHealth, force || now.timeIntervalSince(lastHealthRefresh) >= 60 else { return }
         let device = watchUnitID.isEmpty ? cloud.deviceId : watchUnitID
-        guard !device.isEmpty, cloud.devices.contains(where: { $0.id == device }) else { return }
+        guard !device.isEmpty, cloud.devices.contains(where: { $0.id == device }) else {
+            if force { healthStatus = "请在设备账号中选择关联手表，再刷新健康数据。" }
+            return
+        }
         isRefreshingHealth = true; lastHealthRefresh = Date()
         let owner = seriesOwner
         defer {

@@ -52,7 +52,7 @@ struct SoftwareUpdatePage: View {
                     Toggle("", isOn: $updater.automaticChecks).labelsHidden().toggleStyle(.switch)
                 }
                 PreferenceLine(title: "GitHub 仓库，例如 owner/repo") {
-                    TextField("owner/repo", text: $updater.repository).textFieldStyle(.roundedBorder)
+                    TextField("owner/repo", text: $updater.repository).textFieldStyle(.roundedBorder).disabled(updater.isChecking || updater.isInstalling)
                 }
             }
             if updater.parsedRepository == nil { Text(L10n.text("请输入有效的 GitHub owner/repo 或仓库链接")).foregroundStyle(.orange) }

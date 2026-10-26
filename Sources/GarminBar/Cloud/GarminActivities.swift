@@ -285,7 +285,7 @@ struct ActivityDownload: Identifiable, Equatable {
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]
         guard directory.standardizedFileURL == directory.resolvingSymlinksInPath().standardizedFileURL,
               let urls = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]) else { return [] }
-        return urls.compactMap { url in
+        return urls.compactMap { url -> Self? in
             guard isManagedFilename(url.lastPathComponent), let values = try? url.resourceValues(forKeys: keys),
                   values.isRegularFile == true, values.isSymbolicLink != true else { return nil }
             return Self(filename: url.lastPathComponent, activityID: url.deletingPathExtension().lastPathComponent,

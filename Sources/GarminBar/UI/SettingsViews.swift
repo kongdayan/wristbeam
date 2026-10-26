@@ -171,7 +171,7 @@ struct OverviewPage: View {
     private var title: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L10n.text("健康看板")).font(PulseTheme.font(size: 27, weight: .semibold))
-            Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+            Text(model.now, format: .dateTime.month().day().weekday(.wide)).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
         }
     }
 }
@@ -185,13 +185,6 @@ struct DevicePage: View {
                 Text(L10n.text("设备账号")).tag(AppPage.account)
             }.pickerStyle(.segmented).controlSize(.large)
             if model.page == .account {
-                PulseCard {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label(L10n.text("当前设备平台：Garmin（佳明）"), systemImage: "applewatch").font(PulseTheme.font(size: 15, weight: .semibold))
-                        Text(L10n.text("账号由设备平台决定。当前佳明设备使用佳明中国或国际账号。"))
-                            .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
-                    }
-                }
                 AccountPage(model: model)
             } else { WatchPage(model: model) }
         }
@@ -343,7 +336,9 @@ struct AccountPage: View {
                                 ForEach(cloud.devices) { device in Text(L10n.text(device.name)).tag(device.id) }
                             }.onChange(of: cloud.deviceId) { value in model.watchUnitID = value }
                         }
-                        TextField(L10n.text("设备编号（连接手表后自动识别）"), text: $model.watchUnitID).textFieldStyle(.roundedBorder)
+                        DisclosureGroup(L10n.text("手动指定设备")) {
+                            TextField(L10n.text("设备编号（连接手表后自动识别）"), text: $model.watchUnitID).textFieldStyle(.roundedBorder)
+                        }
                         Text(L10n.text("\(cloud.devices.count) 台设备已关联当前账户。"))
                             .font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                     }

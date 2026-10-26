@@ -138,6 +138,10 @@ struct MetricCard: View {
             } else if !compact {
                 Text(L10n.text("当日汇总 · 点击查看")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).frame(height: model.cardSize.chartHeight, alignment: .bottom)
             }
+            if !compact, let sample = model.metrics[kind] {
+                Text(L10n.text(sample.origin == .watch ? "手表读数" : sample.origin == .cloud ? "云端记录" : "估算读数"))
+                    .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+            }
             if !compact, model.isStale(kind) || model.metricNotes[kind] != nil {
                 Label(L10n.text(model.metricNotes[kind] ?? "读数已过期"), systemImage: "clock.badge.exclamationmark")
                     .font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary).lineLimit(2)
@@ -162,7 +166,10 @@ struct MetricCard: View {
     }
     private var accessibilityStatus: String {
         var parts: [String] = []
-        if let sample = model.metrics[kind] { parts.append(sample.timestamp.formatted(.dateTime.month().day().hour().minute().locale(L10n.locale))) }
+        if let sample = model.metrics[kind] {
+            parts.append(L10n.text(sample.origin == .watch ? "手表读数" : sample.origin == .cloud ? "云端记录" : "估算读数"))
+            parts.append(sample.timestamp.formatted(.dateTime.month().day().hour().minute().locale(L10n.locale)))
+        }
         if model.isStale(kind) { parts.append(L10n.text("读数已过期")) }
         if let note = model.metricNotes[kind] { parts.append(L10n.text(note)) }
         return parts.joined(separator: " · ")

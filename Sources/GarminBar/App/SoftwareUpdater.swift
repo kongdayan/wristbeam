@@ -20,6 +20,7 @@ final class PulseUpdater: ObservableObject {
     @Published private(set) var totalDownloadBytes: Int64 = 0
     private var downloadSession: URLSession?
     private var downloadCancelled = false
+    private var downloadID = UUID()
     @Published private(set) var status = "准备检查 GitHub Releases"
     @Published private(set) var lastChecked = AppPreferences.shared.object(forKey: "lastUpdateCheck") as? Date
     var onConfirmation: (() -> Void)?
@@ -94,6 +95,7 @@ final class PulseUpdater: ObservableObject {
     func installConfirmed() async {
         guard installable, !isInstalling, canInstall?() != false, let release, let repo = parsedRepository,
               let asset = release.asset(repository: repo, architecture: architecture) else { status = "请等待文件同步结束后再升级"; return }
+        let requestID = UUID(); downloadID = requestID
         isInstalling = true; downloadCancelled = false; downloadedBytes = 0; totalDownloadBytes = Int64(asset.size); downloadProgress = 0
         status = "正在下载更新；你的账户和数据会保留"
         defer { isInstalling = false; downloadProgress = nil; downloadSession = nil }
@@ -106,7 +108,7 @@ final class PulseUpdater: ObservableObject {
             request.setValue("WristBeam/\(currentVersion)", forHTTPHeaderField: "User-Agent")
             let delegate = ReleaseDownloadDelegate(repository: repo, maximumBytes: asset.size) { [weak self] bytes in
                 Task { @MainActor [weak self] in
-                    guard let self, self.isInstalling, self.downloadProgress != nil, !self.downloadCancelled else { return }
+                    guard let self, self.isInstalling, self.downloadID == requestID, self.downloadProgress != nil, !self.downloadCancelled else { return }
                     self.downloadedBytes = bytes
                     self.downloadProgress = min(1, Double(bytes) / Double(max(1, asset.size)))
                 }

@@ -1267,5 +1267,12 @@
   "正在加载更早的运动…": "Loading earlier workouts…",
   "正在刷新运动摘要…": "Refreshing workout summaries…",
   "已移到废纸篓，可在 Finder 中恢复": "Moved to Trash. You can restore it in Finder.",
-  "无法移到废纸篓，请在 Finder 中重试": "Could not move to Trash. Try again in Finder."
+  "无法移到废纸篓，请在 Finder 中重试": "Could not move to Trash. Try again in Finder.",
+  "手动指定设备": "Specify a device manually",
+  "请在设备账号中选择关联手表，再刷新健康数据。": "Select a linked watch in Device account, then refresh health data.",
+  "{0} 条图表记录": "{0} chart readings",
+  "使用左右方向键查看相邻读数": "Use Left and Right Arrow to inspect adjacent readings",
+  "手表读数": "Watch reading",
+  "云端记录": "Cloud record",
+  "估算读数": "Estimated reading"
 }

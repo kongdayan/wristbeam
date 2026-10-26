@@ -139,7 +139,9 @@ struct ActivityDetailPage: View {
     @State private var exportFailed = false
     @State private var window: NSWindow?
     private var summary: GarminActivity? { library.index.activities.first { $0.id == id } }
-    @State private var detail: GarminActivityDetail?
+    @State private var cached: GarminActivityDetail?
+    @State private var cachedRevision = -1
+    private var detail: GarminActivityDetail? { cachedRevision == library.cacheRevision ? cached : nil }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             if let summary {
@@ -166,15 +168,21 @@ struct ActivityDetailPage: View {
             } else { Text(L10n.text("尚未下载这条运动的数据")) }
         }
         .background(ActivityWindowReader { window = $0 }.frame(width: 0, height: 0))
-        .task(id: library.cacheRevision) { detail = await library.cachedDetail(id) }
+        .task(id: library.cacheRevision) { await readCachedDetail() }
         .task(id: library.online) {
             loading = true
-            detail = await library.cachedDetail(id)
+            await readCachedDetail()
             await library.openDetail(id)
-            detail = await library.cachedDetail(id)
+            await readCachedDetail()
             loading = false
         }
         .onDisappear { exportTask?.cancel() }
+    }
+    @MainActor private func readCachedDetail() async {
+        let revision = library.cacheRevision
+        let value = await library.cachedDetail(id)
+        guard !Task.isCancelled, revision == library.cacheRevision else { return }
+        cached = value; cachedRevision = revision
     }
     private func title(_ summary: GarminActivity) -> some View {
         VStack(alignment: .leading, spacing: 7) {

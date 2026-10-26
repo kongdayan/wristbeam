@@ -139,9 +139,9 @@ struct MetricDetailView: View {
                 }
             }
             HStack(spacing: 10) {
-                Button { changeDay(-1) } label: { Image(systemName: "chevron.left").font(PulseTheme.font(size: 16, weight: .semibold)).frame(width: 28, height: 28) }.buttonStyle(.bordered).help(L10n.text("前一天"))
-                DatePicker("日期", selection: $model.detailDay, in: ...Date(), displayedComponents: .date).labelsHidden().datePickerStyle(.field)
-                Button { changeDay(1) } label: { Image(systemName: "chevron.right").font(PulseTheme.font(size: 16, weight: .semibold)).frame(width: 28, height: 28) }.buttonStyle(.bordered).disabled(Calendar.current.isDateInToday(model.detailDay)).help(L10n.text("后一天"))
+                Button { changeDay(-1) } label: { Image(systemName: "chevron.left").font(PulseTheme.font(size: 16, weight: .semibold)).frame(width: 28, height: 28) }.buttonStyle(.bordered).help(L10n.text("前一天")).accessibilityLabel(L10n.text("前一天"))
+                DatePicker(L10n.text("日期"), selection: $model.detailDay, in: ...Date(), displayedComponents: .date).labelsHidden().datePickerStyle(.field)
+                Button { changeDay(1) } label: { Image(systemName: "chevron.right").font(PulseTheme.font(size: 16, weight: .semibold)).frame(width: 28, height: 28) }.buttonStyle(.bordered).disabled(Calendar.current.isDateInToday(model.detailDay)).help(L10n.text("后一天")).accessibilityLabel(L10n.text("后一天"))
                 Button(L10n.text("今天")) { model.detailDay = Date() }.buttonStyle(.bordered).foregroundStyle(PulseTheme.mint)
                 Spacer()
                 if kind.timelineKind != nil {
