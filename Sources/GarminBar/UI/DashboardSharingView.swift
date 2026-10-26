@@ -49,6 +49,7 @@ struct DashboardShareSheet: View {
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(L10n.text("选择分享内容")).font(PulseTheme.font(size: 13, weight: .semibold))
+                        .fixedSize(horizontal: false, vertical: true)
                     HStack {
                         Button(L10n.text("全部")) { selected = Set(metrics.map(\.kind)); valueOnly = false }
                         Button(L10n.text("清空")) { selected = [] }
