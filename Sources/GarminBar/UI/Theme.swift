@@ -168,7 +168,11 @@ struct MetricCard: View {
         var parts: [String] = []
         if let sample = model.metrics[kind] {
             parts.append(L10n.text(sample.origin == .watch ? "手表读数" : sample.origin == .cloud ? "云端记录" : "估算读数"))
-            parts.append(sample.timestamp.formatted(.dateTime.month().day().hour().minute().locale(L10n.locale)))
+            if kind.isOvernightHRV {
+                parts.append(L10n.format("夜间记录日期：{0}", sample.timestamp.formatted(.dateTime.month().day().locale(L10n.locale))))
+            } else {
+                parts.append(L10n.format(sample.timestampIsMeasurement == false ? "同步时间：{0}" : "记录时间：{0}", sample.timestamp.formatted(.dateTime.month().day().hour().minute().locale(L10n.locale))))
+            }
         }
         if model.isStale(kind) { parts.append(L10n.text("读数已过期")) }
         if let note = model.metricNotes[kind] { parts.append(L10n.text(note)) }

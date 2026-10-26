@@ -1278,5 +1278,8 @@
   "正在打开官方登录页…": "Opening the official sign-in page…",
   "重新加载": "Reload",
   "连接诊断": "Connection diagnostics",
-  "正在读取存储信息…": "Reading storage information…"
+  "正在读取存储信息…": "Reading storage information…",
+  "夜间记录日期：{0}": "Overnight record date: {0}",
+  "同步时间：{0}": "Synced at: {0}",
+  "记录时间：{0}": "Recorded at: {0}"
 }
