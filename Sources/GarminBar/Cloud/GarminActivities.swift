@@ -267,3 +267,68 @@ struct GarminActivityStore {
     }
     func save(_ detail: GarminActivityDetail) throws { try GarminPrivateFile.write(JSONEncoder().encode(detail), to: file(detail.summary.id, extension: "json")) }
 }
+
+/// Metadata only; file contents and private account paths never enter the view model.
+struct ActivityDownload: Identifiable, Equatable {
+    let filename: String
+    let activityID: String
+    let fileExtension: String
+    let bytes: Int64
+    let modifiedAt: Date?
+    var id: String { filename }
+    var formatLabel: String { fileExtension == "json" ? "JSON" : fileExtension == "zip" ? "FIT / ZIP" : fileExtension.uppercased() }
+    static func isManagedFilename(_ name: String) -> Bool {
+        let parts = name.split(separator: ".", omittingEmptySubsequences: false)
+        return parts.count == 2 && GarminActivities.validID(String(parts[0])) && ["json", "tcx", "gpx", "zip"].contains(String(parts[1]))
+    }
+    static func inventory(in directory: URL) -> [Self] {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]
+        guard directory.standardizedFileURL == directory.resolvingSymlinksInPath().standardizedFileURL,
+              let urls = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]) else { return [] }
+        return urls.compactMap { url in
+            guard isManagedFilename(url.lastPathComponent), let values = try? url.resourceValues(forKeys: keys),
+                  values.isRegularFile == true, values.isSymbolicLink != true else { return nil }
+            return Self(filename: url.lastPathComponent, activityID: url.deletingPathExtension().lastPathComponent,
+                        fileExtension: url.pathExtension, bytes: Int64(values.fileSize ?? 0), modifiedAt: values.contentModificationDate)
+        }.sorted { ($0.modifiedAt ?? .distantPast) > ($1.modifiedAt ?? .distantPast) }
+    }
+}
+
+extension GarminActivity {
+    var displayType: String {
+        switch type.lowercased() {
+        case "running", "treadmill_running", "trail_running", "track_running": return L10n.text("跑步")
+        case "cycling", "indoor_cycling", "mountain_biking", "road_biking": return L10n.text("骑行")
+        case "walking", "casual_walking", "hiking": return L10n.text("步行与徒步")
+        case "swimming", "lap_swimming", "open_water_swimming": return L10n.text("游泳")
+        case "strength_training", "fitness_equipment": return L10n.text("力量训练")
+        case "badminton": return L10n.text("羽毛球")
+        case "yoga", "pilates": return L10n.text("瑜伽与普拉提")
+        default: return type.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+    var displaySymbol: String {
+        switch type.lowercased() {
+        case let value where value.contains("running"): return "figure.run"
+        case let value where value.contains("cycling") || value.contains("biking"): return "bicycle"
+        case let value where value.contains("swimming"): return "figure.pool.swim"
+        case "walking", "casual_walking", "hiking": return "figure.walk"
+        case "strength_training", "fitness_equipment": return "dumbbell"
+        case "badminton": return "figure.badminton"
+        case "yoga", "pilates": return "figure.yoga"
+        default: return "figure.mixed.cardio"
+        }
+    }
+    /// startTimeLocal is already the workout's local wall time; don't shift it
+    /// into the Mac's current time zone when formatting a trip's activity.
+    var displayStartTime: String {
+        guard let raw = startTimeLocal else { return "—" }
+        let parser = DateFormatter(); parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(secondsFromGMT: 0); parser.dateFormat = "yyyy-MM-dd HH:mm:ss"; parser.isLenient = false
+        let normalized = String(raw.prefix(19)).replacingOccurrences(of: "T", with: " ")
+        guard let date = parser.date(from: normalized) else { return raw }
+        let formatter = DateFormatter(); formatter.locale = L10n.locale; formatter.timeZone = parser.timeZone
+        formatter.setLocalizedDateFormatFromTemplate("yMMMdHm")
+        return formatter.string(from: date)
+    }
+}

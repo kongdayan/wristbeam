@@ -21,8 +21,8 @@ struct PreferenceLine<Control: View>: View {
     @ViewBuilder var control: () -> Control
     var body: some View {
         ViewThatFits(in:.horizontal) {
-            HStack(spacing:20) { label.frame(minWidth:180,maxWidth:.infinity,alignment:.leading); control().frame(maxWidth:250,alignment:.trailing) }
-            VStack(alignment:.leading,spacing:12) { label; control() }
+            HStack(spacing:20) { label.frame(minWidth:180,maxWidth:.infinity,alignment:.leading); control().accessibilityLabel(L10n.text(title)).frame(maxWidth:250,alignment:.trailing) }
+            VStack(alignment:.leading,spacing:12) { label; control().accessibilityLabel(L10n.text(title)) }
         }
         .controlSize(.regular).font(PulseTheme.font(size:12))
         .padding(.horizontal,15).padding(.vertical,13)

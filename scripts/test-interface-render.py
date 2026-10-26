@@ -101,6 +101,15 @@ import SwiftUI
                     try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 try render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
+                model.page = .overview; model.fontScale = 1.6
+                try render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-compact-large-\(language)-\(theme)",dark:dark,output:output)
+                model.fontScale = 1.15
+                try render(FirstConnectionGuide(model:model).padding(24).frame(width:600),name:"onboarding-\(language)-\(theme)",dark:dark,output:output)
+                try render(ActivityDownloadsView(library:model.activities),name:"downloads-\(language)-\(theme)",dark:dark,output:output)
+                try render(DashboardShareSheet(model:model,request:DashboardShareRequest(kinds:[.heartRate,.bodyBattery,.stress])),name:"share-sheet-\(language)-\(theme)",dark:dark,output:output)
+                let emptyLibrary = ActivityLibrary(root:output.appendingPathComponent("empty-fixture"))
+                try render(ActivityLibraryCard(library:emptyLibrary,onSelect:{ _ in }).padding(24).frame(width:600),name:"activities-empty-\(language)-\(theme)",dark:dark,output:output)
+
                 model.page = .overview; model.detailMetric = .hrvNight
                 try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)
                 model.detailMetric = nil

@@ -4,88 +4,73 @@ import UniformTypeIdentifiers
 
 struct SettingsRootView: View {
     @ObservedObject var model: AppModel
+    @State private var columns: NavigationSplitViewVisibility = .all
+    private var selection: Binding<AppPage?> {
+        Binding(get: { model.page == .account ? .watch : model.page }, set: { page in
+            guard let page else { return }
+            model.detailMetric = nil; model.selectedActivityID = nil; model.page = page
+        })
+    }
     var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(spacing: 10) {
-                    Image(systemName: "waveform.path.ecg").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.text("腕映")).font(PulseTheme.font(size: 18, weight: .semibold))
-                        Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
-                    }
-                }.padding(.top, 20)
-                VStack(spacing: 5) {
-                    ForEach(AppPage.navigationPages) { page in
-                        Button { model.detailMetric = nil; model.page = page } label: {
-                            HStack(spacing: 12) { Image(systemName: page.symbol).frame(width: 18); Text(L10n.text(page.title)); Spacer() }
-                                .font(PulseTheme.font(size: 12, weight: model.page.navigationPage == page ? .semibold : .regular))
-                                .padding(.horizontal, 12).padding(.vertical, 12)
-                                .foregroundStyle(model.page.navigationPage == page ? PulseTheme.mint : Color.primary.opacity(0.55))
-                                .background(model.page.navigationPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                        }.buttonStyle(.plain)
-                    }
-                }
-                if model.page.navigationPage == .settings {
-                    VStack(alignment: .leading, spacing: 5) {
-                        ForEach(AppPage.settingsPages) { page in
-                            Button { model.page = page } label: {
-                                HStack(spacing: 9) {
-                                    Image(systemName: page.symbol).frame(width: 17)
-                                    Text(page == .settings ? L10n.text("常规设置") : page.title)
-                                    Spacer(minLength: 0)
-                                }.font(PulseTheme.font(size: 12))
-                                    .padding(.horizontal, 10).padding(.vertical, 8)
-                                    .background(model.page == page ? PulseTheme.mint.opacity(0.12) : .clear)
-                                    .clipShape(RoundedRectangle(cornerRadius: 7))
-                            }.buttonStyle(.plain)
+        NavigationSplitView(columnVisibility: $columns) {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(L10n.text("腕映"), systemImage: "waveform.path.ecg")
+                    .font(PulseTheme.font(size: 18, weight: .semibold)).foregroundStyle(PulseTheme.mint)
+                    .padding(.horizontal, 18).padding(.top, 20)
+                List(selection: selection) {
+                    Section {
+                        ForEach(AppPage.navigationPages.filter { $0 != .settings }) { page in
+                            Label(L10n.text(page.title), systemImage: page.symbol).padding(.vertical, 6).tag(page)
                         }
                     }
+                    Section(L10n.text("设置")) {
+                        ForEach(AppPage.settingsPages) { page in
+                            Label(L10n.text(page == .settings ? "常规设置" : page.title), systemImage: page.symbol)
+                                .padding(.vertical, 4).tag(page)
+                        }
+                    }
+                    Section {
+                        Button { model.onShowMenu?() } label: { Label(L10n.text("打开菜单栏"), systemImage: "menubar.rectangle") }
+                    }
+                }.listStyle(.sidebar)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(L10n.text(model.bluetooth.isConnected ? "手表已连接" : "等待手表"), systemImage: model.bluetooth.isConnected ? "checkmark.circle" : "applewatch")
+                    Label(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "云账号已连接" : "账户待登录"), systemImage: !model.cloudSyncEnabled ? "externaldrive" : "cloud")
+                }.font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                    .padding(.horizontal, 18).padding(.bottom, 16)
+            }.navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 280)
+        } detail: {
+            GeometryReader { geometry in
+                ScrollViewReader { scroll in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 23) {
+                            if let kind = model.detailMetric {
+                                if kind.isOvernightHRV { HRVDetailView(model: model, kind: kind) } else { MetricDetailView(model: model, kind: kind) }
+                            } else {
+                                if model.page != .overview && model.page != .activities {
+                                    Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title)).font(PulseTheme.font(size: 27, weight: .semibold))
+                                }
+                                switch model.page {
+                                case .overview: OverviewPage(model: model)
+                                case .activities: ActivitiesPage(model: model)
+                                case .watch, .account: DevicePage(model: model)
+                                case .sync: SyncPage(model: model)
+                                case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about: PreferencesPage(model: model)
+                                }
+                            }
+                        }.id("settings-top").padding(geometry.size.width < 650 ? 20 : 32).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .onChange(of: model.selectedActivityID) { _ in scroll.scrollTo("settings-top", anchor: .top) }
+                    .onChange(of: model.detailMetric) { _ in scroll.scrollTo("settings-top", anchor: .top) }
+                    .onChange(of: model.page) { _ in scroll.scrollTo("settings-top", anchor: .top) }
                 }
-                Spacer()
-                Button { model.onShowMenu?() } label: {
-                    Label(L10n.text("打开菜单栏"), systemImage: "menubar.rectangle")
-                }.buttonStyle(.bordered).frame(maxWidth: .infinity)
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack { StatusDot(active: model.bluetooth.isConnected); Text(L10n.text(model.bluetooth.isConnected ? "手表已连接" : "等待手表")) }
-                    HStack { StatusDot(active: model.cloud.isAuthenticated); Text(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "\(model.cloud.region.title)已连接" : "账户待登录")) }
-                }.font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                HStack {
-                    Spacer()
-                    Button(L10n.text("退出")) { model.onQuit?() }.buttonStyle(.plain).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                }.padding(.bottom, 10)
-            }.padding(.horizontal, 18).frame(width: 210)
-                .background(Color.primary.opacity(0.025))
-            Rectangle().fill(Color.primary.opacity(0.06)).frame(width: 1)
-            ScrollViewReader { scroll in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 23) {
-                    if let kind = model.detailMetric {
-                        if kind.isOvernightHRV { HRVDetailView(model: model, kind: kind) } else { MetricDetailView(model: model, kind: kind) }
-                    } else {
-                    if model.page != .overview && model.page != .activities { pageHeader }
-                    switch model.page {
-                    case .overview: OverviewPage(model: model)
-                    case .activities: ActivitiesPage(model: model)
-                    case .watch, .account: DevicePage(model: model)
-                    case .sync: SyncPage(model: model)
-                    case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about: PreferencesPage(model: model)
-                    }
-                    }
-                }.id("settings-top").padding(32).frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .onChange(of: model.selectedActivityID) { _ in scroll.scrollTo("settings-top", anchor: .top) }
-            .onChange(of: model.page) { _ in scroll.scrollTo("settings-top", anchor: .top) }
-            }
-        }.id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
-            .font(PulseTheme.font(size: 13)).controlSize(.large)
-            .preferredColorScheme(model.preferredColorScheme)
-            .environment(\.locale, L10n.locale)
+            }.background(PulseTheme.background)
+        }.navigationSplitViewStyle(.balanced)
+            .id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
+            .font(PulseTheme.font(size: 13)).controlSize(.regular)
+            .tint(PulseTheme.mint)
+            .preferredColorScheme(model.preferredColorScheme).environment(\.locale, L10n.locale)
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
-    }
-    private var pageHeader: some View {
-        Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title))
-            .font(PulseTheme.font(size: 27, weight: .semibold))
     }
 }
 
@@ -93,9 +78,13 @@ struct OverviewPage: View {
     @ObservedObject var model: AppModel
     @State private var showStyle = false
     @State private var shareRequest: DashboardShareRequest?
+    @State private var availableWidth: CGFloat = 600
     private var columns: [GridItem] {
-        model.dashboardColumns == 0 ? [GridItem(.adaptive(minimum: model.cardSize.minimumWidth * model.fontScale), spacing: 14)] : Array(repeating: GridItem(.flexible(minimum: 120), spacing: 14), count: min(4, max(1, model.dashboardColumns)))
+        let count = MetricLayout.columnCount(width: availableWidth, minimum: model.cardSize.minimumWidth * model.fontScale, preferred: model.dashboardColumns)
+        return Array(repeating: GridItem(.flexible(), spacing: 14), count: count)
     }
+    private var primaryMetrics: [MetricKind] { model.dashboardVisibleMetrics.filter { [.heartRate, .bodyBattery, .stress].contains($0) } }
+    private var otherMetrics: [MetricKind] { model.dashboardVisibleMetrics.filter { !primaryMetrics.contains($0) } }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             ViewThatFits(in: .horizontal) {
@@ -107,26 +96,41 @@ struct OverviewPage: View {
                     Label(L10n.text("本地保存或读取异常"), systemImage: "exclamationmark.triangle")
                 }.buttonStyle(.bordered).tint(.orange)
             }
-            HStack(spacing: 8) {
-                Text(L10n.text(model.preview ? "演示数据 · 用于功能展示" : model.healthStatus))
-                    .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineLimit(1)
-                    .help(L10n.text(model.healthStatus))
-                Spacer(minLength: 8)
-                Button { model.refreshMetricsNow() } label: { Image(systemName: "arrow.clockwise") }
-                    .help(L10n.text("刷新同步指标")).accessibilityLabel(L10n.text("刷新同步指标"))
-                    .disabled(model.preview || model.isRefreshingHealth)
-                Button { shareRequest = DashboardShareRequest(kinds: model.dashboardVisibleMetrics) } label: {
-                    Label(L10n.text("分享"), systemImage: "square.and.arrow.up")
-                }.disabled(model.dashboardVisibleMetrics.isEmpty)
-                Button { showStyle.toggle() } label: { Label(L10n.text("显示样式"), systemImage: "slider.horizontal.3") }
-                    .popover(isPresented: $showStyle, arrowEdge: .bottom) { DashboardStylePanel(model: model) }
-            }.buttonStyle(.bordered).controlSize(.regular)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { refreshStatus; Spacer(minLength: 8); dashboardActions }
+                VStack(alignment: .leading, spacing: 12) { refreshStatus; dashboardActions }
+            }
             if model.preview && model.previewSetup {
                 Button(L10n.text("加载演示数据")) { model.previewSetup = false; model.enablePreview() }.buttonStyle(.bordered)
             }
-            if (!model.preview || model.previewSetup) && !model.bluetooth.sessionActivated && !model.bluetooth.isConnected { FirstConnectionGuide(model: model) }
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(model.dashboardVisibleMetrics) { kind in
+            if (!model.preview || model.previewSetup) && model.availableMetricKinds.isEmpty && !model.bluetooth.isConnected && !model.cloud.isAuthenticated { FirstConnectionGuide(model: model) }
+            if !model.dashboardOrder.isEmpty { metricGrid(model.dashboardVisibleMetrics) }
+            else {
+            if !primaryMetrics.isEmpty { metricGrid(primaryMetrics) }
+            ForEach(MetricCategory.allCases) { category in
+                let metrics = otherMetrics.filter { $0.category == category }
+                if !metrics.isEmpty {
+                    HStack {
+                        Text(L10n.text(category.title)).font(PulseTheme.font(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader)
+                        Text(String(metrics.count)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                    }.padding(.top, 12)
+                    metricGrid(metrics)
+                }
+            }
+            }
+            if model.dashboardVisibleMetrics.isEmpty {
+                PulseEmptyState(title: model.availableMetricKinds.isEmpty ? "等待读数" : "选择看板指标",
+                                detail: model.availableMetricKinds.isEmpty ? "连接后，已收到的数据会显示在这里。" : "在显示样式中选择你关心的指标。", symbol: "square.grid.2x2")
+                if !model.availableMetricKinds.isEmpty { Button(L10n.text("显示样式")) { showStyle = true }.buttonStyle(.bordered) }
+            }
+        }.background(GeometryReader { geometry in
+            Color.clear.onAppear { availableWidth = geometry.size.width }.onChange(of: geometry.size.width) { availableWidth = $0 }
+        })
+            .sheet(item: $shareRequest) { request in DashboardShareSheet(model: model, request: request) }
+    }
+    private func metricGrid(_ metrics: [MetricKind]) -> some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            ForEach(metrics) { kind in
                     MetricCard(model: model, kind: kind)
                         .onDrag { NSItemProvider(object: kind.rawValue as NSString) }
                         .onDrop(of: [UTType.plainText], isTargeted: nil) { providers in
@@ -143,16 +147,26 @@ struct OverviewPage: View {
                             Button(L10n.text("移到最前")) { model.dashboardOrder = [kind.rawValue] + model.dashboardVisibleMetrics.filter { $0 != kind }.map(\.rawValue) }
                             Button(L10n.text("从健康看板隐藏")) { model.dashboardMetrics.remove(kind) }
                         }
-                }
             }
-            if model.dashboardVisibleMetrics.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "square.grid.2x2").font(.largeTitle)
-                    Text(L10n.text(model.availableMetricKinds.isEmpty ? "正在等候手表或账户数据；连接后显示可用指标。" : "在“显示样式”中选择要展示的指标。"))
-                    Button(L10n.text("显示样式")) { showStyle = true }
-                }.foregroundStyle(PulseTheme.secondary).frame(maxWidth: .infinity).padding(30)
-            }
-        }.sheet(item: $shareRequest) { request in DashboardShareSheet(model: model, request: request) }
+        }
+    }
+    private var refreshStatus: some View {
+        HStack(spacing: 8) {
+            if model.isRefreshingHealth { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在刷新健康数据…")) }
+            Text(L10n.text(model.preview ? "演示数据 · 用于功能展示" : model.healthStatus))
+                .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+    private var dashboardActions: some View {
+        PulseFlowLayout(spacing: 8) {
+            Button { model.refreshMetricsNow() } label: { Label(L10n.text("刷新"), systemImage: "arrow.clockwise") }
+                .help(L10n.text(model.cloud.isAuthenticated ? "刷新同步指标" : "连接设备账号后可刷新云端数据"))
+                .disabled(model.preview || !model.cloud.isAuthenticated || model.isRefreshingHealth)
+            Button { shareRequest = DashboardShareRequest(kinds: model.dashboardVisibleMetrics) } label: { Label(L10n.text("分享"), systemImage: "square.and.arrow.up") }
+                .disabled(model.dashboardVisibleMetrics.isEmpty)
+            Button { showStyle.toggle() } label: { Label(L10n.text("显示样式"), systemImage: "slider.horizontal.3") }
+                .popover(isPresented: $showStyle, arrowEdge: .bottom) { DashboardStylePanel(model: model) }
+        }.buttonStyle(.bordered).controlSize(.regular)
     }
     private var title: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -230,7 +244,7 @@ struct WatchPage: View {
                                 Image(systemName: "applewatch").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(L10n.text(watch.name)).font(PulseTheme.font(size: 13, weight: .semibold))
-                                    Text(L10n.text("\(watch.serviceSummary) · \(watch.rssi) dBm · \(watch.shortID)")).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
+                                    Text(L10n.text(watch.offersGarmin ? "可连接的 Garmin 手表" : "其他蓝牙设备")).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                                 }
                                 Spacer()
                                 Button(L10n.text("连接")) { bluetooth.connect(watch.id) }.buttonStyle(.bordered).disabled(model.preview || !watch.offersGarmin)
@@ -364,7 +378,10 @@ struct SyncPage: View {
                         Label(L10n.text("本地保存或读取异常"), systemImage: "externaldrive.badge.exclamationmark").foregroundStyle(.orange)
                         Button(L10n.text("重试本地存储")) { model.retryLocalStorage() }.buttonStyle(.bordered)
                     }
-                    if !model.localExportStatus.isEmpty { Text(L10n.text(model.localExportStatus)).font(PulseTheme.font(size: 12)) }
+                    if model.isExportingLocalData {
+                        HStack { ProgressView().controlSize(.small); Text(L10n.text("正在导出本地数据…")).font(PulseTheme.font(size: 12)) }
+                    }
+                    if !model.localExportStatus.isEmpty { PulseNotice(text: model.localExportStatus) }
                 }
             }
             PulseCard {
@@ -376,8 +393,8 @@ struct SyncPage: View {
                     }
                     Spacer()
                     VStack(spacing: 8) {
-                        Button(L10n.text("接收手表数据")) { model.syncNow() }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview)
-                        Button(L10n.text("同步最近一次运动")) { model.syncRecentActivity() }.buttonStyle(.bordered).font(PulseTheme.font(size: 10)).disabled(model.preview || !model.bluetooth.canSyncFiles)
+                        Button(L10n.text(model.bluetooth.isTransferringFiles ? "正在接收…" : "接收手表数据")) { model.syncNow() }.buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(model.preview || !model.bluetooth.canSyncFiles || model.bluetooth.isTransferringFiles)
+                        Button(L10n.text("同步最近一次运动")) { model.syncRecentActivity() }.buttonStyle(.bordered).font(PulseTheme.font(size: 10)).disabled(model.preview || !model.bluetooth.canSyncFiles || model.bluetooth.isTransferringFiles)
                     }
                 }
             }

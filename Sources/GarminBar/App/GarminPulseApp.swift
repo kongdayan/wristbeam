@@ -90,6 +90,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
         menuAppearanceObserver = DistributedNotificationCenter.default().addObserver(forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
             DispatchQueue.main.async { self?.refreshStatusItem() }
         }
+        configureMenu()
         refreshStatusItem()
         if model.floatingEnabled { setFloating(true) }
         showSettings(.overview)
@@ -114,6 +115,50 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettings(.overview); return true
     }
+
+    private func configureMenu() {
+        let main = NSMenu()
+        func submenu(_ title: String) -> NSMenu {
+            let item = NSMenuItem(title: L10n.text(title), action: nil, keyEquivalent: "")
+            let menu = NSMenu(title: L10n.text(title)); item.submenu = menu; main.addItem(item); return menu
+        }
+        func command(_ menu: NSMenu, _ title: String, _ action: Selector, _ key: String = "", page: AppPage? = nil) {
+            let item = NSMenuItem(title: L10n.text(title), action: action, keyEquivalent: key)
+            item.target = self; item.representedObject = page?.rawValue; menu.addItem(item)
+        }
+        let app = submenu("腕映")
+        command(app, "关于", #selector(navigate(_:)), page: .about)
+        command(app, "设置…", #selector(navigate(_:)), ",", page: .settings)
+        app.addItem(.separator())
+        let hide = NSMenuItem(title: L10n.text("隐藏腕映"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        hide.target = NSApp; app.addItem(hide)
+        let quit = NSMenuItem(title: L10n.text("退出腕映"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quit.target = NSApp; app.addItem(quit)
+        let edit = submenu("编辑")
+        for (title, action, key) in [("撤销", "undo:", "z"), ("剪切", "cut:", "x"), ("复制", "copy:", "c"), ("粘贴", "paste:", "v"), ("全选", "selectAll:", "a")] {
+            edit.addItem(NSMenuItem(title: L10n.text(title), action: NSSelectorFromString(action), keyEquivalent: key))
+        }
+        let go = submenu("前往")
+        for (index, page) in AppPage.navigationPages.enumerated() {
+            command(go, page.title, #selector(navigate(_:)), String(index + 1), page: page)
+        }
+        go.addItem(.separator())
+        for page in AppPage.settingsPages where page != .settings { command(go, page.title, #selector(navigate(_:)), page: page) }
+        command(go, "设备账号", #selector(navigate(_:)), page: .account)
+        let view = submenu("显示")
+        command(view, "显示或隐藏浮动窗口", #selector(toggleFloating(_:)))
+        command(view, "打开菜单栏", #selector(togglePopover(_:)))
+        let window = submenu("窗口")
+        let minimize = NSMenuItem(title: L10n.text("最小化"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        window.addItem(minimize)
+        window.addItem(NSMenuItem(title: L10n.text("关闭窗口"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
+        NSApp.windowsMenu = window; NSApp.mainMenu = main
+    }
+    @objc private func navigate(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let page = AppPage(rawValue: raw) else { return }
+        model.detailMetric = nil; model.selectedActivityID = nil; showSettings(page)
+    }
+    @objc private func toggleFloating(_ sender: Any?) { model.floatingEnabled.toggle() }
 
     private func refreshStatusItem() {
         guard let button = statusItem?.button else { return }
@@ -243,6 +288,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func applyAppearance() {
+        configureMenu()
         let appearance = model.appearance == .system ? nil : NSAppearance(named: model.appearance == .light ? .aqua : .darkAqua)
         settingsWindow?.appearance = appearance; settingsWindow?.title = model.preview ? "WristBeam Demo" : L10n.text("腕映"); floatingPanel?.appearance = appearance
         popover?.appearance = appearance

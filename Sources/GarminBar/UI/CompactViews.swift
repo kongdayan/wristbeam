@@ -22,12 +22,12 @@ struct MenuPopover: View {
             }.frame(maxHeight: .infinity)
             VStack(alignment: .leading, spacing: 9) {
                 HStack { Image(systemName: "antenna.radiowaves.left.and.right"); Text(L10n.text(model.bluetooth.status)); Spacer() }
-                HStack { Image(systemName: "cloud"); Text(L10n.text(model.cloud.isAuthenticated ? "\(model.cloud.region.title)已连接" : "\(model.cloud.region.title)待登录")); Spacer(); Text(L10n.text("\(model.uploads.pendingCount) 待同步")) }
+                HStack { Image(systemName: "cloud"); Text(L10n.text(!model.cloudSyncEnabled ? "仅本地" : model.cloud.isAuthenticated ? "云账号已连接" : "账户待登录")); Spacer(); Text(L10n.text("\(model.uploads.pendingCount) 待同步")) }
             }.font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
             HStack(spacing: 9) {
                 Button { model.openSettings(.watch) } label: { Label(L10n.text("连接与配置"), systemImage: "slider.horizontal.3").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
-                Button { model.floatingEnabled.toggle() } label: { Image(systemName: model.floatingEnabled ? "rectangle.slash" : "rectangle.on.rectangle") }.help(L10n.text("显示或隐藏浮动窗口"))
+                Button { model.floatingEnabled.toggle() } label: { Image(systemName: model.floatingEnabled ? "rectangle.slash" : "rectangle.on.rectangle") }.help(L10n.text("显示或隐藏浮动窗口")).accessibilityLabel(L10n.text("显示或隐藏浮动窗口")).accessibilityValue(L10n.text(model.floatingEnabled ? "已开启" : "已关闭"))
                     .buttonStyle(.bordered)
             }.controlSize(.regular)
             HStack {

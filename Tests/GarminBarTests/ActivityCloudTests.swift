@@ -121,6 +121,31 @@ private final class ActivityHTTP: URLProtocol {
         await library.loadPage(older: false)
         XCTAssertTrue(library.index.reachedEnd)
     }
+    func testCancelOwnedPageRequestPreservesIndexAndPermitsRetry() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString), domain = "wristbeam.activity-test.\(UUID().uuidString)"
+        ActivityHTTP.reset()
+        let (cloud, library, session) = try fixture(root, domain: domain)
+        defer { cloud.setNetworkEnabled(false); session.invalidateAndCancel(); try? FileManager.default.removeItem(at: root); UserDefaults.standard.removePersistentDomain(forName: domain) }
+        await cloud.refreshAccount(); await library.loadPage(older: false)
+        let saved = library.index
+        ActivityHTTP.reset(stall: true)
+        library.requestPage(older: false)
+        for _ in 0..<100 {
+            if library.busy { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(library.busy)
+        XCTAssertFalse(library.operation.isEmpty)
+        library.cancelRequest()
+        XCTAssertFalse(library.busy)
+        XCTAssertTrue(library.operation.isEmpty)
+        XCTAssertEqual(library.index.activities, saved.activities)
+        ActivityHTTP.reset()
+        await library.loadPage(older: false)
+        XCTAssertFalse(library.busy)
+        XCTAssertFalse(library.statusIsError)
+        XCTAssertEqual(library.index.activities.map(\.id), saved.activities.map(\.id))
+    }
     private func fixture(_ root: URL, domain: String) throws -> (GarminChinaCloud, ActivityLibrary, URLSession) {
         let auth = root.appendingPathComponent("session.json"), preferences = AppPreferences(domain: domain)
         let token = GarminOAuthToken(accessToken: "fixture-access", refreshToken: "fixture-refresh", clientID: "FIXTURE", expiresAt: Date().addingTimeInterval(3600), refreshExpiresAt: nil, scopes: [])

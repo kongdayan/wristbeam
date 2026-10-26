@@ -1,11 +1,20 @@
 import Foundation
 import Combine
+import AppKit
 
 @MainActor final class ActivityLibrary: ObservableObject {
     @Published private(set) var index = GarminActivityIndex()
     @Published private(set) var busy = false
     @Published private(set) var status = ""
+    @Published private(set) var statusIsError = false
     @Published private(set) var cacheRevision = 0
+    @Published private(set) var operation = ""
+    @Published private(set) var downloads: [ActivityDownload] = []
+    @Published private(set) var scanningDownloads = false
+    @Published private(set) var managingDownloads = false
+    private var request: Task<Void, Never>?
+    private var requestID = UUID()
+    private var inventoryGeneration = UUID()
     @Published var refreshMinutes: Int {
         didSet { preferences.set(refreshMinutes, forKey: "activities.refreshMinutes"); lastAttempt = Date() }
     }
@@ -47,7 +56,9 @@ import Combine
             if saved.count == 64 && saved.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) { next = saved }
         }
         guard next != scope else { return }
-        scope = next; generation = UUID(); busy = false; status = ""; lastPageIDs = []; detailCache = [:]
+        request?.cancel(); request = nil
+        scope = next; generation = UUID(); busy = false; operation = ""; status = ""; statusIsError = false; lastPageIDs = []; detailCache = [:]
+        downloads = []; inventoryGeneration = UUID(); scanningDownloads = false; managingDownloads = false
         store = next.isEmpty ? nil : GarminActivityStore(directory: root.appendingPathComponent(next, isDirectory: true))
         index = store?.loadIndex() ?? .init(); cacheRevision += 1
     }
@@ -55,19 +66,20 @@ import Combine
         reconcile()
         guard refreshMinutes > 0, online, !busy, now.timeIntervalSince(lastAttempt) >= Double(refreshMinutes) * 60 else { return }
         lastAttempt = now
-        Task { await loadPage(older: false) }
+        requestPage(older: false)
     }
-    private func current(_ token: UUID) -> Bool { reconcile(); return generation == token && online }
+    private func current(_ token: UUID) -> Bool { reconcile(); return generation == token && online && !Task.isCancelled }
     private func failure(_ error: Error, token: UUID) {
-        guard generation == token, !(error is CancellationError) else { return }
+        guard generation == token, !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
+        statusIsError = true
         status = error is GarminActivityError ? error.localizedDescription : L10n.text("暂时无法读取运动记录，请稍后重试")
     }
     func loadPage(older: Bool) async {
         reconcile()
-        guard let cloud, let store, online, !busy, !older || !index.reachedEnd else { return }
+        guard let cloud, let store, online, !busy, !managingDownloads, !older || !index.reachedEnd else { return }
         let token = generation
-        busy = true; status = ""; lastAttempt = Date()
-        defer { if token == generation { busy = false } }
+        busy = true; operation = older ? "正在加载更早的运动…" : "正在刷新运动摘要…"; status = ""; statusIsError = false; lastAttempt = Date()
+        defer { if token == generation { busy = false; operation = "" } }
         do {
             let page = try await fetchPage(older: older, cloud: cloud, token: token)
             let offset = page.offset, rows = page.rows
@@ -119,6 +131,19 @@ import Combine
         detailCache[id] = cached
         return cached
     }
+    func cachedDetail(_ id: String) async -> GarminActivityDetail? {
+        reconcile()
+        if let cached = detailCache[id] { return cached }
+        guard let store else { return nil }
+        let token = generation
+        let cached = await Task.detached(priority: .utility) { store.detail(id) }.value
+        guard generation == token, !Task.isCancelled else { return nil }
+        if let cached {
+            if detailCache.count >= 20 { detailCache.removeAll() }
+            detailCache[id] = cached
+        }
+        return cached
+    }
     func hasDetail(_ id: String) -> Bool {
         guard let file = try? store?.file(id, extension: "json") else { return false }
         return FileManager.default.fileExists(atPath: file.path)
@@ -132,10 +157,10 @@ import Combine
     }
     func downloadDetail(_ id: String) async {
         reconcile()
-        guard let cloud, let store, online, !busy, index.activities.contains(where: { $0.id == id }) else { return }
+        guard let cloud, let store, online, !busy, !managingDownloads, index.activities.contains(where: { $0.id == id }) else { return }
         let token = generation
-        busy = true; status = ""
-        defer { if token == generation { busy = false } }
+        busy = true; operation = "正在加载运动数据…"; status = ""; statusIsError = false
+        defer { if token == generation { busy = false; operation = "" } }
         do {
             let detail = try await cloud.fetchActivityDetail(id: id)
             guard current(token) else { return }
@@ -155,7 +180,7 @@ import Combine
             guard current(token), !Task.isCancelled else { return }
         }
         guard current(token), !Task.isCancelled else { return }
-        status = ""
+        status = ""; statusIsError = false
         if let cached = detail(id), cached.heartRateZones != nil, cached.laps != nil,
            cached.unavailableSections?.isEmpty != false { return }
         await downloadDetail(id)
@@ -164,13 +189,13 @@ import Combine
     /// it can never start a download. The UI chooses the user's destination separately.
     func exportFile(_ id: String, format: GarminActivityFormat) async -> URL? {
         reconcile()
-        guard let store, !busy, index.activities.contains(where: { $0.id == id }),
+        guard let store, !busy, !managingDownloads, index.activities.contains(where: { $0.id == id }),
               let file = try? store.file(id, extension: format.fileExtension) else { return nil }
         if FileManager.default.fileExists(atPath: file.path) { return file }
-        guard let cloud, online else { status = L10n.text("尚未下载这条运动的数据"); return nil }
+        guard let cloud, online else { statusIsError = true; status = L10n.text("尚未下载这条运动的数据"); return nil }
         let token = generation
-        busy = true; status = ""
-        defer { if token == generation { busy = false } }
+        busy = true; operation = "正在准备导出文件…"; status = ""; statusIsError = false
+        defer { if token == generation { busy = false; operation = "" } }
         do {
             let data = try await cloud.fetchActivityFile(id: id, format: format)
             guard current(token) else { return nil }
@@ -178,6 +203,60 @@ import Combine
             cacheRevision += 1
             return file
         } catch { failure(error, token: token); return nil }
+    }
+    /// Own UI-started requests so Cancel really cancels URLSession's async work.
+    func requestPage(older: Bool) {
+        guard !busy, !managingDownloads, request == nil else { return }
+        let id = UUID(); requestID = id
+        request = Task {
+            defer { if requestID == id { request = nil } }
+            await loadPage(older: older)
+        }
+    }
+    func cancelRequest() {
+        request?.cancel(); request = nil; requestID = UUID()
+        generation = UUID(); busy = false; operation = ""; status = ""
+    }
+    func revealDownload(_ download: ActivityDownload) {
+        guard downloads.contains(download), let store,
+              let file = try? store.file(download.activityID, extension: download.fileExtension) else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([file])
+    }
+    var downloadBytes: Int64 { downloads.reduce(0) { $0 + $1.bytes } }
+    func refreshDownloads() async {
+        reconcile()
+        guard let store else { downloads = []; return }
+        let account = scope, inventory = UUID()
+        inventoryGeneration = inventory; scanningDownloads = true
+        defer { if inventory == inventoryGeneration { scanningDownloads = false } }
+        let result = await Task.detached(priority: .utility) { ActivityDownload.inventory(in: store.directory) }.value
+        guard account == scope, inventory == inventoryGeneration, !Task.isCancelled else { return }
+        downloads = result; scanningDownloads = false
+    }
+    /// The download manager only touches validated per-activity cache files.
+    /// It never removes the index, received FIT files, account data or preferences.
+    func moveDownloadToTrash(_ download: ActivityDownload) async {
+        reconcile()
+        guard let store, !busy, !managingDownloads,
+              downloads.contains(download), ActivityDownload.isManagedFilename(download.filename) else { return }
+        let directory = store.directory, account = scope
+        managingDownloads = true; status = ""; statusIsError = false
+        let succeeded = await Task.detached(priority: .utility) {
+            do {
+                let url = directory.appendingPathComponent(download.filename)
+                let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+                guard values.isRegularFile == true, values.isSymbolicLink != true else { return false }
+                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                return true
+            } catch { return false }
+        }.value
+        guard account == scope else { return }
+        managingDownloads = false
+        if succeeded {
+            detailCache.removeValue(forKey: download.activityID); cacheRevision += 1
+            status = "已移到废纸篓，可在 Finder 中恢复"
+            await refreshDownloads()
+        } else { statusIsError = true; status = "无法移到废纸篓，请在 Finder 中重试" }
     }
     func exportJSON(_ id: String) throws -> Data {
         reconcile()

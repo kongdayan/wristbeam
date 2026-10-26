@@ -22,7 +22,19 @@ struct SoftwareUpdatePage: View {
                         if updater.installable { Button(L10n.text("下载并升级")) { updater.requestUpgrade() }.buttonStyle(.bordered).disabled(updater.isInstalling || model.uploads.isSyncing || model.bluetooth.isTransferringFiles) }
                         if let repo = updater.parsedRepository { Link(L10n.text("GitHub Releases ↗"), destination: repo.url.appendingPathComponent("releases")) }
                     }
-                    if updater.isInstalling { ProgressView().controlSize(.small) }
+                    if let progress = updater.downloadProgress {
+                        ProgressView(value: progress, total: 1).tint(PulseTheme.mint)
+                            .accessibilityLabel(L10n.text("下载更新"))
+                        HStack {
+                            Text(ByteCountFormatter.string(fromByteCount: updater.downloadedBytes, countStyle: .file) + " / " + ByteCountFormatter.string(fromByteCount: updater.totalDownloadBytes, countStyle: .file))
+                                .font(PulseTheme.font(size: 12)).monospacedDigit()
+                            Spacer()
+                            Button(L10n.text("取消下载")) { updater.cancelDownload() }
+                        }
+                    } else if updater.isInstalling { ProgressView().controlSize(.small) }
+                    if model.uploads.isSyncing || model.bluetooth.isTransferringFiles {
+                        Text(L10n.text("文件同步结束后即可升级。")).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                    }
                 }
             }
             if updater.available, let release = updater.release {

@@ -11,6 +11,9 @@ struct DashboardShareSheet: View {
     @State private var valueOnly: Bool
     @State private var dark = false
     @State private var image: NSImage?
+    @State private var pngData: Data?
+    @State private var retry = 0
+    @State private var saving = false
     @State private var renderedKey = ""
     @State private var error: String?
     @State private var notice = ""
@@ -73,51 +76,73 @@ struct DashboardShareSheet: View {
                         .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                 }.frame(width: 200)
                 ScrollView {
-                    if let image = currentImage { Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).frame(width: 490) }
-                    else { Text(L10n.text(selected.isEmpty ? "选择至少一个指标以预览。" : "正在生成图片…")).frame(width: 490, height: 250) }
+                    if let image = currentImage {
+                        Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit).frame(width: 490)
+                            .accessibilityLabel(L10n.format("分享图片预览，{0} 个指标", String(chosen.count)))
+                    } else if chosen.isEmpty {
+                        PulseEmptyState(title: "选择分享内容", detail: "选择至少一个指标以预览。", symbol: "photo")
+                    } else if let error {
+                        VStack(spacing: 12) {
+                            PulseNotice(text: error, symbol: "exclamationmark.triangle", warning: true)
+                            Button(L10n.text("重新生成图片")) { retry += 1 }
+                        }.padding(20).frame(width: 490, height: 250)
+                    } else {
+                        VStack(spacing: 12) { ProgressView(); Text(L10n.text("正在生成图片…")).font(PulseTheme.font(size: 12)) }
+                            .frame(width: 490, height: 250)
+                    }
                 }.frame(width: 490, height: 445).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 16))
             }
+            if !notice.isEmpty { PulseNotice(text: notice, symbol: "checkmark.circle") }
+            if currentImage != nil, let error { PulseNotice(text: error, symbol: "exclamationmark.triangle", warning: true) }
             HStack {
-                Text(L10n.text(notice)).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                 Spacer()
                 Button(L10n.text("复制图片")) {
                     guard let image = currentImage else { return }
                     NSPasteboard.general.clearContents()
-                    if NSPasteboard.general.writeObjects([image]) { notice = "图片已复制" }
+                    if NSPasteboard.general.writeObjects([image]) { error = nil; notice = "图片已复制" }
+                    else { error = L10n.text("无法复制图片，请尝试保存。") }
                 }.disabled(currentImage == nil)
-                Button(L10n.text("保存图片…")) { save() }.disabled(currentImage == nil)
+                Button(L10n.text(saving ? "正在保存图片…" : "保存图片…")) { save() }.disabled(currentImage == nil || saving)
                 NativeImageShareButton(image: currentImage).frame(width: 95, height: 30).disabled(currentImage == nil)
             }.buttonStyle(.bordered)
         }.padding(24).frame(width: 760)
             .task(id: renderKey) {
-                image = nil
-                do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return }
-                render()
+                image = nil; pngData = nil; error = nil; notice = ""
+                do { try await Task.sleep(nanoseconds: 180_000_000) } catch { return }
+                await render()
             }
-            .alert(L10n.text("无法导出图片"), isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
-                Button(L10n.text("好")) { error = nil }
-            } message: { Text(error ?? "") }
     }
-    private var renderKey: String { selected.map(\.rawValue).sorted().joined(separator: ",") + "\(valueOnly)-\(dark)" }
-    @MainActor private func render() {
+    private var renderKey: String { selected.map(\.rawValue).sorted().joined(separator: ",") + "\(valueOnly)-\(dark)-\(retry)" }
+    @MainActor private func render() async {
+        let key = renderKey
         guard !chosen.isEmpty else { image = nil; return }
         let canvas = DashboardShareCanvas(metrics: chosen, capturedAt: capturedAt, valueOnly: valueOnly, preview: preview, dark: dark)
         let renderer = ImageRenderer(content: canvas.environment(\.colorScheme, dark ? .dark : .light).environment(\.locale, L10n.locale))
         renderer.scale = 2
-        image = renderer.nsImage
-        renderedKey = renderKey
-        if image == nil { error = L10n.text("图片生成失败，请重试。") }
+        guard let cgImage = renderer.cgImage else { error = L10n.text("图片生成失败，请重试。"); return }
+        let data = await Task.detached(priority: .utility) {
+            NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
+        }.value
+        guard !Task.isCancelled, key == renderKey else { return }
+        guard let data else { error = L10n.text("图片生成失败，请重试。"); return }
+        image = NSImage(cgImage: cgImage, size: NSSize(width: CGFloat(cgImage.width) / 2, height: CGFloat(cgImage.height) / 2))
+        pngData = data; renderedKey = key
     }
     @MainActor private func save() {
-        guard let image = currentImage, let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff), let data = bitmap.representation(using: .png, properties: [:]) else { return }
+        guard currentImage != nil, let data = pngData else { return }
+        saving = true; error = nil
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
         panel.nameFieldStringValue = "WristBeam-\(GarminHealthMetrics.calendarDate(capturedAt)).png"
         panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            do { try data.write(to: url, options: .atomic); notice = "图片已保存" }
-            catch { self.error = L10n.text("保存失败，请选择可写入的位置。") }
+            guard response == .OK, let url = panel.url else { saving = false; return }
+            Task { @MainActor in
+                defer { saving = false }
+                do {
+                    try await Task.detached(priority: .utility) { try data.write(to: url, options: .atomic) }.value
+                    notice = "图片已保存"
+                } catch { self.error = L10n.text("保存失败，请选择可写入的位置。") }
+            }
         }
     }
 }
@@ -180,7 +205,7 @@ private struct DashboardShareCanvas: View {
                 Text(metric.value).font(.system(size: valueOnly ? 64 : 32, weight: .medium, design: .rounded)).monospacedDigit()
                 Text(metric.kind.unit).font(.system(size: 11)).foregroundStyle(.secondary)
             }.lineLimit(1).minimumScaleFactor(0.5)
-            if metric.unavailable { Text(L10n.text("暂无有效读数")).font(.system(size: 11)).foregroundStyle(.secondary) }
+            if metric.unavailable { Text(L10n.text("请留意读数更新时间")).font(.system(size: 11)).foregroundStyle(.secondary) }
             if !valueOnly {
                 if metric.kind.isOvernightHRV && metric.kind != .hrvStatus {
                     HRVTrendMiniChart(series: metric.series).frame(height: 54)
