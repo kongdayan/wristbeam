@@ -1274,5 +1274,9 @@
   "使用左右方向键查看相邻读数": "Use Left and Right Arrow to inspect adjacent readings",
   "手表读数": "Watch reading",
   "云端记录": "Cloud record",
-  "估算读数": "Estimated reading"
+  "估算读数": "Estimated reading",
+  "正在打开官方登录页…": "Opening the official sign-in page…",
+  "重新加载": "Reload",
+  "连接诊断": "Connection diagnostics",
+  "正在读取存储信息…": "Reading storage information…"
 }

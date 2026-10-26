@@ -6,7 +6,11 @@ struct SyncProgressView: View {
     var body: some View {
         PulseCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text(L10n.text("同步进度")).font(PulseTheme.font(size: 17, weight: .semibold))
+                HStack {
+                    Text(L10n.text("同步进度")).font(PulseTheme.font(size: 17, weight: .semibold))
+                    Spacer()
+                    if model.uploads.isSyncing || model.bluetooth.isTransferringFiles { ProgressView().controlSize(.small) }
+                }
                 row("最近接收", date(model.lastReceivedAt), "antenna.radiowaves.left.and.right")
                 row("本地已保存", date(model.lastLocalSavedAt), "externaldrive")
                 row("等待上传", String(jobs.filter { !$0.state.isComplete }.count), "arrow.up.circle")

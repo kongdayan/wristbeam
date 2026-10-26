@@ -99,3 +99,9 @@ Use a dedicated validation branch for GitHub Actions, without a PR or merge. Ret
 - Keep existing appearance preferences as a deliberate compatibility/personalization choice; new surfaces still follow system semantic colors and accessibility settings.
 
 First validation: [Actions run for e15944a](https://github.com/kongdayan/wristbeam/actions/runs/40307141672). Quality/catalog/repository/secret analysis passed; native matrix was still running when this entry was written. Follow-up changes require a new exact-commit run.
+
+## Loading and data semantics follow-up
+
+The official sign-in web view now exposes navigation activity and reload, with Escape to close. Connection diagnostics sit behind an explicit disclosure. Sync status shows active transfer/upload work. A source audit found region-name presentation rebuilding cloud samples without preserving `timestampIsMeasurement`; the refresh now retains that flag, with a fixture-based refresh regression so a sync timestamp is not advertised as a measurement time. No service contract or stored health values are changed.
+
+Storage scans are coalesced while running and show activity. Update installation waits for workout downloads, cache management and local exports as well as watch/cloud file transfer. Workout online availability is published even when the same account cache is retained in local-only mode, keeping controls in sync with network policy. PNG encoding uses a bounded autorelease lifetime.

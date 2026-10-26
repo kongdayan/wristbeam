@@ -28,7 +28,7 @@ import AppKit
     private var lastPageIDs: [String] = []
     private var detailCache: [String: GarminActivityDetail] = [:]
     private(set) var store: GarminActivityStore?
-    var online: Bool { cloud?.networkEnabled == true && cloud?.isAuthenticated == true && cloud?.accountGUID.isEmpty == false }
+    @Published private(set) var online = false
 
     init(root: URL = AppPaths.directory("CloudActivities"), preferences: AppPreferences = .shared) {
         self.root = root; self.preferences = preferences
@@ -46,6 +46,8 @@ import AppKit
     /// previous account while a different login/region is being authenticated.
     func reconcile() {
         guard let cloud else { return }
+        let connected = cloud.networkEnabled && cloud.isAuthenticated && !cloud.accountGUID.isEmpty
+        if online != connected { online = connected }
         let key = "activities.scope." + cloud.region.rawValue
         var next = ""
         if online {

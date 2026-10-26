@@ -277,7 +277,7 @@ final class GarminChinaCloud: ObservableObject {
         }
         if result.detail.isEmpty { result.detail = "已刷新 \(result.samples.count) 项云端同步指标" }
         guard generation == authenticationGeneration else { return GarminHealthRefresh() }
-        result.samples = result.samples.map { MetricSample(kind: $0.kind, value: $0.value, source: $0.source.replacingOccurrences(of: "佳明中国", with: region.title), timestamp: $0.timestamp, origin: $0.origin) }
+        result.samples = result.samples.map { MetricSample(kind: $0.kind, value: $0.value, source: $0.source.replacingOccurrences(of: "佳明中国", with: region.title), timestamp: $0.timestamp, origin: $0.origin, timestampIsMeasurement: $0.timestampIsMeasurement == true) }
         if var solar = result.solarSeries { solar.source = solar.source.replacingOccurrences(of: "佳明中国", with: region.title); result.solarSeries = solar }
         return result
     }

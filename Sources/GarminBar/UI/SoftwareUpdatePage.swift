@@ -19,7 +19,7 @@ struct SoftwareUpdatePage: View {
                     HStack {
                         Button { Task { await updater.check() } } label: { Label(L10n.text(updater.isChecking ? "正在检查…" : "检查更新"), systemImage: "arrow.triangle.2.circlepath") }
                             .buttonStyle(.borderedProminent).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(updater.isChecking || updater.isInstalling || model.preview)
-                        if updater.installable { Button(L10n.text("下载并升级")) { updater.requestUpgrade() }.buttonStyle(.bordered).disabled(updater.isInstalling || model.uploads.isSyncing || model.bluetooth.isTransferringFiles) }
+                        if updater.installable { Button(L10n.text("下载并升级")) { updater.requestUpgrade() }.buttonStyle(.bordered).disabled(updater.isInstalling || model.hasActiveFileOperations) }
                         if let repo = updater.parsedRepository { Link(L10n.text("GitHub Releases ↗"), destination: repo.url.appendingPathComponent("releases")) }
                     }
                     if let progress = updater.downloadProgress {
@@ -32,7 +32,7 @@ struct SoftwareUpdatePage: View {
                             Button(L10n.text("取消下载")) { updater.cancelDownload() }
                         }
                     } else if updater.isInstalling { ProgressView().controlSize(.small) }
-                    if model.uploads.isSyncing || model.bluetooth.isTransferringFiles {
+                    if model.hasActiveFileOperations {
                         Text(L10n.text("文件同步结束后即可升级。")).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
                     }
                 }

@@ -249,6 +249,7 @@ struct WatchPage: View {
             Toggle(L10n.text("显示其他附近设备"), isOn: $bluetooth.showAllDevices).font(PulseTheme.font(size: 11)).toggleStyle(.checkbox)
             BackgroundConnectionGuide(bluetooth: bluetooth)
             WatchWeatherCard(weather: model.weather, preview: model.preview)
+            DisclosureGroup(L10n.text("连接诊断")) {
             WatchRequestCaptureCard(capture: bluetooth.requestCapture, connected: bluetooth.isConnected, preview: model.preview)
             if bluetooth.isConnected {
                 PulseCard {
@@ -262,6 +263,7 @@ struct WatchPage: View {
                         Button(L10n.text("导出连接诊断")) { NSWorkspace.shared.activateFileViewerSelecting([bluetooth.diagnosticsURL()]) }.buttonStyle(.plain).font(PulseTheme.font(size: 11))
                     }
                 }
+            }
             }
         }
     }
@@ -364,7 +366,8 @@ struct SyncPage: View {
                         .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
                     HStack {
                         Button(L10n.text("导出暂存数据")) { model.exportLocalData() }.disabled(model.preview || model.isExportingLocalData)
-                        Button(L10n.text("刷新存储信息")) { model.refreshLocalDataSummary() }
+                        Button(L10n.text("刷新存储信息")) { model.refreshLocalDataSummary() }.disabled(model.isReadingLocalStorage)
+                        if model.isReadingLocalStorage { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在读取存储信息…")) }
                         Spacer()
                         Button(L10n.text("上传暂存文件")) { model.uploadStoredFiles() }
                             .disabled(model.preview || !model.cloudSyncEnabled || !model.cloud.isAuthenticated || model.uploads.isSyncing || model.uploads.pendingCount == 0)
@@ -548,12 +551,14 @@ struct LoginSheet: View {
     @ObservedObject var model: AppModel
     @State private var callbackURL = ""
     @State private var callbackError = ""
+    @State private var loginLoading = false
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Label(L10n.text("连接\(model.cloud.region.title)账户"), systemImage: "lock.shield").font(PulseTheme.font(size: 14, weight: .semibold))
                 Spacer()
-                Button(L10n.text("关闭")) { model.showLogin = false }.buttonStyle(.bordered)
+                if loginLoading { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在打开官方登录页…")) }
+                Button(L10n.text("关闭")) { model.showLogin = false }.buttonStyle(.bordered).keyboardShortcut(.cancelAction)
             }.padding(17).background(PulseTheme.background)
             HStack(spacing: 12) {
                 Picker(L10n.text("登录方式"), selection: Binding(get: { model.cloud.loginMode }, set: { model.cloud.prepareLogin(mode: $0) })) {
@@ -563,13 +568,14 @@ struct LoginSheet: View {
                     model.cloud.prepareLogin(mode: .portal)
                     NSWorkspace.shared.open(model.cloud.makeLoginURL())
                 }.buttonStyle(.plain)
+                Button(L10n.text("重新加载")) { model.cloud.prepareLogin() }.buttonStyle(.plain)
                 Button(L10n.text("复制登录配置链接")) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(model.cloud.makeLoginURL().absoluteString, forType: .string)
                 }.buttonStyle(.plain)
                 Spacer()
             }.font(PulseTheme.font(size: 11)).padding(.horizontal, 17).padding(.bottom, 12).background(PulseTheme.background)
-            GarminLoginWebView(cloud: model.cloud)
+            GarminLoginWebView(cloud: model.cloud, isLoading: $loginLoading)
             DisclosureGroup(L10n.text("浏览器登录后的连接")) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L10n.text("如内置页面无法登录，可在浏览器完成登录，再将最终的官方回跳地址粘贴到这里。地址只在本机用于完成认证。"))

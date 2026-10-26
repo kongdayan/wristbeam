@@ -103,6 +103,7 @@ final class AppModel: ObservableObject {
         }
     }
     @Published var localDataSummary = LocalDataSummary()
+    @Published var isReadingLocalStorage = false
     @Published var localExportStatus = ""
     @Published var isExportingLocalData = false
     @Published var autoSync = AppPreferences.shared.object(forKey: "autoSync") as? Bool ?? false {
@@ -249,6 +250,7 @@ final class AppModel: ObservableObject {
     }
     var availableMetricKinds: Set<MetricKind> { MetricLayout.available(readings: Set(metrics.keys), registered: bluetooth.registeredMetrics, discovered: bluetooth.availableMetrics) }
     var dashboardVisibleMetrics: [MetricKind] { MetricLayout.ordered(selection: dashboardMetrics.intersection(availableMetricKinds), order: dashboardOrder) }
+    var hasActiveFileOperations: Bool { uploads.isSyncing || bluetooth.isTransferringFiles || activities.busy || activities.managingDownloads || isExportingLocalData }
     var preferredColorScheme: ColorScheme? { appearance == .system ? nil : appearance == .light ? .light : .dark }
     var menuVisibleMetrics: [MetricKind] { MetricKind.allCases.filter { menuMetrics.contains($0) && availableMetricKinds.contains($0) } }
     var floatingColumns: Int { min(floatingSize.columns, max(1, visibleMetrics.count)) }

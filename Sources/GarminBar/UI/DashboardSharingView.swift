@@ -121,7 +121,7 @@ struct DashboardShareSheet: View {
         renderer.scale = 2
         guard let cgImage = renderer.cgImage else { error = L10n.text("图片生成失败，请重试。"); return }
         let data = await Task.detached(priority: .utility) {
-            NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
+            autoreleasepool { NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]) }
         }.value
         guard !Task.isCancelled, key == renderKey else { return }
         guard let data else { error = L10n.text("图片生成失败，请重试。"); return }

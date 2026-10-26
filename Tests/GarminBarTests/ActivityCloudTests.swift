@@ -22,7 +22,10 @@ private final class ActivityHTTP: URLProtocol {
         if stall && path.contains("activitylist-service") { return }
         let body: String
         if path.contains("socialProfile") { body = #"{"garminGUID":"activity-fixture","displayName":"Fixture"}"# }
-        else if path.contains("deviceregistration") { body = "[]" }
+        else if path.contains("deviceregistration") { body = #"[{"unitId":42,"displayName":"Synthetic watch"}]"# }
+        else if path.contains("usersummary-service") {
+            body = String(decoding: try! JSONSerialization.data(withJSONObject: ["calendarDate": GarminHealthMetrics.calendarDate(Date()), "totalSteps": 5000, "bodyBatteryMostRecentValue": 50]), as: UTF8.self)
+        }
         else if path.contains("activitylist-service") {
             let offset = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems?.first { $0.name == "start" }?.value
             if let activityIDs {
@@ -145,6 +148,18 @@ private final class ActivityHTTP: URLProtocol {
         XCTAssertFalse(library.busy)
         XCTAssertFalse(library.statusIsError)
         XCTAssertEqual(library.index.activities.map(\.id), saved.activities.map(\.id))
+    }
+    func testHealthRefreshPreservesUnknownMeasurementTimeThroughRegionPresentation() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString), domain = "wristbeam.activity-test.\(UUID().uuidString)"
+        ActivityHTTP.reset()
+        let (cloud, _, session) = try fixture(root, domain: domain)
+        defer { cloud.setNetworkEnabled(false); session.invalidateAndCancel(); try? FileManager.default.removeItem(at: root); UserDefaults.standard.removePersistentDomain(forName: domain) }
+        await cloud.refreshAccount()
+        let result = await cloud.healthMetrics(deviceID: "42")
+        let sample = try XCTUnwrap(result.samples.first { $0.kind == .steps })
+        XCTAssertEqual(sample.value, 5000)
+        XCTAssertEqual(sample.origin, .cloud)
+        XCTAssertEqual(sample.timestampIsMeasurement, false)
     }
     private func fixture(_ root: URL, domain: String) throws -> (GarminChinaCloud, ActivityLibrary, URLSession) {
         let auth = root.appendingPathComponent("session.json"), preferences = AppPreferences(domain: domain)
