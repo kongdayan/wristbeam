@@ -54,43 +54,55 @@ The existing app-specific appearance preference is retained as a deliberate comp
 
 ## Implementation coverage
 
-| Requested area | Implementation and evidence to collect |
+| Requested area | Implementation and acceptance evidence |
 | --- | --- |
-| UI/navigation | Native split container, adaptive columns/actions, semantic card borders; preserve Connect IQ and independent preferences. Inspect current-source renders. |
-| Interaction | Existing native click/scroll/shortcut gating regressions, card accessibility and chart arrow inspection. No foreground keyboard interactions on the user's desktop. |
-| Guidance | Independent watch/cloud onboarding; current pairing and permissions retained. Inspect onboarding/device fixtures. |
-| Data display | Origin labels, sync-versus-measurement timestamp preservation, localized sport labels and workout wall time. Run refresh/presentation regressions. |
-| Feedback | Inline image/export/cache notices, cancel/retry controls and operation descriptions. Inspect busy/empty/offline states. |
+| UI/navigation | Native split container, adaptive columns/actions, semantic card borders; Connect IQ and independent preferences retained. Reviewed normal three-column and narrow 160% single-column dashboards, settings and activities. |
+| Interaction | Native mouse click/disclosure, scroll/context restoration and shortcut/sheet gating regressions pass. Card values have consolidated accessibility descriptions; chart arrow inspection remains available. |
+| Guidance | Independent watch/cloud onboarding; current pairing and permissions retained. Reviewed synthetic onboarding and device fixtures. |
+| Data display | Origin labels, sync-versus-measurement timestamp preservation, localized sport labels and workout wall time. Refresh/presentation regressions pass. |
+| Feedback | Inline image/export/cache notices, cancel/retry controls and operation descriptions. Native fixture captures cached, empty, offline and operation states. |
 | Motion | Existing brief reduced-motion-aware control feedback retained. Custom content does not animate incoming health samples. |
-| Loading/flows | Cached details remain available; cancel owned library work; sign-in reload/activity; choose destination before export. Run cancellation and navigation regressions. |
-| Images | Encode share PNG once off UI actor, suppress stale results and provide retry; opaque share sheet. Connect IQ thumbnails are bounded and cached. Run native canvas/thumbnail tests and inspect share/Connect IQ fixtures. |
-| Downloads/resources | Account scope, inventory/sizes, safe checked operations, reversible Trash, update byte progress/cancellation and failed staging cleanup. Run real synthetic Trash/restore, inventory and cancellation tests. |
-| Maintenance/delivery | Local commits and this record; update setup guidance. Full exact-source validation pending; no release/install. |
+| Loading/flows | Cached details remain available; cancel owned library work; sign-in reload/activity; choose destination before export. Owned-request cancel/retry and navigation regressions pass. |
+| Images | Share PNG encoded once off UI actor, stale results suppressed, retry provided; opaque share sheet. Actual completed normal/160% previews reviewed. Native canvas and bounded thumbnail tests pass; Connect IQ empty-state render reviewed. |
+| Downloads/resources | Account scope, inventory/sizes, checked file operations, reversible Trash, update byte progress/cancellation and failed staging cleanup. Synthetic Trash/restore, inventory and cancellation tests pass; downloads sheet reviewed. |
+| Maintenance/delivery | Local commits, setup guidance and this record. Full matrix/security/package evidence below; final heading-only render follow-up tracked separately. No release/install. |
 
 Connect IQ artwork limits: existing network loader caps encoded bytes at 16 MiB and permits only Garmin media endpoints; thumbnail input dimensions are at most 8192 per side and 20 million pixels. Display thumbnails are at most 1024 pixels per side. The process cache has an 80-image / 32 MiB cost target based on decoded row bytes, and can evict automatically. Cancellation prevents a reused cell from publishing an earlier image.
 
-## Verification status
+## Verified full validation
 
-The current-main integration requires its own complete Actions run and artifact review. Stale-base runs 40307141672, 40307676004, 40309089226 and 40309391444 were superseded/cancelled. They do not prove final readiness. Earlier synthetic review identified a wrapped sidebar brand and transparent share-sheet capture; the current integration retains main's one-line brand and an explicitly opaque share surface, with an alpha assertion and a fixture wait for asynchronous image generation.
+[Run 40315508544](https://github.com/kongdayan/wristbeam/actions/runs/40315508544) completed successfully for application/test source `d5475cf38452b90d4107ca1cc2493313cc3c04cb`, with full-validation, showcase and test-package enabled:
 
-Prepared regression coverage includes width-aware column counts, regular-file/filename/symlink allowlists, real Trash-and-restore of a synthetic copy while preserving a synthetic index and original stand-in, unknown-measurement-time propagation through cloud refresh, owned-request cancel/retry, bounded artwork thumbnail decoding and existing workflow/Connect IQ tests. No executable test or Swift compilation has run locally.
+- macOS 14/15/26 Apple Silicon and macOS 15 Intel: each passed the 289-method core assertion harness and 289 native XCTest methods with zero failures. These are two executions of the same test set, not 578 distinct tests.
+- Developer HTTP/TLS/MCP/SDK/webhook integration; native share rendering; all selected native settings/floating/interface checks; signed app/package and installed-language/update lifecycle regressions passed.
+- Native mouse events cover disclosure labels/whitespace/chevrons, independent content, selection cells and disabled states. List/detail/dashboard scroll restoration, search/page retention, independent preferences and sheet/modal keyboard gating passed.
+- Swift, Python and Actions CodeQL; source/localization/documentation checks; full-history secret scan; required CI gate passed.
+- Provenance audit downloaded this run's artifacts and verified source commit, run identity, artifact hashes and package hashes.
 
-Append exact commit/run identity, terminal results, package provenance and current-source artifact findings before declaring completion.
+New regressions cover fitted columns, regular-file/filename/symlink allowlists, real Trash/restore of a synthetic copy while preserving a synthetic index and original stand-in, unknown-measurement-time propagation through cloud refresh, owned-request cancel/retry and bounded artwork decoding. No executable test, Swift build, native render or application installation ran locally.
 
-## Current-main validation and artifact follow-up
+Downloaded synthetic artifacts were visually reviewed: normal grouped dashboard, narrow 160% dashboard, independent preferences, activity library, downloads, onboarding, Connect IQ and floating panel. The normal/160% share sheets display the completed image and full-width snapshot guidance. Cloud-request count remains zero in the interface fixture. Images contain isolated synthetic data only.
 
-[Run 40312543429](https://github.com/kongdayan/wristbeam/actions/runs/40312543429) validates `9917545`. The four native core-regression steps passed, including real synthetic Trash/restore and ImageIO thumbnail bounds. The macOS 15 native interface step passed its existing disclosure hit targets, scroll/context restoration, sheet shortcut gating and opaque share-surface assertion. Application/package/security jobs were still running during this review; this is not a final green-run claim.
+Verification boundary: the changed application has not been installed or exercised against the user's real watch/account. Native interactions and network/cancellation behavior are covered by isolated CI fixtures; the installed 0.3.10 app remains unchanged. Live sign-in, watch pairing and production Connect IQ artwork retrieval are therefore not newly accepted end-to-end flows in this maintenance task.
 
-Downloaded current-source synthetic interface artifacts and inspected Chinese/dark grouped dashboard, English/dark narrow dashboard at 160%, English/light downloads and share sheet. Connect IQ remains in navigation, the independent settings entry remains, three columns fit the normal dashboard, a single readable column is used at large-text/narrow width, and the brand no longer wraps. The share sheet is opaque, but its capture still showed the loading state: fixed RunLoop delays did not prove asynchronous image completion. Its small-column snapshot note also truncated.
+The preceding current-main run [40312543429](https://github.com/kongdayan/wristbeam/actions/runs/40312543429) also passed the full matrix for `9917545`. Its share capture exposed an opaque but still-loading preview and truncated guidance. Follow-up rendering waits for actual completion while yielding the main actor; the synchronous native click/scroll checks remain intact. The sheet has a full-width note and a shorter selection list at large text sizes.
 
-Follow-up changes move the snapshot note to full width, reduce selection-list height at large text sizes, and add a completion observation to the actual share renderer. The native fixture now yields the main actor and requires that completion before capturing both normal and 160% share sheets. Existing synchronous click/scroll fixtures are retained; only the render scenarios run in an async task on the normal run loop.
+| macOS 15 ARM interface fixture | `9917545` | `d5475cf` |
+| --- | --- | --- |
+| Compile elapsed | 56.061 s | 81.385 s |
+| Render elapsed | 281.658 s | 50.047 s |
+| Largest-child peak RSS | 2,314,027,008 bytes | 255,983,616 bytes |
 
-The first current-source full render suite reported 56.061 s compilation, 281.658 s rendering and 2,314,027,008 bytes largest-child peak RSS. This measures the entire multi-window fixture, not normal app memory, and is not a controlled comparison with earlier source. Snapshot windows are now detached/closed and bitmap work has a local autorelease pool; record the next run's same-suite measurement before claiming any reduction.
+The later fixture detaches/closes snapshot windows and uses a local bitmap autorelease pool. It also adds large-text completed-share scenarios. These are observed whole-fixture results on hosted runners, not controlled application benchmarks or normal app memory/speed claims.
 
-The grouped dashboard keeps main's existing global order semantics (first three selected metrics are highlights); its context action remains “Move to front.” Finder reveal reconciles the active account before using an inventory entry. Download-count wording avoids English singular/plural ambiguity.
+Stale-base runs 40307141672, 40307676004, 40309089226 and 40309391444 remain historical and are not acceptance evidence. Grouped dashboard ordering retains main's existing first-three-highlights semantics and “Move to front” action. Finder reveal reconciles the active account; download-count wording avoids singular/plural ambiguity.
 
-## Verified checkpoint and final run
+## Final heading-only follow-up
 
-Run 40312543429 completed successfully for `9917545`: macOS 14/15/26 ARM and macOS 15 Intel each passed 289 core regression methods and 289 native XCTest methods with zero failures. Developer HTTP/TLS/MCP/SDK/webhook checks, native rendering, signed application/package checks, installed-language/update lifecycle checks, all three CodeQL analyses and the required CI gate passed. The provenance audit verified source commit, run identity, artifact hashes and package hashes. This is evidence for the current-main integration, not the subsequent rendering-harness changes.
+Visual review found that the English share-selection heading truncated at 160% despite the preview and guidance being complete. `ca22e9673d38cb00cac567d111ed2fd85bb3af94` adds one vertical fixed-size modifier so the heading can wrap. It is the only app/test source change after `d5475cf`.
 
-Current application/test source is `d5475cf`. [Final full validation](https://github.com/kongdayan/wristbeam/actions/runs/40315508544) runs that exact commit with full-validation, showcase and test-package enabled. It must finish and its real completed share previews (including 160% font) must be reviewed before completion. The next render timing can be compared with the 9917545 fixture measurement above; do not describe fixture memory as application memory. Logs for the passed checkpoint and its native screenshots were downloaded to a local temporary review directory, without installing an application.
+[Run 40317295740](https://github.com/kongdayan/wristbeam/actions/runs/40317295740) completed successfully for that exact commit with showcase rendering enabled. The macOS 15 Apple Silicon core/XCTest, integration, native interface/share render, signed build and lifecycle checks passed, together with quality/secrets, all three CodeQL analyses and the required CI gate. Package upload/provenance was intentionally not selected for this heading-only follow-up; four-platform/package evidence remains the full run above.
+
+Downloaded this follow-up's native artifact and reviewed English light/dark 160% share sheets: “Choose what to share” now wraps fully onto two lines, the rendered preview is complete, and selection controls, snapshot guidance and export actions remain visible. The same fixture reports 46.790 s rendering and 251,707,392 bytes largest-child peak RSS, with exit code zero.
+
+Final local checks: 1,517 localization keys and placeholders, 417 public source/documentation files, and diff whitespace checks pass. App/test/scripts content after the validated `ca22e96` source commit is unchanged; the closing commit updates only this maintenance record. No PR exists for the validation branch. The version/configuration is unchanged from main, the latest public release remains v0.3.10, and the installed app still reports 0.3.10. The user's AGENTS.md changes, local skills/catalog and social drafts remain outside these commits.
