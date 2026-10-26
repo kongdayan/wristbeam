@@ -76,3 +76,15 @@ The current-main integration requires its own complete Actions run and artifact 
 Prepared regression coverage includes width-aware column counts, regular-file/filename/symlink allowlists, real Trash-and-restore of a synthetic copy while preserving a synthetic index and original stand-in, unknown-measurement-time propagation through cloud refresh, owned-request cancel/retry, bounded artwork thumbnail decoding and existing workflow/Connect IQ tests. No executable test or Swift compilation has run locally.
 
 Append exact commit/run identity, terminal results, package provenance and current-source artifact findings before declaring completion.
+
+## Current-main validation and artifact follow-up
+
+[Run 40312543429](https://github.com/kongdayan/wristbeam/actions/runs/40312543429) validates `9917545`. The four native core-regression steps passed, including real synthetic Trash/restore and ImageIO thumbnail bounds. The macOS 15 native interface step passed its existing disclosure hit targets, scroll/context restoration, sheet shortcut gating and opaque share-surface assertion. Application/package/security jobs were still running during this review; this is not a final green-run claim.
+
+Downloaded current-source synthetic interface artifacts and inspected Chinese/dark grouped dashboard, English/dark narrow dashboard at 160%, English/light downloads and share sheet. Connect IQ remains in navigation, the independent settings entry remains, three columns fit the normal dashboard, a single readable column is used at large-text/narrow width, and the brand no longer wraps. The share sheet is opaque, but its capture still showed the loading state: fixed RunLoop delays did not prove asynchronous image completion. Its small-column snapshot note also truncated.
+
+Follow-up changes move the snapshot note to full width, reduce selection-list height at large text sizes, and add a completion observation to the actual share renderer. The native fixture now yields the main actor and requires that completion before capturing both normal and 160% share sheets. Existing synchronous click/scroll fixtures are retained; only the render scenarios run in an async task on the normal run loop.
+
+The first current-source full render suite reported 56.061 s compilation, 281.658 s rendering and 2,314,027,008 bytes largest-child peak RSS. This measures the entire multi-window fixture, not normal app memory, and is not a controlled comparison with earlier source. Snapshot windows are now detached/closed and bitmap work has a local autorelease pool; record the next run's same-suite measurement before claiming any reduction.
+
+The grouped dashboard keeps main's existing global order semantics (first three selected metrics are highlights); its context action remains “Move to front.” Finder reveal reconciles the active account before using an inventory entry. Download-count wording avoids English singular/plural ambiguity.

@@ -203,7 +203,7 @@ struct OverviewPage: View {
                     .contextMenu {
                         Button(L10n.text("分享这项数值")) { shareRequest = DashboardShareRequest(kinds: [kind], valueOnly: true) }
                         Button(L10n.text("分享这张卡片")) { shareRequest = DashboardShareRequest(kinds: [kind]) }
-                        Button(L10n.text(model.dashboardGrouped ? "移到分组最前" : "移到最前")) { model.dashboardOrder = [kind.rawValue] + model.dashboardVisibleMetrics.filter { $0 != kind }.map(\.rawValue) }
+                        Button(L10n.text("移到最前")) { model.dashboardOrder = [kind.rawValue] + model.dashboardVisibleMetrics.filter { $0 != kind }.map(\.rawValue) }
                         Button(L10n.text("从健康看板隐藏")) { model.dashboardMetrics.remove(kind) }
                     }
             }

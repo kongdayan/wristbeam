@@ -1469,7 +1469,7 @@
   "连接设备账号读取运动历史；蓝牙接收的原始文件可在同步记录中查看。": "Connect your device account for workout history. Find original files received over Bluetooth in Sync history.",
   "试试其他名称或类型，或清除搜索。": "Try a different name or type, or clear your search.",
   "已下载": "Downloaded",
-  "{0} 个下载文件 · {1}": "{0} downloaded files · {1}",
+  "{0} 个下载文件 · {1}": "Downloads: {0} · {1}",
   "运动详情和导出文件保存在本机。移到废纸篓后可在 Finder 恢复；再次离线查看前需重新下载。手表接收的原始文件不受影响。": "Workout details and exports are stored on this Mac. Recover trashed copies in Finder, or download them again for offline use. Original files received from your watch are kept.",
   "搜索运动或文件格式": "Search workouts or file formats",
   "正在读取下载文件…": "Reading downloaded files…",
@@ -1515,6 +1515,5 @@
   "夜间记录日期：{0}": "Overnight record date: {0}",
   "同步时间：{0}": "Synced at: {0}",
   "记录时间：{0}": "Recorded at: {0}",
-  "移到分组最前": "Move to front of group",
   "表盘预览暂不可用": "Watch face preview unavailable"
 }

@@ -221,6 +221,7 @@ import AppKit
         generation = UUID(); busy = false; operation = ""; status = ""
     }
     func revealDownload(_ download: ActivityDownload) {
+        reconcile()
         guard downloads.contains(download), let store,
               let file = try? download.checkedFile(in: store.directory) else { return }
         NSWorkspace.shared.activateFileViewerSelecting([file])

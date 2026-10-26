@@ -183,6 +183,13 @@ import SwiftUI
         model.activities.reconcile()
         model.scrollPositions.offsets = [:]; model.activityBrowsing = ActivityBrowsingState()
         print("PASS native list/detail and dashboard/detail scroll restoration, search/page retention and independent preferences")
+        Task { @MainActor in
+            do { try await renderScenarios(model:model,output:output); exit(0) }
+            catch { fputs("Native interface render failed: \(error)\n", stderr); exit(1) }
+        }
+        RunLoop.main.run()
+    }
+    @MainActor static func renderScenarios(model:AppModel,output:URL) async throws {
         for english in [false,true] {
             model.language = english ? .en : .zhHans
             let language = english ? "en" : "zh"
@@ -196,7 +203,7 @@ import SwiftUI
                         model.floatingSize = .small
                         model.floatingMetrics = [.bodyBattery,.hrvNight,.heartRate]
                         let name = "floating-\(language)-\(theme)-\(detailed ? "detailed" : "compact")-\(Int(scale*100))"
-                        try render(FloatingPulseView(model:model),name:name,dark:dark,output:output)
+                        try await render(FloatingPulseView(model:model),name:name,dark:dark,output:output)
                     }
                 }
                 model.fontScale = 1.6
@@ -205,7 +212,7 @@ import SwiftUI
                     model.bluetooth.isConnecting = step == .confirm
                     model.bluetooth.isConnected = step == .sync
                     model.bluetooth.canSyncFiles = step == .sync
-                    try render(PairingGuide(model:model).padding(24).frame(width:640),name:"pairing-\(step.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(PairingGuide(model:model).padding(24).frame(width:640),name:"pairing-\(step.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 model.bluetooth.isScanning = false; model.bluetooth.isConnecting = false
                 model.bluetooth.isConnected = false; model.bluetooth.canSyncFiles = false
@@ -213,45 +220,52 @@ import SwiftUI
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
                     if page.isSettings {
-                        try render(PreferencesRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                        try await render(PreferencesRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                     } else {
-                        try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                        try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                     }
                 }
-                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760).background(PulseTheme.background),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
+                try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760).background(PulseTheme.background),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
                 model.openSettings(.overview)
                 model.dashboardGrouped = false
-                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
+                try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
                 model.dashboardGrouped = true
                 model.fontScale = 1.6
-                try render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
+                try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
                 for page in [AppPage.settings,.appearance,.metricSelection,.developer,.updates] {
                     model.settingsPage = page
-                    try render(PreferencesRootView(model:model).frame(width:820,height:600),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(PreferencesRootView(model:model).frame(width:820,height:600),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
-                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600).background(PulseTheme.background),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
+                try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600).background(PulseTheme.background),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
                 model.fontScale = 1.15
                 model.activityBrowsing.search = "no-such-fixture"
                 model.page = .activities
-                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activities-no-results-\(language)-\(theme)",dark:dark,output:output)
+                try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activities-no-results-\(language)-\(theme)",dark:dark,output:output)
                 model.activityBrowsing.search = ""
-                try render(FirstConnectionGuide(model:model).padding(24).frame(width:600).background(PulseTheme.background),name:"onboarding-\(language)-\(theme)",dark:dark,output:output)
-                try render(ActivityDownloadsView(library:model.activities),name:"downloads-\(language)-\(theme)",dark:dark,output:output)
-                try render(DashboardShareSheet(model:model,request:DashboardShareRequest(kinds:[.heartRate,.bodyBattery,.stress])),name:"share-sheet-\(language)-\(theme)",dark:dark,output:output,settle:0.7)
+                try await render(FirstConnectionGuide(model:model).padding(24).frame(width:600).background(PulseTheme.background),name:"onboarding-\(language)-\(theme)",dark:dark,output:output)
+                try await render(ActivityDownloadsView(library:model.activities),name:"downloads-\(language)-\(theme)",dark:dark,output:output)
+                for scale in [1.15,1.6] {
+                    model.fontScale = scale
+                    var shareReady = false
+                    let shareSheet = DashboardShareSheet(model:model,request:DashboardShareRequest(kinds:[.heartRate,.bodyBattery,.stress]),onRendered:{ shareReady = true })
+                    let prefix = scale > 1.15 ? "share-sheet-large" : "share-sheet"
+                    try await render(shareSheet,name:"\(prefix)-\(language)-\(theme)",dark:dark,output:output,ready:{ shareReady })
+                }
+                model.fontScale = 1.15
                 model.lastLocalSavedAt = Date()
                 precondition(model.workflow.transferTitle == "已保存到本机")
-                try render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
+                try await render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
                 model.page = .overview; model.detailMetric = .hrvNight
-                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)
+                try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)
                 model.detailMetric = nil
                 model.page = .activities; model.selectedActivityID = "1001"
-                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
+                try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
                 model.selectedActivityID = nil
                 if let detail = model.activities.detail("1001") {
-                    try render(ActivityChartsSection(detail:detail).padding(24).frame(width:820),name:"activity-charts-\(language)-\(theme)",dark:dark,output:output)
-                    try render(ActivityZonesSection(detail:detail).padding(24).frame(width:820),name:"activity-zones-\(language)-\(theme)",dark:dark,output:output)
-                    try render(ActivityLapsSection(detail:detail).padding(24).frame(width:820),name:"activity-laps-\(language)-\(theme)",dark:dark,output:output)
-                    try render(ActivityStatisticsSection(statistics:detail.summary.statistics,initiallyExpanded:true).padding(24).frame(width:820),name:"activity-statistics-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(ActivityChartsSection(detail:detail).padding(24).frame(width:820),name:"activity-charts-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(ActivityZonesSection(detail:detail).padding(24).frame(width:820),name:"activity-zones-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(ActivityLapsSection(detail:detail).padding(24).frame(width:820),name:"activity-laps-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(ActivityStatisticsSection(statistics:detail.summary.statistics,initiallyExpanded:true).padding(24).frame(width:820),name:"activity-statistics-\(language)-\(theme)",dark:dark,output:output)
                 }
             }
         }
@@ -307,24 +321,36 @@ import SwiftUI
         window.orderOut(nil)
         print("PASS native mouse events: disclosure label, whitespace, chevron, independent content, selection cell and disabled state")
     }
-    @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL,settle:TimeInterval = 0.05) throws {
+    @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL,ready:(() -> Bool)? = nil) async throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))
         let size = host.fittingSize
         host.frame = NSRect(origin:.zero,size:size)
         let window = NSWindow(contentRect:host.frame,styleMask:.borderless,backing:.buffered,defer:false)
+        window.isReleasedWhenClosed = false
+        defer { window.contentView = nil; window.close() }
         window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
         window.contentView = host
         host.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until:Date().addingTimeInterval(settle))
-        guard let bitmap = host.bitmapImageRepForCachingDisplay(in:host.bounds) else { fatalError("Render failed: \(name)") }
-        host.cacheDisplay(in:host.bounds,to:bitmap)
-        guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("PNG failed") }
-        if name.hasPrefix("share-sheet-") {
-            precondition((bitmap.colorAt(x: 5, y: 5)?.alphaComponent ?? 0) > 0.99, "Share sheet must have an opaque readable surface")
+        // Yield the main actor so view tasks and background PNG encoding can finish.
+        try await Task.sleep(nanoseconds:50_000_000)
+        if let ready {
+            let deadline = Date().addingTimeInterval(10)
+            while !ready() && Date() < deadline { try await Task.sleep(nanoseconds:50_000_000) }
+            precondition(ready(), "Native share preview did not finish")
+            try await Task.sleep(nanoseconds:50_000_000)
         }
-        precondition(bitmap.pixelsWide >= 300 && bitmap.pixelsHigh >= 225 && data.count > 5000)
-        try data.write(to:output.appendingPathComponent(name + ".png"))
-        print("PASS \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh)")
+        host.layoutSubtreeIfNeeded()
+        try autoreleasepool {
+            guard let bitmap = host.bitmapImageRepForCachingDisplay(in:host.bounds) else { fatalError("Render failed: \(name)") }
+            host.cacheDisplay(in:host.bounds,to:bitmap)
+            guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("PNG failed") }
+            if name.hasPrefix("share-sheet-") {
+                precondition((bitmap.colorAt(x: 5, y: 5)?.alphaComponent ?? 0) > 0.99, "Share sheet must have an opaque readable surface")
+            }
+            precondition(bitmap.pixelsWide >= 300 && bitmap.pixelsHigh >= 225 && data.count > 5000)
+            try data.write(to:output.appendingPathComponent(name + ".png"))
+            print("PASS \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh)")
+        }
     }
 }
 @MainActor final class InteractionHostingView: NSHostingView<DisclosureInteractionFixture> {

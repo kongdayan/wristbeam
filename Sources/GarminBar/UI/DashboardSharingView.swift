@@ -17,8 +17,10 @@ struct DashboardShareSheet: View {
     @State private var renderedKey = ""
     @State private var error: String?
     @State private var notice = ""
+    private let onRendered: (() -> Void)?
 
-    @MainActor init(model: AppModel, request: DashboardShareRequest) {
+    @MainActor init(model: AppModel, request: DashboardShareRequest, onRendered: (() -> Void)? = nil) {
+        self.onRendered = onRendered
         let snapshot: [SharedMetric] = request.kinds.compactMap { kind in
             guard let sample = model.metrics[kind] else { return nil }
             return SharedMetric(kind: kind, value: model.display(kind), updatedAt: sample.timestamp,
@@ -66,14 +68,12 @@ struct DashboardShareSheet: View {
                                 }.buttonStyle(.plain).accessibilityValue(L10n.text(selected.contains(metric.kind) ? "已选择" : "未选择"))
                             }
                         }
-                    }.frame(height: 270)
+                    }.frame(height: PulseTheme.textScale >= 1.4 ? 210 : 270)
                     Toggle(L10n.text("仅分享单个数值"), isOn: $valueOnly).toggleStyle(.checkbox)
                         .onChange(of: valueOnly) { value in
                             if value, let first = metrics.first(where: { selected.contains($0.kind) }) { selected = [first.kind] }
                         }
                     Toggle(L10n.text("深色画框"), isOn: $dark).toggleStyle(.checkbox)
-                    Text(L10n.text("图片保留此刻的数据；关闭后重新打开可获取最新读数。"))
-                        .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                 }.frame(width: 200)
                 ScrollView(showsIndicators: false) {
                     if let image = currentImage {
@@ -92,6 +92,8 @@ struct DashboardShareSheet: View {
                     }
                 }.frame(width: 490, height: 445).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 16))
             }
+            Text(L10n.text("图片保留此刻的数据；关闭后重新打开可获取最新读数。"))
+                .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).fixedSize(horizontal: false, vertical: true)
             if !notice.isEmpty { PulseNotice(text: notice, symbol: "checkmark.circle") }
             if currentImage != nil, let error { PulseNotice(text: error, symbol: "exclamationmark.triangle", warning: true) }
             HStack {
@@ -127,6 +129,7 @@ struct DashboardShareSheet: View {
         guard let data else { error = L10n.text("图片生成失败，请重试。"); return }
         image = NSImage(cgImage: cgImage, size: NSSize(width: CGFloat(cgImage.width) / 2, height: CGFloat(cgImage.height) / 2))
         pngData = data; renderedKey = key
+        onRendered?()
     }
     @MainActor private func save() {
         guard currentImage != nil, let data = pngData else { return }
