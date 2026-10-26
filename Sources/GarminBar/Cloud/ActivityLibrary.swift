@@ -221,7 +221,7 @@ import AppKit
     }
     func revealDownload(_ download: ActivityDownload) {
         guard downloads.contains(download), let store,
-              let file = try? store.file(download.activityID, extension: download.fileExtension) else { return }
+              let file = try? download.checkedFile(in: store.directory) else { return }
         NSWorkspace.shared.activateFileViewerSelecting([file])
     }
     var downloadBytes: Int64 { downloads.reduce(0) { $0 + $1.bytes } }
@@ -245,10 +245,7 @@ import AppKit
         managingDownloads = true; status = ""; statusIsError = false
         let succeeded = await Task.detached(priority: .utility) {
             do {
-                let url = directory.appendingPathComponent(download.filename)
-                let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
-                guard values.isRegularFile == true, values.isSymbolicLink != true else { return false }
-                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                _ = try download.moveToTrash(in: directory)
                 return true
             } catch { return false }
         }.value

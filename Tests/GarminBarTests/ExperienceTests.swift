@@ -33,6 +33,30 @@ final class ExperienceTests: XCTestCase {
         let redirected = root.appendingPathComponent("redirect")
         try manager.createSymbolicLink(at: redirected, withDestinationURL: root)
         XCTAssertTrue(ActivityDownload.inventory(in: redirected).isEmpty)
+        XCTAssertThrowsError(try downloads[0].checkedFile(in: redirected))
+        let link = ActivityDownload(filename: "1006.zip", activityID: "1006", fileExtension: "zip", bytes: 0, modifiedAt: nil)
+        XCTAssertThrowsError(try link.checkedFile(in: root))
+    }
+    func testDownloadedCopyCanBeRestoredFromTrashWithoutTouchingOriginalOrIndex() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent(UUID().uuidString)
+        try manager.createDirectory(at: root, withIntermediateDirectories: true)
+        var trashed: URL?
+        defer {
+            if let trashed { try? manager.removeItem(at: trashed) }
+            try? manager.removeItem(at: root)
+        }
+        let data = Data("synthetic cache copy".utf8)
+        let cached = root.appendingPathComponent("1001.tcx")
+        let original = root.appendingPathComponent("original.fit"), index = root.appendingPathComponent("index.json")
+        try data.write(to: cached); try data.write(to: original); try data.write(to: index)
+        let download = try XCTUnwrap(ActivityDownload.inventory(in: root).first)
+        let trash = try download.moveToTrash(in: root); trashed = trash
+        XCTAssertFalse(manager.fileExists(atPath: cached.path))
+        XCTAssertEqual(try Data(contentsOf: original), data)
+        XCTAssertEqual(try Data(contentsOf: index), data)
+        try manager.moveItem(at: trash, to: cached); trashed = nil
+        XCTAssertEqual(try Data(contentsOf: cached), data)
     }
     func testWorkoutPresentationKeepsLocalWallTimeAndUsesSportSpecificSymbols() {
         let original = L10n.language; defer { L10n.language = original }

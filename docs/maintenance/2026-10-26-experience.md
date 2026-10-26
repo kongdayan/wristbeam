@@ -136,3 +136,7 @@ Current application source: `391ae8e`. [Full-matrix validation](https://github.c
 | Maintenance/delivery | Four source commits on codex/experience-2026-10-26; this record and setup docs | Append final CI/test/artifact findings; no PR/merge/release/install |
 
 Local read-only checks at this handoff: 1,280 catalog keys with source/placeholder coverage; repository links/Python syntax/action pinning; `git diff --check`. No local Swift compilation, native rendering, demo installation or executable tests were run.
+
+## Resource operation verification follow-up
+
+Revalidate the cache directory and file identity immediately before Finder reveal or Trash movement, in addition to the inventory allowlist. A directory replaced by a symlink after scanning must not redirect a later action. The shared checked operation rejects redirected roots, symlink files and mismatched file metadata. A new Actions-only filesystem regression moves an isolated synthetic cache copy to the real macOS Trash and restores its bytes, while asserting the synthetic index and original FIT stand-in remain unchanged. This test has not been run locally.

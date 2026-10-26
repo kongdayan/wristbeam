@@ -281,6 +281,23 @@ struct ActivityDownload: Identifiable, Equatable {
         let parts = name.split(separator: ".", omittingEmptySubsequences: false)
         return parts.count == 2 && GarminActivities.validID(String(parts[0])) && ["json", "tcx", "gpx", "zip"].contains(String(parts[1]))
     }
+    func checkedFile(in directory: URL) throws -> URL {
+        let file = directory.appendingPathComponent(filename)
+        guard Self.isManagedFilename(filename), file.pathExtension == fileExtension,
+              file.deletingPathExtension().lastPathComponent == activityID,
+              directory.standardizedFileURL == directory.resolvingSymlinksInPath().standardizedFileURL,
+              file.standardizedFileURL == file.resolvingSymlinksInPath().standardizedFileURL else { throw GarminActivityError.storage }
+        let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true else { throw GarminActivityError.storage }
+        return file
+    }
+    func moveToTrash(in directory: URL) throws -> URL {
+        let file = try checkedFile(in: directory)
+        var result: NSURL?
+        try FileManager.default.trashItem(at: file, resultingItemURL: &result)
+        guard let result else { throw GarminActivityError.storage }
+        return result as URL
+    }
     static func inventory(in directory: URL) -> [Self] {
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]
         guard directory.standardizedFileURL == directory.resolvingSymlinksInPath().standardizedFileURL,
