@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import ImageIO
+import CoreGraphics
 
 @MainActor protocol ConnectIQCloudClient: AnyObject {
     var objectWillChange: ObservableObjectPublisher { get }
@@ -67,6 +69,24 @@ private final class ConnectIQArtworkRedirectPolicy: NSObject, URLSessionTaskDele
 
 enum ConnectIQPackageStore {
     static let maximumPackageBytes = 32 * 1024 * 1024
+    /// Decode only a bounded thumbnail; never retain full-resolution artwork in a list.
+    static func artworkThumbnail(_ data: Data, maximumPixels: Int) -> CGImage? {
+        guard !data.isEmpty, data.count <= 16 * 1024 * 1024, (1...1024).contains(maximumPixels),
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
+              width.doubleValue > 0, height.doubleValue > 0,
+              width.doubleValue <= 8192, height.doubleValue <= 8192,
+              width.doubleValue * height.doubleValue <= 20_000_000 else { return nil }
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maximumPixels,
+            kCGImageSourceShouldCacheImmediately: true
+        ] as CFDictionary)
+    }
+
     static func load(appID: String, root: URL) throws -> ConnectIQVerifiedPackage {
         guard let uuid = UUID(uuidString: appID) else { throw ConnectIQError.invalidAppID }
         let id = uuid.uuidString.lowercased()

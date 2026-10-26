@@ -5,8 +5,9 @@ import WebKit
 /// Credentials and MFA remain on Garmin's HTTPS page; the app receives only its service ticket.
 struct GarminLoginWebView: NSViewRepresentable {
     @ObservedObject var cloud: GarminChinaCloud
+    @Binding var isLoading: Bool
 
-    func makeCoordinator() -> Coordinator { Coordinator(cloud: cloud) }
+    func makeCoordinator() -> Coordinator { Coordinator(cloud: cloud, isLoading: $isLoading) }
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -23,7 +24,7 @@ struct GarminLoginWebView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
-        context.coordinator.cloud = cloud
+        context.coordinator.cloud = cloud; context.coordinator.isLoading = $isLoading
         guard cloud.networkEnabled else { view.stopLoading(); return }
         if context.coordinator.revision != cloud.loginRevision {
             context.coordinator.revision = cloud.loginRevision
@@ -43,7 +44,10 @@ struct GarminLoginWebView: NSViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         var cloud: GarminChinaCloud
         var revision = UUID()
-        init(cloud: GarminChinaCloud) { self.cloud = cloud }
+        var isLoading: Binding<Bool>
+        init(cloud: GarminChinaCloud, isLoading: Binding<Bool>) { self.cloud = cloud; self.isLoading = isLoading }
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { isLoading.wrappedValue = true }
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { isLoading.wrappedValue = false }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             let origin = message.frameInfo.securityOrigin
@@ -79,11 +83,13 @@ struct GarminLoginWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            isLoading.wrappedValue = false
             guard (error as NSError).code != NSURLErrorCancelled else { return }
             cloud.loginPageFailed(error)
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            isLoading.wrappedValue = false
             guard (error as NSError).code != NSURLErrorCancelled else { return }
             cloud.loginPageFailed(error)
         }

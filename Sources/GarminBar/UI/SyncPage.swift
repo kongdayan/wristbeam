@@ -39,7 +39,8 @@ struct SyncPage: View {
                         Button(L10n.text("导出暂存数据")) { model.exportLocalData() }.disabled(model.preview || model.isExportingLocalData)
                         Button(L10n.text("打开本地数据")) { NSWorkspace.shared.open(AppPaths.root) }
                     }.buttonStyle(PulseButtonStyle())
-                    if !model.localExportStatus.isEmpty { Text(L10n.text(model.localExportStatus)).font(PulseTheme.font(size: 12)) }
+                    if model.isExportingLocalData { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在导出本地数据…")) }
+                    if !model.localExportStatus.isEmpty { PulseNotice(text: model.localExportStatus) }
                 }
             }
             PulseDisclosure(L10n.text("同步设置"), isExpanded: $showSettings) { SyncSetupGuide(model: model) }
@@ -83,7 +84,8 @@ struct SyncPage: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(L10n.text("手表：\(model.bluetooth.transferStatus)"))
                     if model.cloudSyncEnabled { Text(L10n.text(model.uploads.status)) }
-                    Button(L10n.text("刷新存储信息")) { model.refreshLocalDataSummary() }.buttonStyle(PulseButtonStyle())
+                    Button(L10n.text("刷新存储信息")) { model.refreshLocalDataSummary() }.buttonStyle(PulseButtonStyle()).disabled(model.isReadingLocalStorage)
+                    if model.isReadingLocalStorage { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在读取存储信息…")) }
                     ForEach(model.events.prefix(25)) { event in
                         HStack(alignment: .top, spacing: 12) {
                             Text(event.date, style: .time).monospacedDigit().foregroundStyle(PulseTheme.secondary)

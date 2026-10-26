@@ -54,7 +54,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
         }
         model.onQuit = { NSApplication.shared.terminate(nil) }
         configureApplicationMenu()
-        model.updater.canInstall = { [weak self] in self?.model.uploads.isSyncing == false && self?.model.bluetooth.isTransferringFiles == false && self?.model.preview == false }
+        model.updater.canInstall = { [weak self] in self?.model.hasActiveFileOperations == false && self?.model.preview == false }
         model.updater.onConfirmation = { [weak self] in self?.confirmUpdate() }
         controlObserver = DistributedNotificationCenter.default().addObserver(forName: PulseLocalControl.notification, object: nil, queue: .main) { [weak self] notification in
             guard let command = notification.userInfo?["command"] as? String,

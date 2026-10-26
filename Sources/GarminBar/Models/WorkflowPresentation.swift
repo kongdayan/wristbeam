@@ -32,7 +32,7 @@ struct ActivityBrowsingState: Equatable {
     static let pageSize = 20
     func matching(_ activities: [GarminActivity]) -> [GarminActivity] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        return activities.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) || $0.type.localizedCaseInsensitiveContains(query) }
+        return activities.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) || $0.type.localizedCaseInsensitiveContains(query) || $0.displayType.localizedCaseInsensitiveContains(query) }
     }
     func validPage(count: Int) -> Int { min(max(0, page), max(0, (count - 1) / Self.pageSize)) }
     func visible(_ activities: [GarminActivity]) -> [GarminActivity] {

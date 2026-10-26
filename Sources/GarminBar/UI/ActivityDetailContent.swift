@@ -180,6 +180,7 @@ private struct ActivityInteractiveChart: View {
     let metric: ActivityMetricDefinition
     var height: CGFloat = 210
     @State private var selected: ActivityChartPoint?
+    @FocusState private var focused: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -219,6 +220,18 @@ private struct ActivityInteractiveChart: View {
                     }
                 }
             }
+            .focusable().focused($focused)
+            .onMoveCommand { direction in
+                guard !points.isEmpty else { return }
+                let index = selected.flatMap { chosen in points.firstIndex { $0.id == chosen.id } }
+                if direction == .left { selected = points[max(0, (index ?? points.count) - 1)] }
+                else if direction == .right { selected = points[min(points.count - 1, (index ?? -1) + 1)] }
+            }
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(focused ? PulseTheme.mint : .clear, lineWidth: 2).allowsHitTesting(false))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(L10n.text(metric.label))
+            .accessibilityValue(selected.map { metric.formatted($0.value) + " · " + $0.time.formatted(.dateTime.hour().minute().locale(L10n.locale)) } ?? L10n.format("{0} 条图表记录", String(points.count)))
+            .accessibilityHint(L10n.text("使用左右方向键查看相邻读数"))
         }
     }
 }

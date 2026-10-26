@@ -38,3 +38,13 @@ Connecting at launch is a separate opt-in and requires previously granted access
 If Bluetooth is denied, enable WristBeam in System Settings → Privacy & Security → Bluetooth and retry. A system restriction needs the administrator's help. An ad hoc build may need renewed system authorization after an update. Updates ask for confirmation before download and wait for active transfers to finish.
 
 See [Apple's Bluetooth authorization states](https://developer.apple.com/documentation/corebluetooth/cbmanagerauthorization) and [Garmin's Instinct 2 pairing instructions](https://www8.garmin.com/manuals/webhelp/GUID-31D23DBB-57C2-4DF7-A0C9-8D1A00AB4BE7/EN-US/GUID-4C14822E-F472-4C3A-B33C-BB50407ADDE5.html).
+
+## 下载与离线 / Downloads and offline access
+
+首次使用可按需选择 **连接手表**（实时读数，无需云账号）或 **连接设备账号**（健康与运动历史，无需蓝牙）。
+
+**运动记录 → 下载管理** 显示当前账号的详情和导出副本、格式及占用空间。运动导出先选择保存位置，取消保存不会启动文件下载。移到废纸篓会先确认，可在 Finder 中恢复；运动摘要、账号和手表接收的原始文件继续保留。
+
+**Activities → Downloads** lists the selected account's cached details and exports, formats and disk usage. Choose a save destination before downloading an export. Moving a copy to Trash requires confirmation and can be reversed in Finder; summaries, accounts and original watch files are kept. Open a downloaded workout offline without fetching it again.
+
+The independent preferences window, keyboard commands and browsing context are described in [Daily navigation and sync](daily-workflow.md). Experience changes and verification are tracked in the [maintenance record](maintenance/2026-10-26-experience.md).

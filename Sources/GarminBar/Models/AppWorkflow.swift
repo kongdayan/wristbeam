@@ -35,7 +35,7 @@ import Foundation
             guard activities.online, !activities.busy else { return }
             Task {
                 if let id = selectedActivityID { await activities.downloadDetail(id) }
-                else { await activities.loadPage(older: false) }
+                else { activities.requestPage(older: false) }
             }
         } else if page == .sync { syncNow() }
     }

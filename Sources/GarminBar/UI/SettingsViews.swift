@@ -4,8 +4,9 @@ import UniformTypeIdentifiers
 
 struct SettingsRootView: View {
     @ObservedObject var model: AppModel
+    @State private var columns: NavigationSplitViewVisibility = .all
     var body: some View {
-        HStack(spacing: 0) {
+        NavigationSplitView(columnVisibility: $columns) {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 10) {
                     Image(systemName: "waveform.path.ecg").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
@@ -21,7 +22,7 @@ struct SettingsRootView: View {
                                 HStack(spacing: 12) { Image(systemName: page.symbol).frame(width: 18); Text(L10n.text(page.title)).fixedSize(horizontal: false, vertical: true); Spacer() }
                                     .font(PulseTheme.font(size: 12, weight: model.page.navigationPage == page ? .semibold : .regular))
                                     .padding(.horizontal, 12).padding(.vertical, 12)
-                                    .foregroundStyle(model.page.navigationPage == page ? PulseTheme.mint : Color.primary.opacity(0.55))
+                                    .foregroundStyle(model.page.navigationPage == page ? PulseTheme.mint : PulseTheme.secondary)
                                     .background(model.page.navigationPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                             }.buttonStyle(PulseRowButtonStyle())
@@ -46,9 +47,10 @@ struct SettingsRootView: View {
                     Spacer()
                     Button(L10n.text("退出")) { model.onQuit?() }.buttonStyle(PulseButtonStyle(compact: true)).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                 }.padding(.bottom, 10)
-            }.padding(.horizontal, 18).frame(width: 210)
+            }.padding(.horizontal, 18).frame(maxWidth: .infinity)
                 .background(Color.primary.opacity(0.025))
-            Rectangle().fill(Color.primary.opacity(0.06)).frame(width: 1)
+                .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 280)
+        } detail: {
             ScrollViewReader { scroll in
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: PulseTheme.sectionSpacing) {
@@ -73,7 +75,7 @@ struct SettingsRootView: View {
                 if model.page == .activities && model.selectedActivityID == nil { scroll.scrollTo("settings-top", anchor: .top) }
             }
             }
-        }.id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
+        }.navigationSplitViewStyle(.balanced).id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
             .font(PulseTheme.font(size: 13)).controlSize(.large).buttonStyle(PulseButtonStyle())
             .preferredColorScheme(model.preferredColorScheme)
             .environment(\.locale, L10n.locale)
@@ -134,10 +136,9 @@ struct OverviewPage: View {
     @State private var shareRequest: DashboardShareRequest?
     @State private var contentWidth: CGFloat = 0
     private var columns: [GridItem] {
-        let minimum = model.cardSize.minimumWidth * model.fontScale
-        if model.dashboardColumns == 0 { return [GridItem(.adaptive(minimum: minimum), spacing: 14)] }
-        let fitting = max(1, Int((contentWidth + 14) / (minimum + 14)))
-        return Array(repeating: GridItem(.flexible(), spacing: 14), count: min(fitting, min(4, max(1, model.dashboardColumns))))
+        let minimum = model.cardSize.minimumWidth * max(1, model.fontScale / 1.15)
+        let count = MetricLayout.columnCount(width: contentWidth, minimum: minimum, preferred: model.dashboardColumns)
+        return Array(repeating: GridItem(.flexible(), spacing: 14), count: count)
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -150,24 +151,14 @@ struct OverviewPage: View {
                     Label(L10n.text("本地保存或读取异常"), systemImage: "exclamationmark.triangle")
                 }.buttonStyle(PulseButtonStyle()).tint(.orange)
             }
-            HStack(spacing: 8) {
-                Text(L10n.text(model.preview ? "演示数据 · 用于功能展示" : model.healthStatus))
-                    .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineLimit(1)
-                    .help(L10n.text(model.healthStatus))
-                Spacer(minLength: 8)
-                Button { model.refreshMetricsNow() } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(PulseButtonStyle())
-                    .help(L10n.text("刷新同步指标")).accessibilityLabel(L10n.text("刷新同步指标"))
-                    .disabled(model.preview || model.isRefreshingHealth)
-                Button { shareRequest = DashboardShareRequest(kinds: model.dashboardVisibleMetrics) } label: {
-                    Label(L10n.text("分享"), systemImage: "square.and.arrow.up")
-                }.disabled(model.dashboardVisibleMetrics.isEmpty)
-                Button { showStyle.toggle() } label: { Label(L10n.text("显示样式"), systemImage: "slider.horizontal.3") }
-                    .popover(isPresented: $showStyle, arrowEdge: .bottom) { DashboardStylePanel(model: model) }
-            }.buttonStyle(PulseButtonStyle()).controlSize(.regular)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { refreshStatus; Spacer(minLength: 8); dashboardActions }
+                VStack(alignment: .leading, spacing: 12) { refreshStatus; dashboardActions }
+            }
             if model.preview && model.previewSetup {
                 Button(L10n.text("加载演示数据")) { model.previewSetup = false; model.enablePreview() }.buttonStyle(PulseButtonStyle())
             }
-            if (!model.preview || model.previewSetup) && !model.bluetooth.sessionActivated && !model.bluetooth.isConnected && model.availableMetricKinds.isEmpty { FirstConnectionGuide(model: model) }
+            if (!model.preview || model.previewSetup) && !model.bluetooth.sessionActivated && !model.bluetooth.isConnected && model.availableMetricKinds.isEmpty && !model.cloud.isAuthenticated { FirstConnectionGuide(model: model) }
             if model.dashboardGrouped {
                 ForEach(MetricLayout.dashboardSections(model.dashboardVisibleMetrics)) { section in
                     VStack(alignment: .leading, spacing: 12) {
@@ -212,11 +203,29 @@ struct OverviewPage: View {
                     .contextMenu {
                         Button(L10n.text("分享这项数值")) { shareRequest = DashboardShareRequest(kinds: [kind], valueOnly: true) }
                         Button(L10n.text("分享这张卡片")) { shareRequest = DashboardShareRequest(kinds: [kind]) }
-                        Button(L10n.text("移到最前")) { model.dashboardOrder = [kind.rawValue] + model.dashboardVisibleMetrics.filter { $0 != kind }.map(\.rawValue) }
+                        Button(L10n.text(model.dashboardGrouped ? "移到分组最前" : "移到最前")) { model.dashboardOrder = [kind.rawValue] + model.dashboardVisibleMetrics.filter { $0 != kind }.map(\.rawValue) }
                         Button(L10n.text("从健康看板隐藏")) { model.dashboardMetrics.remove(kind) }
                     }
             }
         }
+    }
+    private var refreshStatus: some View {
+        HStack(spacing: 8) {
+            if model.isRefreshingHealth { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在刷新健康数据…")) }
+            Text(L10n.text(model.preview ? "演示数据 · 用于功能展示" : model.healthStatus))
+                .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+    private var dashboardActions: some View {
+        PulseFlowLayout(spacing: 8) {
+            Button { model.refreshMetricsNow() } label: { Label(L10n.text("刷新"), systemImage: "arrow.clockwise") }
+                .help(L10n.text(model.cloud.isAuthenticated ? "刷新同步指标" : "连接设备账号后可刷新云端数据"))
+                .disabled(model.preview || !model.cloud.isAuthenticated || model.isRefreshingHealth)
+            Button { shareRequest = DashboardShareRequest(kinds: model.dashboardVisibleMetrics) } label: { Label(L10n.text("分享"), systemImage: "square.and.arrow.up") }
+                .disabled(model.dashboardVisibleMetrics.isEmpty)
+            Button { showStyle.toggle() } label: { Label(L10n.text("显示样式"), systemImage: "slider.horizontal.3") }
+                .popover(isPresented: $showStyle, arrowEdge: .bottom) { DashboardStylePanel(model: model) }
+        }.buttonStyle(PulseButtonStyle()).controlSize(.regular)
     }
     private var title: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -432,7 +441,9 @@ struct AccountPage: View {
                                 ForEach(cloud.devices) { device in Text(L10n.text(device.name)).tag(device.id) }
                             }.onChange(of: cloud.deviceId) { value in model.watchUnitID = value }
                         }
-                        TextField(L10n.text("设备编号（连接手表后自动识别）"), text: $model.watchUnitID).textFieldStyle(.roundedBorder)
+                        PulseDisclosure(L10n.text("手动指定设备")) {
+                            TextField(L10n.text("设备编号（连接手表后自动识别）"), text: $model.watchUnitID).textFieldStyle(.roundedBorder)
+                        }
                         Text(L10n.text("\(cloud.devices.count) 台设备已关联当前账户。"))
                             .font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                     }
@@ -548,12 +559,14 @@ struct LoginSheet: View {
     @ObservedObject var model: AppModel
     @State private var callbackURL = ""
     @State private var callbackError = ""
+    @State private var loginLoading = false
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Label(L10n.text("连接\(model.cloud.region.title)账户"), systemImage: "lock.shield").font(PulseTheme.font(size: 14, weight: .semibold))
                 Spacer()
-                Button(L10n.text("关闭")) { model.showLogin = false }.buttonStyle(PulseButtonStyle())
+                if loginLoading { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在打开官方登录页…")) }
+                Button(L10n.text("关闭")) { model.showLogin = false }.buttonStyle(PulseButtonStyle()).keyboardShortcut(.cancelAction)
             }.padding(17).background(PulseTheme.background)
             HStack(spacing: 12) {
                 Picker(L10n.text("登录方式"), selection: Binding(get: { model.cloud.loginMode }, set: { model.cloud.prepareLogin(mode: $0) })) {
@@ -563,13 +576,14 @@ struct LoginSheet: View {
                     model.cloud.prepareLogin(mode: .portal)
                     NSWorkspace.shared.open(model.cloud.makeLoginURL())
                 }.buttonStyle(.plain)
+                Button(L10n.text("重新加载")) { model.cloud.prepareLogin() }.buttonStyle(PulseButtonStyle())
                 Button(L10n.text("复制登录配置链接")) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(model.cloud.makeLoginURL().absoluteString, forType: .string)
                 }.buttonStyle(.plain)
                 Spacer()
             }.font(PulseTheme.font(size: 11)).padding(.horizontal, 17).padding(.bottom, 12).background(PulseTheme.background)
-            GarminLoginWebView(cloud: model.cloud)
+            GarminLoginWebView(cloud: model.cloud, isLoading: $loginLoading)
             PulseDisclosure(L10n.text("浏览器登录后的连接")) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L10n.text("如内置页面无法登录，可在浏览器完成登录，再将最终的官方回跳地址粘贴到这里。地址只在本机用于完成认证。"))

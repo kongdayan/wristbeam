@@ -574,32 +574,68 @@ struct ConnectIQPage: View {
     }
 }
 
-/// Public artwork requests carry no Garmin authentication headers.
+/// Public artwork uses the same bounded, cookie-free loader as downloaded previews.
 private struct ConnectIQArtwork: View {
     let url: URL?
     let width: CGFloat
     let height: CGFloat
+    @Environment(\.displayScale) private var scale
+    @State private var image: NSImage?
+    @State private var loadedKey = ""
+    @State private var failedKey = ""
+    private var pixels: Int { min(1024, max(32, Int((max(width, height) * scale).rounded(.up)))) }
+    private var requestKey: String { (url?.absoluteString ?? "none") + "#" + String(pixels) }
     var body: some View {
-        AsyncImage(url: url) { phase in
-            switch phase {
-            case .success(let image):
-                image.resizable().scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: min(width * 0.16, 16), style: .continuous))
-                    .padding(4)
-            case .empty:
-                if url != nil { ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity) }
-                else { placeholder }
-            case .failure: placeholder
-            @unknown default: placeholder
-            }
+        Group {
+            if loadedKey == requestKey, let image {
+                Image(nsImage: image).resizable().interpolation(.high).scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: min(width * 0.16, 16), style: .continuous)).padding(4)
+            } else if url == nil || failedKey == requestKey { placeholder }
+            else { ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity) }
         }
         .frame(width: width, height: height)
         .background(Color.primary.opacity(0.045))
         .clipShape(RoundedRectangle(cornerRadius: min(width * 0.24, 20), style: .continuous))
-        .accessibilityLabel(L10n.text("表盘预览"))
+        .accessibilityLabel(L10n.text(failedKey == requestKey ? "表盘预览暂不可用" : "表盘预览"))
+        .task(id: requestKey) {
+            let key = requestKey
+            image = nil; failedKey = ""; loadedKey = ""
+            guard let url else { return }
+            do {
+                let result = try await ConnectIQArtworkCache.image(url: url, pixels: pixels)
+                guard !Task.isCancelled else { return }
+                image = result; loadedKey = key
+            } catch {
+                guard !Task.isCancelled else { return }
+                failedKey = key
+            }
+        }
     }
     private var placeholder: some View {
         Image(systemName: "applewatch").font(.system(size: min(width * 0.4, 36)))
             .foregroundStyle(PulseTheme.secondary.opacity(0.6)).frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+@MainActor private enum ConnectIQArtworkCache {
+    private static let cache: NSCache<NSString, NSImage> = {
+        let value = NSCache<NSString, NSImage>(); value.countLimit = 80; value.totalCostLimit = 32 * 1024 * 1024
+        return value
+    }()
+    static func image(url: URL, pixels: Int) async throws -> NSImage {
+        let key = (url.absoluteString + "#" + String(pixels)) as NSString
+        if let image = cache.object(forKey: key) { return image }
+        let data = try await ConnectIQPackageStore.loadArtwork(url)
+        try Task.checkCancellation()
+        let worker = Task.detached(priority: .utility) {
+            try Task.checkCancellation()
+            guard let image = ConnectIQPackageStore.artworkThumbnail(data, maximumPixels: pixels) else { throw CocoaError(.fileReadCorruptFile) }
+            return image
+        }
+        let decoded = try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: { worker.cancel() })
+        try Task.checkCancellation()
+        let image = NSImage(cgImage: decoded, size: NSSize(width: CGFloat(decoded.width), height: CGFloat(decoded.height)))
+        cache.setObject(image, forKey: key, cost: decoded.bytesPerRow * decoded.height)
+        return image
     }
 }

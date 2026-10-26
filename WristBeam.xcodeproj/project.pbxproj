@@ -46,6 +46,7 @@
 		5B77E1271D8A790748ABD031 /* PulseWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */; };
 		5D5E19C223BCFF477CF40F06 /* ActivityDetailContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A9B5D83E9076E506A2A398 /* ActivityDetailContent.swift */; };
 		5ED588FAF4A399DE56EE9B40 /* GarminPulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 055778CAE682D8980585183D /* GarminPulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5F6A76556E4A50532CAB214B /* ActivityDownloadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE2F61CEF876400090EFE9A9 /* ActivityDownloadsView.swift */; };
 		6315B38EF81821F9C427A0BA /* DeveloperSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 404AC4A545215804EEBBE174 /* DeveloperSettingsPage.swift */; };
 		63C3EBB52DD66A838B6523BC /* DeveloperClients.swift in Sources */ = {isa = PBXBuildFile; fileRef = 051C6D91FE68C84749B767A7 /* DeveloperClients.swift */; };
 		69C718B73D2568DA04669202 /* DeveloperQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2AE568744CD4884E10F89ED /* DeveloperQueries.swift */; };
@@ -219,6 +220,7 @@
 		DBABD4A2BC15D29B37B80899 /* MetricTimeSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricTimeSeries.swift; sourceTree = "<group>"; };
 		DC7CF07EAF3965FB9F7985C8 /* ActivityQueries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityQueries.swift; sourceTree = "<group>"; };
 		DE01E6AB8976EA216209957D /* ConnectIQSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQSettingsView.swift; sourceTree = "<group>"; };
+		DE2F61CEF876400090EFE9A9 /* ActivityDownloadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityDownloadsView.swift; sourceTree = "<group>"; };
 		DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDICoreIdentity.swift; sourceTree = "<group>"; };
 		E187BE3DED6BA0AFD0F55EB7 /* SetupGuides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupGuides.swift; sourceTree = "<group>"; };
 		E25BF5C33DBC96A6FBC28BA0 /* HealthAccountScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthAccountScope.swift; sourceTree = "<group>"; };
@@ -264,6 +266,7 @@
 			isa = PBXGroup;
 			children = (
 				35A9B5D83E9076E506A2A398 /* ActivityDetailContent.swift */,
+				DE2F61CEF876400090EFE9A9 /* ActivityDownloadsView.swift */,
 				B0D75950D46871A1DA436094 /* ActivityLibraryCard.swift */,
 				1C9F9D43C690A9CF38B09F93 /* CompactViews.swift */,
 				511A0EC7DE4B9FCD59025EC3 /* ConnectIQPage.swift */,
@@ -539,6 +542,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5D5E19C223BCFF477CF40F06 /* ActivityDetailContent.swift in Sources */,
+				5F6A76556E4A50532CAB214B /* ActivityDownloadsView.swift in Sources */,
 				3391BE56C998B00E130AD0FB /* ActivityLibrary.swift in Sources */,
 				74AF3A0F95B135F70617B98E /* ActivityLibraryCard.swift in Sources */,
 				07061B42392CB78D18ED9E73 /* ActivityMetricCatalog.swift in Sources */,

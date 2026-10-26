@@ -27,7 +27,7 @@ struct MenuPopover: View {
             HStack(spacing: 9) {
                 Button { model.openSettings(.watch) } label: { Label(L10n.text("连接与配置"), systemImage: "slider.horizontal.3").frame(maxWidth: .infinity) }
                     .buttonStyle(PulseButtonStyle(prominent: true, compact: true))
-                Button { model.floatingEnabled.toggle() } label: { Image(systemName: model.floatingEnabled ? "rectangle.slash" : "rectangle.on.rectangle") }.help(L10n.text("显示或隐藏浮动窗口")).accessibilityLabel(L10n.text("显示或隐藏浮动窗口"))
+                Button { model.floatingEnabled.toggle() } label: { Image(systemName: model.floatingEnabled ? "rectangle.slash" : "rectangle.on.rectangle") }.help(L10n.text("显示或隐藏浮动窗口")).accessibilityLabel(L10n.text("显示或隐藏浮动窗口")).accessibilityValue(L10n.text(model.floatingEnabled ? "已开启" : "已关闭")).accessibilityLabel(L10n.text("显示或隐藏浮动窗口"))
                     .buttonStyle(PulseButtonStyle(compact: true))
             }.controlSize(.regular)
             HStack {
