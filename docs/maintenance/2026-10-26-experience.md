@@ -117,3 +117,22 @@ Findings corrected from that evidence:
 - The standalone share sheet capture exposed a transparent root surface (black against a transparent PNG viewer) and its fixture captured before asynchronous preview generation. Give the real sheet an opaque theme surface, wait for the image task in the fixture and assert background alpha. The separate share-canvas rendering checks remain in place.
 
 The other inspected views retained readable labels, no clipped controls, contextual offline states and complete floating-panel content. These observations are limited to synthetic render artifacts; keyboard interactions and live sign-in were not performed on the user's desktop.
+
+## Verification handoff
+
+Current application source: `391ae8e`. [Full-matrix validation](https://github.com/kongdayan/wristbeam/actions/runs/40309391444) is running for that commit. Runs 40307141672, 40307676004 and 40309089226 were superseded by newer source; their partial green results do not establish final readiness. The d8b8db1 synthetic artifact review above remains useful review evidence, and the corrected source needs its own completed run and artifact inspection.
+
+| Requested area | Implementation evidence | Remaining verification |
+| --- | --- | --- |
+| UI and navigation | Native split sidebar, adaptive columns, opaque cards, native menus | Final native renders and application build |
+| Interaction | Focus/hover feedback, labeled controls, chart arrow navigation | Final compilation/render; no foreground desktop interaction |
+| Guidance | Independent watch/cloud paths, contextual troubleshooting, tucked diagnostics | Final onboarding/device artifacts |
+| Data display | Reading origin, truthful timestamp metadata, sport labels, localized wall time | New refresh regression and final dashboard/workout renders |
+| Feedback | Inline notices, retry, active operation labels | Final build and synthetic states |
+| Motion | Brief hover/help transitions, Reduce Motion branch, native disclosure | Source review and final build |
+| Loading and flows | Cached content retained, cancellable list work, sign-in reload, destination before export | Cancel/retry regression, native render and build |
+| Image rendering | PNG encoded once off UI actor, identity/cancellation guard, opaque sheet | Native canvas suite, final share-sheet image and alpha assertion |
+| Downloads/resources | Account scope, inventory/bytes, safe filenames/symlinks, reversible Trash, staging cleanup | Inventory/cancellation tests and final download manager render |
+| Maintenance/delivery | Four source commits on codex/experience-2026-10-26; this record and setup docs | Append final CI/test/artifact findings; no PR/merge/release/install |
+
+Local read-only checks at this handoff: 1,280 catalog keys with source/placeholder coverage; repository links/Python syntax/action pinning; `git diff --check`. No local Swift compilation, native rendering, demo installation or executable tests were run.
