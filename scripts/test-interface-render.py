@@ -106,7 +106,7 @@ import SwiftUI
                 model.fontScale = 1.15
                 try render(FirstConnectionGuide(model:model).padding(24).frame(width:600),name:"onboarding-\(language)-\(theme)",dark:dark,output:output)
                 try render(ActivityDownloadsView(library:model.activities),name:"downloads-\(language)-\(theme)",dark:dark,output:output)
-                try render(DashboardShareSheet(model:model,request:DashboardShareRequest(kinds:[.heartRate,.bodyBattery,.stress])),name:"share-sheet-\(language)-\(theme)",dark:dark,output:output)
+                try render(DashboardShareSheet(model:model,request:DashboardShareRequest(kinds:[.heartRate,.bodyBattery,.stress])),name:"share-sheet-\(language)-\(theme)",dark:dark,output:output,settle:0.7)
                 let emptyLibrary = ActivityLibrary(root:output.appendingPathComponent("empty-fixture"))
                 try render(ActivityLibraryCard(library:emptyLibrary,onSelect:{ _ in }).padding(24).frame(width:600),name:"activities-empty-\(language)-\(theme)",dark:dark,output:output)
 
@@ -126,7 +126,7 @@ import SwiftUI
         }
         print("PASS: production-view renders including cached activity detail; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font")
     }
-    @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL) throws {
+    @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL,settle:TimeInterval = 0.05) throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))
         let size = host.fittingSize
         host.frame = NSRect(origin:.zero,size:size)
@@ -134,10 +134,13 @@ import SwiftUI
         window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
         window.contentView = host
         host.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until:Date().addingTimeInterval(0.05))
+        RunLoop.main.run(until:Date().addingTimeInterval(settle))
         guard let bitmap = host.bitmapImageRepForCachingDisplay(in:host.bounds) else { fatalError("Render failed: \(name)") }
         host.cacheDisplay(in:host.bounds,to:bitmap)
         guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("PNG failed") }
+        if name.hasPrefix("share-sheet-") {
+            precondition((bitmap.colorAt(x: 5, y: 5)?.alphaComponent ?? 0) > 0.99, "Share sheet must have an opaque readable surface")
+        }
         precondition(bitmap.pixelsWide >= 300 && bitmap.pixelsHigh >= 225 && data.count > 5000)
         try data.write(to:output.appendingPathComponent(name + ".png"))
         print("PASS \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh)")

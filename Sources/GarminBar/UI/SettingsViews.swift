@@ -16,6 +16,7 @@ struct SettingsRootView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Label(L10n.text("腕映"), systemImage: "waveform.path.ecg")
                     .font(PulseTheme.font(size: 18, weight: .semibold)).foregroundStyle(PulseTheme.mint)
+                    .lineLimit(1).minimumScaleFactor(0.65)
                     .padding(.horizontal, 18).padding(.top, 20)
                 List(selection: selection) {
                     Section {
@@ -80,7 +81,7 @@ struct OverviewPage: View {
     @State private var shareRequest: DashboardShareRequest?
     @State private var availableWidth: CGFloat = 600
     private var columns: [GridItem] {
-        let count = MetricLayout.columnCount(width: availableWidth, minimum: model.cardSize.minimumWidth * model.fontScale, preferred: model.dashboardColumns)
+        let count = MetricLayout.columnCount(width: availableWidth, minimum: model.cardSize.minimumWidth * max(1, model.fontScale / 1.15), preferred: model.dashboardColumns)
         return Array(repeating: GridItem(.flexible(), spacing: 14), count: count)
     }
     private var primaryMetrics: [MetricKind] { model.dashboardVisibleMetrics.filter { [.heartRate, .bodyBattery, .stress].contains($0) } }

@@ -105,7 +105,7 @@ struct DashboardShareSheet: View {
                 Button(L10n.text(saving ? "正在保存图片…" : "保存图片…")) { save() }.disabled(currentImage == nil || saving)
                 NativeImageShareButton(image: currentImage).frame(width: 95, height: 30).disabled(currentImage == nil)
             }.buttonStyle(.bordered)
-        }.padding(24).frame(width: 760)
+        }.padding(24).frame(width: 760).background(PulseTheme.background).foregroundStyle(.primary)
             .task(id: renderKey) {
                 image = nil; pngData = nil; error = nil; notice = ""
                 do { try await Task.sleep(nanoseconds: 180_000_000) } catch { return }

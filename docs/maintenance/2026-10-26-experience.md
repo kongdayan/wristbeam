@@ -105,3 +105,15 @@ First validation: [Actions run for e15944a](https://github.com/kongdayan/wristbe
 The official sign-in web view now exposes navigation activity and reload, with Escape to close. Connection diagnostics sit behind an explicit disclosure. Sync status shows active transfer/upload work. A source audit found region-name presentation rebuilding cloud samples without preserving `timestampIsMeasurement`; the refresh now retains that flag, with a fixture-based refresh regression so a sync timestamp is not advertised as a measurement time. No service contract or stored health values are changed.
 
 Storage scans are coalesced while running and show activity. Update installation waits for workout downloads, cache management and local exports as well as watch/cloud file transfer. Workout online availability is published even when the same account cache is retained in local-only mode, keeping controls in sync with network policy. PNG encoding uses a bounded autorelease lifetime.
+
+## Synthetic artifact review — d8b8db1
+
+Downloaded the `native-interface-macos15` artifact from run 40307676004 to a temporary review directory; no bundle was installed. Inspected Chinese/dark dashboard; English/light compact dashboard at 160%; English/light downloads, activities and devices; English/dark onboarding and detailed floating panel at 160%; and the share sheet.
+
+Findings corrected from that evidence:
+
+- The sidebar brand wrapped its last letter at 160% scale. Keep it on one line and scale only that brand label to fit.
+- The normal-width dashboard unnecessarily reduced a preferred three-card row to two. Card minimum widths now use the standard 115% text baseline; 160%/narrow windows still reduce columns for readability.
+- The standalone share sheet capture exposed a transparent root surface (black against a transparent PNG viewer) and its fixture captured before asynchronous preview generation. Give the real sheet an opaque theme surface, wait for the image task in the fixture and assert background alpha. The separate share-canvas rendering checks remain in place.
+
+The other inspected views retained readable labels, no clipped controls, contextual offline states and complete floating-panel content. These observations are limited to synthetic render artifacts; keyboard interactions and live sign-in were not performed on the user's desktop.
