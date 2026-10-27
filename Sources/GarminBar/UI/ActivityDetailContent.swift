@@ -48,7 +48,7 @@ struct ActivityStatisticsSection: View {
                         Spacer()
                         Image(systemName: expanded ? "chevron.up" : "chevron.down").foregroundStyle(PulseTheme.secondary)
                     }.frame(minHeight: 28).contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityValue(L10n.text(expanded ? "已展开" : "已收起"))
+                }.buttonStyle(PulseRowButtonStyle()).accessibilityValue(L10n.text(expanded ? "已展开" : "已收起"))
                 if expanded { ActivityStatisticsGrid(statistics: statistics) }
             }
         }
@@ -137,7 +137,7 @@ private struct ActivityLapRow: View {
                     if let seconds = lap.statistics["duration"] { Text(ActivityMetricCatalog.duration(seconds)).monospacedDigit() }
                     if let distance = lap.statistics["distance"], distance > 0 { Text(String(format: "%.2f km", distance / 1000)).monospacedDigit() }
                 }.font(PulseTheme.font(size: 14, weight: .medium)).frame(minHeight: 28).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityValue(L10n.text(expanded ? "已展开" : "已收起"))
+            }.buttonStyle(PulseRowButtonStyle()).accessibilityValue(L10n.text(expanded ? "已展开" : "已收起"))
             if expanded { ActivityStatisticsGrid(statistics: lap.statistics) }
         }.padding(12).background(PulseTheme.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
     }

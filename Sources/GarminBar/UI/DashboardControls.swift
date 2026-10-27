@@ -52,7 +52,7 @@ struct DashboardConnectionStatus: View {
                 }
             }.help(L10n.text(model.cloud.region.title))
         }.fixedSize(horizontal: true, vertical: false)
-            .buttonStyle(.plain).font(PulseTheme.font(size: 11, weight: .medium))
+            .buttonStyle(PulseRowButtonStyle()).font(PulseTheme.font(size: 11, weight: .medium))
             .padding(12).background(PulseTheme.surface, in: RoundedRectangle(cornerRadius: 13))
             .overlay(RoundedRectangle(cornerRadius: 13).stroke(Color.primary.opacity(0.07)))
     }
@@ -88,7 +88,7 @@ struct DashboardStylePanel: View {
                 Button(L10n.text("全选")) { model.dashboardMetrics.formUnion(model.availableMetricKinds) }
                 Button(L10n.text("基础选择")) { model.dashboardMetrics = DashboardSharing.basicMetrics.intersection(model.availableMetricKinds) }
                 Button(L10n.text("全取消")) { model.dashboardMetrics = [] }
-            }.buttonStyle(.bordered).controlSize(.small)
+            }.buttonStyle(PulseButtonStyle()).controlSize(.small)
             TextField(L10n.text("搜索指标"), text: $search).textFieldStyle(.roundedBorder)
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 6) {
@@ -104,7 +104,7 @@ struct DashboardStylePanel: View {
                                             Image(systemName: expanded.contains(category) ? "chevron.down" : "chevron.right").frame(width: 14)
                                             Text(category.title); Spacer()
                                         }.contentShape(Rectangle())
-                                    }.buttonStyle(.plain)
+                                    }.buttonStyle(PulseRowButtonStyle())
                                     Button(L10n.text(items.allSatisfy { model.dashboardMetrics.contains($0) } ? "全取消" : "全选")) {
                                         model.select(items, enabled: !items.allSatisfy { model.dashboardMetrics.contains($0) }, destination: .dashboard)
                                     }.buttonStyle(.borderless)
@@ -119,7 +119,7 @@ struct DashboardStylePanel: View {
                                                 MetricIcon(kind: kind).foregroundStyle(PulseTheme.color(kind)).frame(width: 19)
                                                 Text(kind.title); Spacer()
                                             }.padding(.vertical, 6).contentShape(Rectangle())
-                                        }.buttonStyle(.plain).accessibilityValue(L10n.text(model.dashboardMetrics.contains(kind) ? "已选择" : "未选择"))
+                                        }.buttonStyle(PulseRowButtonStyle()).accessibilityValue(L10n.text(model.dashboardMetrics.contains(kind) ? "已选择" : "未选择"))
                                     }
                                 }
                             }

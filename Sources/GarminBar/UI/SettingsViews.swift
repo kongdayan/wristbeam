@@ -15,19 +15,22 @@ struct SettingsRootView: View {
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
                 }.padding(.top, 20)
-                ScrollViewReader { sidebar in
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 5) {
-                        ForEach(AppPage.navigationPages) { page in sidebarPage(page) }
-                        if model.page.isSettings {
-                            Divider().padding(.vertical, 8)
-                            ForEach(AppPage.settingsPages) { page in sidebarPage(page) }
-                        }
-                    }
-                }.onAppear { sidebar.scrollTo(model.page == .account ? .watch : model.page, anchor: .center) }
-                    .onChange(of: model.page) { page in sidebar.scrollTo(page == .account ? .watch : page, anchor: .center) }
+                VStack(spacing: 4) {
+                    ForEach(AppPage.navigationPages) { page in sidebarPage(page) }
                 }
-                Spacer()
+                if model.page.isSettings {
+                    Divider()
+                    ScrollViewReader { sidebar in
+                        ScrollView {
+                            VStack(spacing: 4) {
+                                ForEach(AppPage.settingsPages) { page in sidebarPage(page) }
+                            }
+                        }.frame(minHeight: 64)
+                            .onAppear { sidebar.scrollTo(model.page, anchor: .center) }
+                            .onChange(of: model.page) { page in if page.isSettings { sidebar.scrollTo(page, anchor: .center) } }
+                    }
+                }
+                Spacer(minLength: 0)
                 VStack(spacing: 8) {
                     Button { model.openSettings(model.settingsPage) } label: {
                         sidebarAction("设置", symbol: "gearshape")
@@ -36,15 +39,12 @@ struct SettingsRootView: View {
                     Button { model.onShowMenu?() } label: {
                         sidebarAction("打开菜单栏", symbol: "menubar.rectangle")
                     }
-                }.buttonStyle(PulseButtonStyle())
+                }.buttonStyle(PulseRowButtonStyle())
                 VStack(alignment: .leading, spacing: 9) {
                     HStack { StatusDot(active: model.bluetooth.isConnected); Text(L10n.text(model.workflow.connectionTitle)) }
                     HStack { StatusDot(active: model.workflow.cloudActive); Text(L10n.text(model.workflow.accountTitle)) }
                 }.font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                HStack {
-                    Spacer()
-                    Button(L10n.text("退出")) { model.onQuit?() }.buttonStyle(PulseButtonStyle(compact: true)).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                }.padding(.bottom, 10)
+                .padding(.bottom, 14)
             }.padding(.horizontal, 18).frame(maxWidth: .infinity)
                 .background(Color.primary.opacity(0.025))
                 .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 280)
@@ -66,7 +66,8 @@ struct SettingsRootView: View {
                         PreferencesPage(model: model)
                     }
                     }
-                }.id("settings-top").padding(32).frame(maxWidth: .infinity, alignment: .leading)
+                }.id("settings-top").frame(maxWidth: model.page.isSettings ? 780 : .infinity, alignment: .leading)
+                    .padding(32).frame(maxWidth: .infinity, alignment: model.page.isSettings ? .center : .leading)
                     .background(ScrollPositionKeeper(positions: model.scrollPositions, key: model.mainScrollKey))
             }.id(model.mainScrollKey)
             .onChange(of: model.activityBrowsing) { _ in
@@ -75,7 +76,7 @@ struct SettingsRootView: View {
             }
         }.navigationSplitViewStyle(.balanced).id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
             .onChange(of: model.page) { page in if page.isSettings { columns = .all } }
-            .font(PulseTheme.font(size: 13)).controlSize(.large).buttonStyle(PulseButtonStyle())
+            .font(PulseTheme.font(size: 13)).controlSize(.regular).buttonStyle(PulseButtonStyle()).tint(PulseTheme.mint)
             .preferredColorScheme(model.preferredColorScheme)
             .environment(\.locale, L10n.locale)
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
@@ -88,7 +89,7 @@ struct SettingsRootView: View {
                 Text(page == .settings ? L10n.text("常规设置") : page.title).fixedSize(horizontal: false, vertical: true)
                 Spacer()
             }.font(PulseTheme.font(size: 12, weight: selected ? .semibold : .regular))
-                .padding(.horizontal, 12).padding(.vertical, 12)
+                .padding(.horizontal, 12).padding(.vertical, 9)
                 .foregroundStyle(selected ? PulseTheme.mint : PulseTheme.secondary)
                 .background(selected ? PulseTheme.mint.opacity(0.08) : .clear)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -100,7 +101,7 @@ struct SettingsRootView: View {
             Image(systemName: symbol).frame(width: 18)
             Text(L10n.text(title)).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-        }.frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
+        }.padding(.horizontal, 12).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
     }
     private var pageHeader: some View {
         Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title))
@@ -494,6 +495,7 @@ struct MetricSelectionPage: View {
                                             .frame(width: columnWidth, height: 40).contentShape(Rectangle())
                                     }.buttonStyle(.plain).help(L10n.format("{0}：整组全选 / 全取消", destination.title))
                                     .accessibilityLabel(L10n.format("{0} · {1} · 整组选取", category.title, destination.title))
+                                    .accessibilityValue(L10n.text(selectedCount == 0 ? "未选择" : selectedCount == items.count ? "已选择" : "部分选择"))
                                     .contextMenu {
                                         Button(L10n.text("全选")) { model.select(items, enabled: true, destination: destination) }
                                         Button(L10n.text("全取消")) { model.select(items, enabled: false, destination: destination) }
@@ -600,14 +602,13 @@ struct WatchRequestCaptureCard: View {
                 }.buttonStyle(PulseRowButtonStyle()).accessibilityValue(L10n.text(expanded ? "已展开" : "已收起"))
                 Text(L10n.text(connected ? "打开手表天气页面或切换表盘，查看本连接收到的消息。" : "连接手表后打开天气页面；也可先开始捕获，再连接手表。"))
                     .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
-                HStack {
+                PulseFlowLayout {
                     Button(L10n.text(capture.isCapturing ? "停止捕获" : "捕获 10 分钟")) {
                         if capture.isCapturing { capture.stop() } else { capture.start(); expanded = true }
                     }.buttonStyle(PulseButtonStyle(prominent: true)).disabled(preview)
                     Button(L10n.text("导出请求记录")) {
                         if capture.persist() { NSWorkspace.shared.activateFileViewerSelecting([capture.url]) }
                     }.buttonStyle(PulseButtonStyle()).disabled(capture.log.startedAt == nil || preview)
-                    Spacer()
                     Button(L10n.text("清空记录")) { capture.clear() }.buttonStyle(PulseButtonStyle()).disabled(preview || capture.log.startedAt == nil)
                 }
                 if capture.storageError {

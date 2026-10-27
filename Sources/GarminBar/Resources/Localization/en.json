@@ -1515,5 +1515,12 @@
   "夜间记录日期：{0}": "Overnight record date: {0}",
   "同步时间：{0}": "Synced at: {0}",
   "记录时间：{0}": "Recorded at: {0}",
-  "表盘预览暂不可用": "Watch face preview unavailable"
+  "表盘预览暂不可用": "Watch face preview unavailable",
+  "部分选择": "Partially selected",
+  "缩放": "Zoom",
+  "切换全屏": "Toggle Full Screen",
+  "重新生成密钥？": "Regenerate this key?",
+  "使用当前密钥的客户端需要重新配置。": "Clients using the current key will need to be reconfigured.",
+  "撤销此客户端的访问？": "Revoke access for this client?",
+  "使用此密钥的客户端将无法继续访问。": "Clients using this key will no longer have access."
 }

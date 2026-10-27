@@ -96,7 +96,7 @@ struct ActivityLibraryCard: View {
                     Picker(L10n.text("自动刷新摘要"), selection: $library.refreshMinutes) {
                         Text(L10n.text("关闭")).tag(0)
                         ForEach([15, 30, 60, 180, 360, 1440], id: \.self) { Text(L10n.format("每 {0} 分钟", String($0))).tag($0) }
-                    }.frame(maxWidth: 310).padding(.top, 8)
+                    }.pickerStyle(.menu).frame(maxWidth: 310).padding(.top, 8)
                 }.font(PulseTheme.font(size: 12))
             }.buttonStyle(PulseButtonStyle())
         }.task(id: library.online) {

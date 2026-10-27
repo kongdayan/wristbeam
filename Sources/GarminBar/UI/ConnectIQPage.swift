@@ -48,7 +48,7 @@ struct ConnectIQPage: View {
                                 Button {
                                     lookup = ""; searchFocused = true
                                     if tab == 2 { library.clearSearch(); tab = 1 }
-                                } label: { Image(systemName: "xmark.circle.fill") }
+                                } label: { Image(systemName: "xmark.circle.fill").frame(width: 28, height: 28).contentShape(Rectangle()) }
                                     .buttonStyle(.plain).foregroundStyle(PulseTheme.secondary)
                                     .accessibilityLabel(L10n.text("清空搜索"))
                                     .disabled(library.busy)
@@ -324,7 +324,7 @@ struct ConnectIQPage: View {
                         .padding(.horizontal, 10).padding(.vertical, 6)
                         .background(PulseTheme.mint.opacity(0.08), in: Capsule())
                     }
-                    HStack(spacing: 8) {
+                    PulseFlowLayout(spacing: 8) {
                     Button(L10n.text("在手表打开")) {
                         guard !model.preview, let id = connectedUnitID, face.unitID == id,
                               let runtimeID = library.verifiedRuntimeAppID(appID: face.id) else { return }
@@ -332,9 +332,8 @@ struct ConnectIQPage: View {
                     }.disabled(model.preview || library.runtimeAppIDs[face.id] == nil || !model.bluetooth.canOpenInstalledWatchFace || model.bluetooth.watchFaceBusy
                                || model.bluetooth.watchFaceOpenBusy || model.bluetooth.connectIQInstallBusy || model.bluetooth.isTransferringFiles || connectedUnitID != face.unitID)
                     Button(L10n.text("设置")) { settingsSaved = false; settingsFace = face }
-                        .buttonStyle(PulseButtonStyle(prominent: true))
+                        .buttonStyle(PulseButtonStyle())
                         .disabled(!canReadWatchFaces || !library.online || UInt32(model.cloud.deviceId) != face.unitID)
-                    Spacer(minLength: 0)
                     Button(L10n.text("详情")) { openDetail(face.id) }
                         .disabled(!library.online || library.busy || model.preview)
                     }
@@ -403,22 +402,21 @@ struct ConnectIQPage: View {
                     Text(subtitle).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary).lineLimit(1)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(PulseTheme.secondary.opacity(0.6))
-            }.frame(height: 68)
+            }.frame(minHeight: 68)
         }
         .buttonStyle(PulseButtonStyle(card: true))
         .disabled(!library.online || library.busy || model.preview)
         .help(name)
     }
     private func detailActions(_ app: ConnectIQApp) -> some View {
-        HStack(spacing: 10) {
+        PulseFlowLayout(spacing: 10) {
             Button { requestDownload(app) } label: { Label(L10n.text("下载到 Mac"), systemImage: "arrow.down.to.line") }
                 .buttonStyle(PulseButtonStyle(prominent: true))
                 .disabled(!library.online || library.busy || model.preview || !canDownload(app))
             Button { install(app) } label: { Label(L10n.text("安装到手表"), systemImage: "applewatch") }
                 .disabled(preparingInstall || !canInstall(app))
-            Spacer(minLength: 0)
             if let url = URL(string: "https://\(model.cloud.region == .china ? "apps.garmin.cn" : "apps.garmin.com")/apps/\(app.id)") {
-                Link(destination: url) { Image(systemName: "arrow.up.right.square") }
+                Link(destination: url) { Label(L10n.text("在佳明商店查看"), systemImage: "arrow.up.right.square") }
                     .help(L10n.text("在佳明商店查看")).accessibilityLabel(L10n.text("在佳明商店查看"))
             }
         }

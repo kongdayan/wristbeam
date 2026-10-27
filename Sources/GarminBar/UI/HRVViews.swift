@@ -54,14 +54,13 @@ struct HRVDetailView: View {
                 PulseBackButton(title: "返回健康看板") { model.goBack() }
                 Spacer()
                 Button(L10n.text("刷新记录")) { Task { await model.refreshHealthMetrics(force: true); await model.loadHRVNight(day) } }
-                    .disabled(model.preview || model.isRefreshingHealth || model.hrvLoading).buttonStyle(.bordered)
+                    .disabled(model.preview || model.isRefreshingHealth || model.hrvLoading).buttonStyle(PulseButtonStyle())
             }
             Text(L10n.text("夜间 HRV 与恢复趋势")).font(PulseTheme.font(size: 25, weight: .semibold))
-            HStack {
+            PulseFlowLayout(spacing: 12) {
                 DatePicker(L10n.text("夜间记录日期"), selection: Binding(get: { day }, set: { selectedDay = $0; cursor = nil }), in: ...Date(), displayedComponents: .date)
                     .datePickerStyle(.field).frame(maxWidth: 270)
-                Button(L10n.text("最近可用记录")) { selectedDay = report?.latest?.day }.buttonStyle(.bordered)
-                Spacer()
+                Button(L10n.text("最近可用记录")) { selectedDay = report?.latest?.day }.buttonStyle(PulseButtonStyle())
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 12) {
                 valueCard("夜间 HRV", value: summary?.night, unit: "毫秒")
@@ -141,7 +140,7 @@ struct HRVDetailView: View {
                                 Text(number(item.night) + " / " + number(item.weekly) + " " + L10n.text("毫秒"))
                                 Text(item.status?.title ?? "—").frame(minWidth: 80, alignment: .trailing)
                             }.padding(.vertical, 6).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(PulseRowButtonStyle())
                     }
                 }
             }

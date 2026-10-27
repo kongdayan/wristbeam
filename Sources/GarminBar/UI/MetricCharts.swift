@@ -122,7 +122,7 @@ struct MetricDetailView: View {
                 PulseBackButton(title: "返回健康看板") { model.goBack() }
                 Spacer()
                 Button(L10n.text("刷新记录")) { Task { await model.refreshSeries(day: model.detailDay, force: true) } }
-                    .buttonStyle(.bordered).disabled(!model.cloud.isAuthenticated || model.loadingSeriesDays.contains(GarminHealthMetrics.calendarDate(model.detailDay)))
+                    .buttonStyle(PulseButtonStyle()).disabled(!model.cloud.isAuthenticated || model.loadingSeriesDays.contains(GarminHealthMetrics.calendarDate(model.detailDay)))
             }.font(PulseTheme.font(size: 11))
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 7) {
@@ -137,16 +137,15 @@ struct MetricDetailView: View {
                     }
                 }
             }
-            HStack(spacing: 10) {
-                Button { changeDay(-1) } label: { Image(systemName: "chevron.left").font(PulseTheme.font(size: 16, weight: .semibold)).frame(width: 28, height: 28) }.buttonStyle(.bordered).help(L10n.text("前一天")).accessibilityLabel(L10n.text("前一天"))
+            PulseFlowLayout(spacing: 10) {
+                Button { changeDay(-1) } label: { Image(systemName: "chevron.left").font(PulseTheme.font(size: 16, weight: .semibold)).frame(width: 28, height: 28) }.buttonStyle(PulseButtonStyle()).help(L10n.text("前一天")).accessibilityLabel(L10n.text("前一天"))
                 DatePicker(L10n.text("日期"), selection: $model.detailDay, in: ...Date(), displayedComponents: .date).labelsHidden().datePickerStyle(.field)
-                Button { changeDay(1) } label: { Image(systemName: "chevron.right").font(PulseTheme.font(size: 16, weight: .semibold)).frame(width: 28, height: 28) }.buttonStyle(.bordered).disabled(Calendar.current.isDateInToday(model.detailDay)).help(L10n.text("后一天")).accessibilityLabel(L10n.text("后一天"))
-                Button(L10n.text("今天")) { model.detailDay = Date() }.buttonStyle(.bordered).foregroundStyle(PulseTheme.mint)
-                Spacer()
+                Button { changeDay(1) } label: { Image(systemName: "chevron.right").font(PulseTheme.font(size: 16, weight: .semibold)).frame(width: 28, height: 28) }.buttonStyle(PulseButtonStyle()).disabled(Calendar.current.isDateInToday(model.detailDay)).help(L10n.text("后一天")).accessibilityLabel(L10n.text("后一天"))
+                Button(L10n.text("今天")) { model.detailDay = Date() }.buttonStyle(PulseButtonStyle()).foregroundStyle(PulseTheme.mint)
                 if kind.timelineKind != nil {
                     Picker(L10n.text("时间范围"), selection: $window) { ForEach(ChartWindow.allCases, id: \.self) { Text(L10n.text($0.rawValue)).tag($0) } }.pickerStyle(.segmented).frame(width: 240)
                 }
-            }.controlSize(.large)
+            }.controlSize(.regular)
             if kind.timelineKind != nil {
                 PulseCard {
                     VStack(alignment: .leading, spacing: 14) {
@@ -183,7 +182,7 @@ struct MetricDetailView: View {
                         Text(L10n.text("这是一项统计值，没有对应的小时级时间曲线。")).font(PulseTheme.font(size: 13))
                         Text(L10n.text(Calendar.current.isDateInToday(model.detailDay) ? model.detail(kind) : "当前版本仅显示此项的今日汇总；全天趋势支持切换历史日期。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                         if let trend = kind.relatedTrend, model.availableMetricKinds.contains(trend) || model.series(for: trend, day: model.detailDay) != nil {
-                            Button(L10n.format("查看{0}全天趋势", trend.title)) { model.detailMetric = trend }.buttonStyle(.bordered)
+                            Button(L10n.format("查看{0}全天趋势", trend.title)) { model.detailMetric = trend }.buttonStyle(PulseButtonStyle())
                         }
                     }
                 }

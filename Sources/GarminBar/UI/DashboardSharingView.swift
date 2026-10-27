@@ -53,7 +53,7 @@ struct DashboardShareSheet: View {
                     HStack {
                         Button(L10n.text("全部")) { selected = Set(metrics.map(\.kind)); valueOnly = false }
                         Button(L10n.text("清空")) { selected = [] }
-                    }.buttonStyle(.bordered)
+                    }.buttonStyle(PulseButtonStyle())
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(metrics) { metric in
@@ -66,7 +66,7 @@ struct DashboardShareSheet: View {
                                         Text(metric.kind.title).multilineTextAlignment(.leading)
                                         Spacer(minLength: 0)
                                     }.padding(.vertical, 7).contentShape(Rectangle())
-                                }.buttonStyle(.plain).accessibilityValue(L10n.text(selected.contains(metric.kind) ? "已选择" : "未选择"))
+                                }.buttonStyle(PulseRowButtonStyle()).accessibilityValue(L10n.text(selected.contains(metric.kind) ? "已选择" : "未选择"))
                             }
                         }
                     }.frame(height: PulseTheme.textScale >= 1.4 ? 210 : 270)
@@ -97,8 +97,7 @@ struct DashboardShareSheet: View {
                 .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).fixedSize(horizontal: false, vertical: true)
             if !notice.isEmpty { PulseNotice(text: notice, symbol: "checkmark.circle") }
             if currentImage != nil, let error { PulseNotice(text: error, symbol: "exclamationmark.triangle", warning: true) }
-            HStack {
-                Spacer()
+            PulseFlowLayout(spacing: 10) {
                 Button(L10n.text("复制图片")) {
                     guard let image = currentImage else { return }
                     NSPasteboard.general.clearContents()
@@ -106,8 +105,8 @@ struct DashboardShareSheet: View {
                     else { error = L10n.text("无法复制图片，请尝试保存。") }
                 }.disabled(currentImage == nil)
                 Button(L10n.text(saving ? "正在保存图片…" : "保存图片…")) { save() }.disabled(currentImage == nil || saving)
-                NativeImageShareButton(image: currentImage).frame(width: 95, height: 30).disabled(currentImage == nil)
-            }.buttonStyle(.bordered)
+                NativeImageShareButton(image: currentImage).fixedSize().frame(minWidth: 95, minHeight: 32).disabled(currentImage == nil)
+            }.buttonStyle(PulseButtonStyle())
         }.padding(24).frame(width: 760).background(PulseTheme.background).foregroundStyle(.primary)
             .task(id: renderKey) {
                 image = nil; pngData = nil; error = nil; notice = ""
@@ -228,9 +227,11 @@ private struct NativeImageShareButton: NSViewRepresentable {
     func makeNSView(context: Context) -> NSButton {
         let button = NSButton(title: L10n.text("系统分享…"), target: context.coordinator, action: #selector(Coordinator.share(_:)))
         button.bezelStyle = .rounded
+        button.font = .systemFont(ofSize: 12 * PulseTheme.textScale)
+        button.setAccessibilityLabel(L10n.text("系统分享…"))
         return button
     }
-    func updateNSView(_ view: NSButton, context: Context) { context.coordinator.image = image; view.isEnabled = image != nil }
+    func updateNSView(_ view: NSButton, context: Context) { context.coordinator.image = image; view.isEnabled = image != nil; view.font = .systemFont(ofSize: 12 * PulseTheme.textScale) }
     final class Coordinator: NSObject {
         var image: NSImage?
         var picker: NSSharingServicePicker?

@@ -199,6 +199,11 @@ import SwiftUI
             for dark in [false,true] {
                 model.appearance = dark ? .dark : .light
                 let theme = dark ? "dark" : "light"
+                for scale in [1.0,1.6] {
+                    model.fontScale = scale
+                    try await render(ControlShowcase().frame(width:600).padding(24).background(PulseTheme.background),
+                        name:"controls-\(Int(scale*100))-\(language)-\(theme)",dark:dark,output:output)
+                }
                 for detailed in [false,true] {
                     model.floatingDetailed = detailed
                     for scale in [1.0,1.6] {
@@ -220,6 +225,7 @@ import SwiftUI
                 model.bluetooth.isScanning = false; model.bluetooth.isConnecting = false
                 model.bluetooth.isConnected = false; model.bluetooth.canSyncFiles = false
                 model.fontScale = 1.15
+                try await verifyWindowChrome(model:model,dark:dark,output:output,name:"window-chrome-\(language)-\(theme)")
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
                     try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
@@ -231,7 +237,7 @@ import SwiftUI
                 model.dashboardGrouped = true
                 model.fontScale = 1.6
                 try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
-                for page in [AppPage.settings,.appearance,.metricSelection,.developer,.updates] {
+                for page in [AppPage.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
                     try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
@@ -320,6 +326,50 @@ import SwiftUI
         window.orderOut(nil)
         print("PASS native mouse events: disclosure label, whitespace, chevron, independent content, selection cell and disabled state")
     }
+    @MainActor static func verifyWindowChrome(model:AppModel,dark:Bool,output:URL,name:String) async throws {
+        let window = PulseSettingsWindow.make(model:model)
+        defer { window.contentView = nil; window.close() }
+        window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
+        window.center(); window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps:true)
+        try await Task.sleep(nanoseconds:150_000_000)
+        for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            guard let button = window.standardWindowButton(type) else { fatalError("Missing native window button") }
+            precondition(!button.isHiddenOrHasHiddenAncestor && button.isEnabled && button.window === window)
+            let rect = button.convert(button.bounds,to:nil)
+            precondition(rect.width > 0 && rect.height > 0 && rect.minX >= 0 && rect.maxX <= window.frame.width)
+        }
+        precondition(window.collectionBehavior.contains(.fullScreenPrimary))
+        // Capture NSThemeFrame, including native title bar, instead of only NSHostingView.
+        guard let frame = window.contentView?.superview,
+              let bitmap = frame.bitmapImageRepForCachingDisplay(in:frame.bounds) else { fatalError("Missing window frame") }
+        frame.layoutSubtreeIfNeeded(); frame.displayIfNeeded()
+        frame.cacheDisplay(in:frame.bounds,to:bitmap)
+        guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("Window PNG failed") }
+        try data.write(to:output.appendingPathComponent(name + ".png"))
+        let original = window.frame
+        window.performZoom(nil)
+        try await Task.sleep(nanoseconds:100_000_000)
+        precondition(window.frame != original, "Native zoom did not resize the window")
+        window.setFrame(original,display:true)
+        window.performMiniaturize(nil)
+        for _ in 0..<30 {
+            if window.isMiniaturized { break }
+            try await Task.sleep(nanoseconds:100_000_000)
+        }
+        precondition(window.isMiniaturized, "Native minimize did not minimize")
+        window.deminiaturize(nil)
+        for _ in 0..<30 {
+            if !window.isMiniaturized { break }
+            try await Task.sleep(nanoseconds:100_000_000)
+        }
+        precondition(!window.isMiniaturized)
+        window.performClose(nil)
+        precondition(!window.isVisible)
+        window.makeKeyAndOrderFront(nil)
+        precondition(window.isVisible, "Closing must allow the same window to reopen")
+        print("PASS \(name): native close, minimize, zoom, reopen, fullscreen capability and complete window capture")
+    }
     @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL,ready:(() -> Bool)? = nil) async throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))
         let size = host.fittingSize
@@ -372,6 +422,37 @@ struct DisclosureInteractionFixture: View {
         }
         Toggle("Selection",isOn:$state.selected).labelsHidden().toggleStyle(PulseSelectionToggleStyle())
         }.disabled(state.disabled).frame(width:600,height:400,alignment:.topLeading)
+    }
+}
+struct ControlShowcase: View {
+    @State private var enabled = true
+    @State private var selection = 0
+    @State private var text = ""
+    var body: some View {
+        VStack(alignment:.leading,spacing:20) {
+            PreferenceBlock(title:"外观与阅读") {
+                PreferenceLine(title:"颜色模式") {
+                    Picker("",selection:$selection) {
+                        Text(L10n.text("跟随系统")).tag(0)
+                        Text(L10n.text("浅色")).tag(1)
+                        Text(L10n.text("深色")).tag(2)
+                    }.pickerStyle(.menu).labelsHidden()
+                }
+                PreferenceLine(title:"自动检查新版本") { Toggle("",isOn:$enabled).toggleStyle(.switch).labelsHidden() }
+                PreferenceLine(title:"客户端名称") { TextField(L10n.text("客户端名称"),text:$text).textFieldStyle(.roundedBorder) }
+            }
+            PulseFlowLayout {
+                Button(L10n.text("接收手表数据")) {}.buttonStyle(PulseButtonStyle(prominent:true))
+                Button(L10n.text("导出暂存数据")) {}
+                Button(L10n.text("撤销访问"),role:.destructive) {}
+                Button(L10n.text("下载并升级")) {}.disabled(true)
+            }
+            PulseDisclosure(L10n.text("连接详情"),initiallyExpanded:true) {
+                Toggle(L10n.text("按类别分组"),isOn:$enabled).toggleStyle(.checkbox)
+                ProgressView(value:0.65).accessibilityLabel(L10n.text("下载更新"))
+                PulseNotice(text:"文件同步结束后即可升级。",symbol:"info.circle")
+            }
+        }.font(PulseTheme.font(size:13)).controlSize(.regular).buttonStyle(PulseButtonStyle()).tint(PulseTheme.mint)
     }
 }
 ''')

@@ -204,7 +204,7 @@ struct PulseEmptyState<Actions: View>: View {
             Image(systemName: symbol).font(PulseTheme.font(size: 26)).foregroundStyle(PulseTheme.secondary)
             Text(L10n.text(title)).font(PulseTheme.font(size: 16, weight: .semibold))
             if !detail.isEmpty { Text(L10n.text(detail)).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).multilineTextAlignment(.center) }
-            HStack(spacing: 10) { actions() }.buttonStyle(.bordered)
+            PulseFlowLayout(spacing: 10) { actions() }.buttonStyle(PulseButtonStyle())
         }.padding(24).frame(maxWidth: .infinity)
     }
 }
@@ -225,16 +225,19 @@ struct PulseButtonStyle: ButtonStyle {
         @State private var hovered = false
         @Environment(\.isEnabled) private var enabled
         @Environment(\.isFocused) private var focused
+        @Environment(\.controlSize) private var controlSize
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        private var minimumHeight: CGFloat { compact ? 28 : controlSize == .large ? 40 : 32 }
+        private var actionColor: Color { configuration.role == .destructive ? .red : .primary }
         private var shape: RoundedRectangle {
-            RoundedRectangle(cornerRadius: card ? 18 : 12, style: .continuous)
+            RoundedRectangle(cornerRadius: card ? 18 : 7, style: .continuous)
         }
         var body: some View {
             configuration.label
                 .font(PulseTheme.font(size: 12, weight: card ? .regular : .medium))
-                .foregroundStyle(prominent ? PulseTheme.onAccent : Color.primary)
-                .padding(.horizontal, compact ? 10 : 14).padding(.vertical, card ? 14 : compact ? 6 : 9)
-                .frame(minWidth: compact ? 32 : 40, minHeight: compact ? 32 : 40)
+                .foregroundStyle(prominent ? PulseTheme.onAccent : actionColor)
+                .padding(.horizontal, compact ? 9 : 12).padding(.vertical, card ? 14 : controlSize == .large && !compact ? 9 : 5)
+                .frame(minWidth: compact ? 28 : 32, minHeight: minimumHeight)
                 .background(prominent ? PulseTheme.mint : Color.primary.opacity(hovered && enabled ? 0.075 : 0.035), in: shape)
                 .overlay(shape.strokeBorder(prominent ? Color.clear : Color.primary.opacity(hovered && enabled ? 0.12 : 0.045), lineWidth: 1).allowsHitTesting(false))
                 .overlay(shape.strokeBorder(focused ? PulseTheme.mint : .clear, lineWidth: 2).allowsHitTesting(false))
@@ -308,6 +311,9 @@ struct PulseSelectionToggleStyle: ToggleStyle {
                 .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
         }.buttonStyle(PulseRowButtonStyle())
             .accessibilityValue(L10n.text(configuration.isOn ? "已选择" : "未选择"))
+            .accessibilityRepresentation {
+                Toggle(isOn: configuration.$isOn) { configuration.label }.toggleStyle(.checkbox)
+            }
     }
 }
 

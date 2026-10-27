@@ -109,7 +109,7 @@ struct SyncSetupGuide: View {
                 PreferenceLine(title: "检查新文件的间隔") {
                     Picker("", selection: $model.syncInterval) {
                         Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15); Text(L10n.text("30 分钟")).tag(30)
-                    }.labelsHidden().disabled(!model.autoSync)
+                    }.pickerStyle(.menu).labelsHidden().disabled(!model.autoSync)
                 }
             }
             Text(L10n.text("自动接收只负责下载到 Mac。云上传单独控制，也可以稍后手动上传暂存文件。"))

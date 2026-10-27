@@ -21,7 +21,7 @@ struct PreferencesPage: View {
         VStack(spacing:23) {
             PreferenceBlock(title:"语言与地区") {
                 PreferenceLine(title:"语言 / Language") {
-                    Picker("",selection:$model.language) { ForEach(PulseLanguage.allCases) { Text(L10n.text($0.title)).tag($0) } }.labelsHidden()
+                    Picker("",selection:$model.language) { ForEach(PulseLanguage.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.menu).labelsHidden()
                 }
             }
             PreferenceBlock(title:"应用与连接") {
@@ -44,10 +44,15 @@ struct PreferencesPage: View {
         VStack(spacing:23) {
             PreferenceBlock(title:"外观与阅读") {
                 PreferenceLine(title:"颜色模式") {
-                    Picker("",selection:$model.appearance) { ForEach(PulseAppearance.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.segmented).labelsHidden()
+                    Picker("",selection:$model.appearance) { ForEach(PulseAppearance.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.menu).labelsHidden()
                 }
                 PreferenceLine(title:"字体大小") {
-                    HStack { Slider(value:$model.fontScale,in:1...1.6,step:0.05); Text("\(Int((model.fontScale * 100).rounded()))%").monospacedDigit().frame(width:45) }
+                    HStack(spacing: 12) {
+                        Slider(value:$model.fontScale,in:1...1.6,step:0.05)
+                            .accessibilityLabel(L10n.text("字体大小"))
+                            .accessibilityValue("\(Int((model.fontScale * 100).rounded()))%")
+                        Text("\(Int((model.fontScale * 100).rounded()))%").monospacedDigit().fixedSize().accessibilityHidden(true)
+                    }
                 }
             }
             PreferenceBlock(title:"浮窗") {
@@ -56,23 +61,23 @@ struct PreferencesPage: View {
                     Picker("",selection:$model.floatingDetailed) { Text(L10n.text("紧凑")).tag(false); Text(L10n.text("详细")).tag(true) }.pickerStyle(.segmented).labelsHidden()
                 }
                 PreferenceLine(title:"浮窗尺寸") {
-                    Picker("",selection:$model.floatingSize) { ForEach(PulsePanelSize.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.segmented).labelsHidden()
+                    Picker("",selection:$model.floatingSize) { ForEach(PulsePanelSize.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.menu).labelsHidden()
                 }
                 PreferenceLine(title:"指标选择",note:"点击图标切换指标，横向滚动查看更多。") { Button(L10n.text("选择指标")) { model.openSettings(.metricSelection) } }
             }
             PreferenceBlock(title:"健康看板") {
                 PreferenceLine(title:"按类别分组") { Toggle("",isOn:$model.dashboardGrouped).labelsHidden().toggleStyle(.switch) }
                 PreferenceLine(title:"看板每行") {
-                    Picker("",selection:$model.dashboardColumns) { Text(L10n.text("自动适应")).tag(0); ForEach(1...4,id:\.self) { Text(L10n.text("\($0) 张")).tag($0) } }.labelsHidden()
+                    Picker("",selection:$model.dashboardColumns) { Text(L10n.text("自动适应")).tag(0); ForEach(1...4,id:\.self) { Text(L10n.text("\($0) 张")).tag($0) } }.pickerStyle(.menu).labelsHidden()
                 }
-                PreferenceLine(title:"卡片尺寸") { Picker("",selection:$model.cardSize) { ForEach(PulseCardSize.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.segmented).labelsHidden() }
+                PreferenceLine(title:"卡片尺寸") { Picker("",selection:$model.cardSize) { ForEach(PulseCardSize.allCases) { Text(L10n.text($0.title)).tag($0) } }.pickerStyle(.menu).labelsHidden() }
             }
         }
     }
     private var refresh: some View {
         PreferenceBlock(title:"指标刷新") {
             PreferenceLine(title:"自动刷新云端指标与全天曲线",note:"按设定间隔刷新，文件同步完成后立即更新。") { Toggle("",isOn:$model.autoRefreshMetrics).labelsHidden().toggleStyle(.switch) }
-            PreferenceLine(title:"指标刷新间隔") { Picker("",selection:$model.metricRefreshInterval) { Text(L10n.text("1 分钟")).tag(1); Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15) }.labelsHidden().disabled(!model.autoRefreshMetrics) }
+            PreferenceLine(title:"指标刷新间隔") { Picker("",selection:$model.metricRefreshInterval) { Text(L10n.text("1 分钟")).tag(1); Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15) }.pickerStyle(.menu).labelsHidden().disabled(!model.autoRefreshMetrics) }
             PreferenceLine(title:"刷新同步指标") { Button(L10n.text("立即刷新指标与曲线")) { model.refreshMetricsNow() }.disabled(model.preview || !model.cloud.isAuthenticated || model.isRefreshingHealth) }
         }
     }

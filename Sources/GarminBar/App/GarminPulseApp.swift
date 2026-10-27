@@ -185,13 +185,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
         if page.isSettings { model.settingsPage = page }
         model.page = page
         if settingsWindow == nil {
-            let window = PulseSettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 1020, height: 740), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            window.title = model.preview ? "WristBeam Demo" : L10n.text("腕映")
-            window.titlebarAppearsTransparent = true
-            window.backgroundColor = NSColor(PulseTheme.background)
-            window.minSize = NSSize(width: 880, height: 640)
-            window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView: SettingsRootView(model: model))
+            let window = PulseSettingsWindow.make(model: model)
             if model.preview, let screen = NSScreen.screens.first {
                 window.setFrameOrigin(NSPoint(x: screen.visibleFrame.minX + 40, y: screen.visibleFrame.maxY - window.frame.height - 60))
             } else { window.center() }
@@ -234,8 +228,25 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
             item.target = self; navigation.addItem(item)
         }
         navigationItem.submenu = navigation; menu.addItem(navigationItem)
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: L10n.text("窗口"))
+        for (title, action, key) in [("关闭窗口", #selector(NSWindow.performClose(_:)), "w"),
+                                      ("最小化", #selector(NSWindow.performMiniaturize(_:)), "m"),
+                                      ("缩放", #selector(NSWindow.performZoom(_:)), "")] {
+            windowMenu.addItem(NSMenuItem(title: L10n.text(title), action: action, keyEquivalent: key))
+        }
+        let fullScreen = NSMenuItem(title: L10n.text("切换全屏"), action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
+        fullScreen.keyEquivalentModifierMask = [.control, .command]
+        windowMenu.addItem(fullScreen)
+        windowMenu.addItem(.separator())
+        let reopen = NSMenuItem(title: L10n.text("腕映"), action: #selector(reopenMainWindow), keyEquivalent: "0")
+        reopen.target = self; windowMenu.addItem(reopen)
+        windowItem.submenu = windowMenu; menu.addItem(windowItem)
+        NSApp.windowsMenu = windowMenu
         NSApp.mainMenu = menu
     }
+
+    @objc private func reopenMainWindow() { showSettings(model.page) }
 
     @objc private func navigateToPage(_ item: NSMenuItem) {
         guard AppPage.navigationPages.indices.contains(item.tag) else { return }
@@ -311,16 +322,5 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
         popover?.appearance = appearance
         refreshStatusItem()
         floatingPanel?.title = L10n.text("WristBeam 浮动指标")
-    }
-}
-
-@MainActor
-final class PulseSettingsWindow: NSWindow {
-    var onPreviewSnapshot: (() -> Void)?
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "s", let onPreviewSnapshot {
-            onPreviewSnapshot(); return true
-        }
-        return super.performKeyEquivalent(with: event)
     }
 }

@@ -9,17 +9,16 @@ struct SoftwareUpdatePage: View {
             if updater.validationFixture != nil { Label(L10n.text("本地升级验证 · 未发布测试包"), systemImage: "testtube.2").foregroundStyle(.orange) }
             PulseCard {
                 VStack(alignment: .leading, spacing: 16) {
-                    HStack {
+                    PulseFlowLayout(spacing: 12) {
                         Label(L10n.text("腕映"), systemImage: "waveform.path.ecg").font(PulseTheme.font(size: 18, weight: .semibold))
-                        Spacer()
                         Text("v\(updater.displayVersion)").font(PulseTheme.font(size: 15, design: .monospaced))
                     }
                     Text(L10n.text(updater.status)).font(PulseTheme.font(size: 13)).textSelection(.enabled)
                     if let date = updater.lastChecked { Text(L10n.text("上次检查：\(date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(L10n.locale)))")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary) }
-                    HStack {
+                    PulseFlowLayout {
                         Button { Task { await updater.check() } } label: { Label(L10n.text(updater.isChecking ? "正在检查…" : "检查更新"), systemImage: "arrow.triangle.2.circlepath") }
-                            .buttonStyle(PulseButtonStyle(prominent: true)).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(updater.isChecking || updater.isInstalling || model.preview)
-                        if updater.installable { Button(L10n.text("下载并升级")) { updater.requestUpgrade() }.buttonStyle(PulseButtonStyle()).disabled(updater.isInstalling || model.hasActiveFileOperations) }
+                            .buttonStyle(PulseButtonStyle()).disabled(updater.isChecking || updater.isInstalling || model.preview)
+                        if updater.installable { Button(L10n.text("下载并升级")) { updater.requestUpgrade() }.buttonStyle(PulseButtonStyle(prominent: true)).disabled(updater.isInstalling || model.hasActiveFileOperations) }
                         if let repo = updater.parsedRepository { Link(L10n.text("GitHub Releases ↗"), destination: repo.url.appendingPathComponent("releases")) }
                     }
                     if let progress = updater.downloadProgress {
