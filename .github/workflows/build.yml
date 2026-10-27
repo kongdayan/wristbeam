@@ -59,12 +59,12 @@ jobs:
       - name: Native settings and floating render smoke checks
         if: inputs.render-ui && matrix.arch == 'arm64'
         run: python3 scripts/test-interface-render.py dist/interface-renders
-      - name: Preserve native interaction failure screenshot
+      - name: Preserve native failure screenshots
         if: failure() && inputs.render-ui && matrix.arch == 'arm64'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-interaction-failure-${{ matrix.runner }}
-          path: dist/interface-renders/interaction-failure.png
+          path: dist/interface-renders/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Render showcase images

@@ -41,7 +41,7 @@ struct DashboardConnectionStatus: View {
                     Text(L10n.text(model.workflow.connectionTitle))
                     WatchBatteryBadge(model: model)
                     StatusDot(active: model.bluetooth.isConnected)
-                }
+                }.padding(.vertical, 5).padding(.horizontal, 3).contentShape(Rectangle())
             }.help(L10n.text(model.bluetooth.status))
             Divider().frame(height: 16).padding(.horizontal, 4)
             Button { model.page = .account } label: {
@@ -49,11 +49,11 @@ struct DashboardConnectionStatus: View {
                     Image(systemName: model.workflow.accountSymbol)
                     Text(L10n.text(model.workflow.accountTitle))
                     StatusDot(active: model.workflow.cloudActive)
-                }
+                }.padding(.vertical, 5).padding(.horizontal, 3).contentShape(Rectangle())
             }.help(L10n.text(model.cloud.region.title))
         }.fixedSize(horizontal: true, vertical: false)
             .buttonStyle(PulseRowButtonStyle()).font(PulseTheme.font(size: 11, weight: .medium))
-            .padding(12).background(PulseTheme.surface, in: RoundedRectangle(cornerRadius: 13))
+            .padding(8).background(PulseTheme.surface, in: RoundedRectangle(cornerRadius: 13))
             .overlay(RoundedRectangle(cornerRadius: 13).stroke(Color.primary.opacity(0.07)))
     }
 }
@@ -84,7 +84,7 @@ struct DashboardStylePanel: View {
                 Spacer()
                 Text("\(model.dashboardVisibleMetrics.count) / \(model.availableMetricKinds.count)").foregroundStyle(PulseTheme.secondary)
             }
-            HStack {
+            PulseFlowLayout {
                 Button(L10n.text("全选")) { model.dashboardMetrics.formUnion(model.availableMetricKinds) }
                 Button(L10n.text("基础选择")) { model.dashboardMetrics = DashboardSharing.basicMetrics.intersection(model.availableMetricKinds) }
                 Button(L10n.text("全取消")) { model.dashboardMetrics = [] }
@@ -137,6 +137,7 @@ struct DashboardStylePanel: View {
                     .disabled(model.preview || model.isRefreshingHealth).accessibilityLabel(L10n.text("刷新同步指标"))
             }
         }.padding(22).frame(width: 370).background(PulseTheme.background)
+            .font(PulseTheme.font(size: 13)).controlSize(.regular).buttonStyle(PulseButtonStyle())
             .preferredColorScheme(model.preferredColorScheme)
     }
 }

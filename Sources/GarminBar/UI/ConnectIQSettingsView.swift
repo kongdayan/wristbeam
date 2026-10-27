@@ -53,6 +53,7 @@ struct ConnectIQSettingsSheet: View {
             }
         }
         .buttonStyle(PulseButtonStyle())
+        .font(PulseTheme.font(size: 13)).controlSize(.regular)
         .padding(20).frame(width: 700, height: 680)
         .background(PulseTheme.background)
         .interactiveDismissDisabled()

@@ -227,6 +227,7 @@ import SwiftUI
                 model.fontScale = 1.15
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
+                    model.scrollPositions.offsets[model.mainScrollKey] = 0
                     try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760).background(PulseTheme.background),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
@@ -237,9 +238,11 @@ import SwiftUI
                 model.fontScale = 1.6
                 precondition(!model.cloud.networkEnabled)
                 try await render(LoginSheet(model:model),name:"login-controls-\(language)-\(theme)",dark:dark,output:output)
+                try await render(MenuPopover(model:model),name:"menu-large-\(language)-\(theme)",dark:dark,output:output)
                 try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
                 for page in [AppPage.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
+                    model.scrollPositions.offsets[model.mainScrollKey] = 0
                     try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600).background(PulseTheme.background),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
@@ -438,8 +441,20 @@ import SwiftUI
             }
             precondition(bitmap.pixelsWide >= 300 && bitmap.pixelsHigh >= 225 && data.count > 5000)
             try data.write(to:output.appendingPathComponent(name + ".png"))
+            if name.hasPrefix("page-settings-") || name.hasPrefix("page-appearance-") || name.hasPrefix("preferences-narrow-") {
+                for identifier in ["app-brand","page-title"] {
+                    let frames = accessibilityFrames(host,identifier:identifier).map { host.convert(window.convertFromScreen($0),from:nil) }
+                    precondition(frames.contains { $0.width > 0 && $0.height > 0 && host.bounds.insetBy(dx:-1,dy:-1).contains($0) },
+                        "Missing or clipped \(identifier) in \(name): \(frames)")
+                }
+            }
             print("PASS \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh)")
         }
+    }
+    @MainActor static func accessibilityFrames(_ value:Any,identifier:String,depth:Int = 0) -> [NSRect] {
+        guard depth < 32, let element = value as? NSAccessibilityProtocol else { return [] }
+        let own = element.accessibilityIdentifier() == identifier ? [element.accessibilityFrame()] : []
+        return own + (element.accessibilityChildren() ?? []).flatMap { accessibilityFrames($0,identifier:identifier,depth:depth + 1) }
     }
 }
 @MainActor final class InteractionHostingView: NSHostingView<DisclosureInteractionFixture> {

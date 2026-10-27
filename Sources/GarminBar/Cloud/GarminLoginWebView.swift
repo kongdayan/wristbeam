@@ -109,7 +109,7 @@ struct GarminLoginWebView: NSViewRepresentable {
             let alert = NSAlert()
             alert.messageText = cloud.region.title
             alert.informativeText = message
-            alert.addButton(withTitle: "好")
+            alert.addButton(withTitle: L10n.text("确定"))
             if let window = webView.window { alert.beginSheetModal(for: window) { _ in completionHandler() } }
             else { alert.runModal(); completionHandler() }
         }
@@ -119,8 +119,8 @@ struct GarminLoginWebView: NSViewRepresentable {
             let alert = NSAlert()
             alert.messageText = cloud.region.title
             alert.informativeText = message
-            alert.addButton(withTitle: "继续")
-            alert.addButton(withTitle: "取消")
+            alert.addButton(withTitle: L10n.text("继续"))
+            alert.addButton(withTitle: L10n.text("取消"))
             if let window = webView.window { alert.beginSheetModal(for: window) { completionHandler($0 == .alertFirstButtonReturn) } }
             else { completionHandler(alert.runModal() == .alertFirstButtonReturn) }
         }

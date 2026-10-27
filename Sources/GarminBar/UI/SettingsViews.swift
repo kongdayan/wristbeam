@@ -11,26 +11,21 @@ struct SettingsRootView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "waveform.path.ecg").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.text("腕映")).font(PulseTheme.font(size: 18, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                        Text(L10n.text("腕映")).font(PulseTheme.font(size: 18, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7).accessibilityIdentifier("app-brand")
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
                 }.padding(.top, 20)
-                VStack(spacing: 4) {
-                    ForEach(AppPage.navigationPages) { page in sidebarPage(page) }
-                }
-                if model.page.isSettings {
-                    Divider()
-                    ScrollViewReader { sidebar in
-                        ScrollView {
-                            VStack(spacing: 4) {
-                                ForEach(AppPage.settingsPages) { page in sidebarPage(page) }
-                            }
-                        }.frame(minHeight: 64)
-                            .onAppear { sidebar.scrollTo(model.page, anchor: .center) }
-                            .onChange(of: model.page) { page in if page.isSettings { sidebar.scrollTo(page, anchor: .center) } }
+                List(selection: Binding<AppPage?>(get: { model.page == .account ? .watch : model.page }, set: { if let page = $0 { model.openSettings(page) } })) {
+                    Section {
+                        ForEach(AppPage.navigationPages) { page in sidebarPage(page) }
                     }
-                }
-                Spacer(minLength: 0)
+                    if model.page.isSettings {
+                        Section(L10n.text("设置")) {
+                            ForEach(AppPage.settingsPages) { page in sidebarPage(page) }
+                        }
+                    }
+                }.listStyle(.sidebar).scrollContentBackground(.hidden)
+                    .environment(\.defaultMinListRowHeight, 36)
                 VStack(spacing: 8) {
                     Button { model.openSettings(model.settingsPage) } label: {
                         sidebarAction("设置", symbol: "gearshape")
@@ -82,19 +77,11 @@ struct SettingsRootView: View {
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
     }
     private func sidebarPage(_ page: AppPage) -> some View {
-        let selected = model.page == page || model.page == .account && page == .watch
-        return Button { model.openSettings(page) } label: {
-            HStack(spacing: 12) {
-                Image(systemName: page.symbol).frame(width: 18)
-                Text(page == .settings ? L10n.text("常规设置") : page.title).fixedSize(horizontal: false, vertical: true)
-                Spacer()
-            }.font(PulseTheme.font(size: 12, weight: selected ? .semibold : .regular))
-                .padding(.horizontal, 12).padding(.vertical, 9)
-                .foregroundStyle(selected ? PulseTheme.mint : PulseTheme.secondary)
-                .background(selected ? PulseTheme.mint.opacity(0.08) : .clear)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-        }.buttonStyle(PulseRowButtonStyle()).id(page)
-            .accessibilityValue(L10n.text(selected ? "已选择" : "未选择"))
+        Label {
+            Text(page == .settings ? L10n.text("常规设置") : page.title).fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: page.symbol)
+        }.font(PulseTheme.font(size: 12)).padding(.vertical, 4).tag(page)
     }
     private func sidebarAction(_ title: String, symbol: String) -> some View {
         HStack(spacing: 10) {
@@ -106,6 +93,7 @@ struct SettingsRootView: View {
     private var pageHeader: some View {
         Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title))
             .font(PulseTheme.font(size: 27, weight: .semibold))
+            .accessibilityIdentifier("page-title")
     }
 }
 

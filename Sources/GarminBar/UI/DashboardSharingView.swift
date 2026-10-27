@@ -108,6 +108,7 @@ struct DashboardShareSheet: View {
                 NativeImageShareButton(image: currentImage).fixedSize().frame(minWidth: 95, minHeight: 32).disabled(currentImage == nil)
             }.buttonStyle(PulseButtonStyle())
         }.padding(24).frame(width: 760).background(PulseTheme.background).foregroundStyle(.primary)
+            .font(PulseTheme.font(size: 13)).controlSize(.regular).buttonStyle(PulseButtonStyle())
             .task(id: renderKey) {
                 image = nil; pngData = nil; error = nil; notice = ""
                 do { try await Task.sleep(nanoseconds: 180_000_000) } catch { return }
