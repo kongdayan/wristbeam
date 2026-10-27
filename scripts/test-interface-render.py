@@ -203,6 +203,7 @@ import SwiftUI
                     model.fontScale = scale
                     try await render(ControlShowcase().frame(width:600).padding(24).background(PulseTheme.background),
                         name:"controls-\(Int(scale*100))-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(DashboardStylePanel(model:model),name:"dashboard-style-\(Int(scale*100))-\(language)-\(theme)",dark:dark,output:output)
                 }
                 for detailed in [false,true] {
                     model.floatingDetailed = detailed
@@ -545,11 +546,8 @@ struct ControlShowcase: View {
         VStack(alignment:.leading,spacing:20) {
             PreferenceBlock(title:"外观与阅读") {
                 PreferenceLine(title:"颜色模式") {
-                    Picker("",selection:$selection) {
-                        Text(L10n.text("跟随系统")).tag(0)
-                        Text(L10n.text("浅色")).tag(1)
-                        Text(L10n.text("深色")).tag(2)
-                    }.pickerStyle(.menu).buttonStyle(.bordered).labelsHidden()
+                    PulseMenuPicker("颜色模式",selection:$selection,choices:[
+                        .init(L10n.text("跟随系统"),0), .init(L10n.text("浅色"),1), .init(L10n.text("深色"),2)])
                 }
                 PreferenceLine(title:"自动检查新版本") { Toggle("",isOn:$enabled).toggleStyle(.switch).labelsHidden() }
                 PreferenceLine(title:"客户端名称") { TextField(L10n.text("客户端名称"),text:$text).textFieldStyle(.roundedBorder) }

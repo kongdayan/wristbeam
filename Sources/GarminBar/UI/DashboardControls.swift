@@ -66,11 +66,13 @@ struct DashboardStylePanel: View {
         MetricKind.allCases.filter { model.availableMetricKinds.contains($0) && (search.isEmpty || $0.title.localizedCaseInsensitiveContains(search)) }
     }
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             Text(L10n.text("显示样式")).font(PulseTheme.font(size: 18, weight: .semibold))
-            Picker(L10n.text("每行"), selection: $model.dashboardColumns) {
-                Text(L10n.text("自动适应")).tag(0)
-                ForEach(1...4, id: \.self) { Text(L10n.text("\($0) 张卡片")).tag($0) }
+            HStack {
+                Text(L10n.text("每行"))
+                PulseMenuPicker("每行", selection: $model.dashboardColumns,
+                    choices: [.init(L10n.text("自动适应"), 0)] + (1...4).map { .init(L10n.text("\($0) 张卡片"), $0) })
             }
             Picker(L10n.text("卡片"), selection: $model.cardSize) {
                 ForEach(PulseCardSize.allCases) { Text(L10n.text($0.title)).tag($0) }
@@ -90,7 +92,7 @@ struct DashboardStylePanel: View {
                 Button(L10n.text("全取消")) { model.dashboardMetrics = [] }
             }.buttonStyle(PulseButtonStyle()).controlSize(.small)
             TextField(L10n.text("搜索指标"), text: $search).textFieldStyle(.roundedBorder)
-            ScrollView(showsIndicators: false) {
+            Group {
                 VStack(spacing: 6) {
                     ForEach(MetricCategory.allCases) { category in
                         let items = available.filter { $0.category == category }
@@ -111,22 +113,21 @@ struct DashboardStylePanel: View {
                                 }.font(PulseTheme.font(size: 12, weight: .semibold)).padding(.vertical, 7)
                                 if expanded.contains(category) || !search.isEmpty {
                                     ForEach(items) { kind in
-                                        Button {
-                                            if model.dashboardMetrics.contains(kind) { model.dashboardMetrics.remove(kind) } else { model.dashboardMetrics.insert(kind) }
-                                        } label: {
+                                        Toggle(isOn: Binding(get: { model.dashboardMetrics.contains(kind) }, set: {
+                                            model.select([kind], enabled: $0, destination: .dashboard)
+                                        })) {
                                             HStack(spacing: 9) {
-                                                Image(systemName: model.dashboardMetrics.contains(kind) ? "checkmark.square.fill" : "square").foregroundStyle(PulseTheme.mint)
-                                                MetricIcon(kind: kind).foregroundStyle(PulseTheme.color(kind)).frame(width: 19)
-                                                Text(kind.title); Spacer()
-                                            }.padding(.vertical, 6).contentShape(Rectangle())
-                                        }.buttonStyle(PulseRowButtonStyle()).accessibilityValue(L10n.text(model.dashboardMetrics.contains(kind) ? "已选择" : "未选择"))
+                                                MetricIcon(kind: kind).foregroundStyle(PulseTheme.color(kind)).frame(width: 19).accessibilityHidden(true)
+                                                Text(kind.title).fixedSize(horizontal: false, vertical: true); Spacer()
+                                            }
+                                        }.toggleStyle(.checkbox).padding(.vertical, 6)
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }.frame(height: 270)
+            }
             Text(L10n.text("拖动卡片调整顺序；点击卡片进入全天图表和原始时间记录。"))
                 .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
             Divider()
@@ -136,7 +137,8 @@ struct DashboardStylePanel: View {
                 Button { model.refreshMetricsNow() } label: { Image(systemName: "arrow.clockwise") }
                     .disabled(model.preview || model.isRefreshingHealth).accessibilityLabel(L10n.text("刷新同步指标"))
             }
-        }.padding(22).frame(width: 370).background(PulseTheme.background)
+        }.padding(22)
+        }.frame(width: 370, height: 640).background(PulseTheme.background)
             .font(PulseTheme.font(size: 13)).controlSize(.regular).buttonStyle(PulseButtonStyle())
             .preferredColorScheme(model.preferredColorScheme)
     }

@@ -436,9 +436,8 @@ struct AccountPage: View {
                     VStack(alignment: .leading, spacing: 9) {
                         Text(L10n.text("同步设备")).font(PulseTheme.font(size: 13, weight: .semibold))
                         if !cloud.devices.isEmpty {
-                            Picker(L10n.text("账户关联手表"), selection: $cloud.deviceId) {
-                                ForEach(cloud.devices) { device in Text(L10n.text(device.name)).tag(device.id) }
-                            }.onChange(of: cloud.deviceId) { value in model.watchUnitID = value }
+                            PulseMenuPicker("账户关联手表", selection: $cloud.deviceId, choices: cloud.devices.map { .init(L10n.text($0.name), $0.id) })
+                                .onChange(of: cloud.deviceId) { value in model.watchUnitID = value }
                         }
                         PulseDisclosure(L10n.text("手动指定设备")) {
                             TextField(L10n.text("设备编号（连接手表后自动识别）"), text: $model.watchUnitID).textFieldStyle(.roundedBorder)
@@ -543,7 +542,11 @@ struct MetricSelectionPage: View {
                                 Divider().opacity(0.45)
                             }
                             if category == .solar {
-                                Picker(L10n.text("日照估算阈值"), selection: $model.sunlightThreshold) { ForEach([1.0, 10, 20, 50, 100], id: \.self) { value in Text(L10n.text("太阳能强度 ≥ \(Int(value))%")).tag(value) } }.font(PulseTheme.font(size: 11))
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(L10n.text("日照估算阈值")).font(PulseTheme.font(size: 11))
+                                    PulseMenuPicker("日照估算阈值", selection: $model.sunlightThreshold,
+                                        choices: [1.0, 10, 20, 50, 100].map { .init(L10n.text("太阳能强度 ≥ \(Int($0))%"), $0) })
+                                }
                                 Text(L10n.text("日照时长按有效分钟记录估算；光照记录不能区分室内灯光与户外阳光。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                             }
                         }
@@ -570,9 +573,8 @@ struct LoginSheet: View {
                 Button(L10n.text("关闭")) { model.showLogin = false }.buttonStyle(PulseButtonStyle()).keyboardShortcut(.cancelAction)
             }.padding(17).background(PulseTheme.background)
             PulseFlowLayout(spacing: 12) {
-                Picker(L10n.text("登录方式"), selection: Binding(get: { model.cloud.loginMode }, set: { model.cloud.prepareLogin(mode: $0) })) {
-                    ForEach(GarminLoginMode.allCases) { mode in Text(L10n.text(mode.label)).tag(mode) }
-                }.pickerStyle(.menu).buttonStyle(.bordered).labelsHidden().accessibilityLabel(L10n.text("登录方式")).fixedSize()
+                PulseMenuPicker("登录方式", selection: Binding(get: { model.cloud.loginMode }, set: { model.cloud.prepareLogin(mode: $0) }),
+                    choices: GarminLoginMode.allCases.map { .init(L10n.text($0.label), $0) }).fixedSize()
                 Button(L10n.text("在浏览器中登录 ↗")) {
                     model.cloud.prepareLogin(mode: .portal)
                     NSWorkspace.shared.open(model.cloud.makeLoginURL())
