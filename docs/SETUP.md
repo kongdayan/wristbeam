@@ -7,7 +7,7 @@
 3. 允许蓝牙后，分别检查蓝牙连接、佳明数据通道、实时读数和文件通道。单独显示“已连接”不能证明原始文件同步已经就绪。没有数据时展开 **连接不上 / 没有数据**。
 4. 云账号可选。仅本地使用无需登录；需要云端记录或上传时，到 **设备 → 设备账号** 开启云同步，选择中国或国际区域，再在佳明官方页面登录。账户应与你的手表绑定账户一致。
 5. 到 **同步记录** 选择手动或自动上传。实时读数留在本机，云端接收手表生成的原始运动与健康 FIT。新用户默认手动同步；旧版已保存的选择以及已配对用户原先的自动同步默认值保留。
-6. 打开独立 **设置** 窗口：在 **显示设置** 调整字体、主题和布局，在 **指标选择** 分别配置看板、浮窗和菜单栏，在 **网络与刷新** 调整刷新频率。新用户默认不弹出空浮窗，按需开启。折叠区的标题整行都可点击；长页面隐藏滚动条，仍支持正常滚动。
+6. 在主窗口侧栏打开 **设置**：在 **显示设置** 调整字体、主题和布局，在 **指标选择** 分别配置看板、浮窗和菜单栏，在 **网络与刷新** 调整刷新频率。新用户默认不弹出空浮窗，按需开启。折叠区的标题整行都可点击；长页面隐藏滚动条，仍支持正常滚动。
 
 **拒绝蓝牙**：在系统设置 → 隐私与安全性 → 蓝牙允许 WristBeam，再回到连接页。受到系统策略限制时需由设备管理员处理；设备账号与 FIT 导入仍可使用。临时签名的新构建可能需要重新允许访问，应用只在主动连接时请求。
 
@@ -47,4 +47,4 @@ See [Apple's Bluetooth authorization states](https://developer.apple.com/documen
 
 **Activities → Downloads** lists the selected account's cached details and exports, formats and disk usage. Choose a save destination before downloading an export. Moving a copy to Trash requires confirmation and can be reversed in Finder; summaries, accounts and original watch files are kept. Open a downloaded workout offline without fetching it again.
 
-The independent preferences window, keyboard commands and browsing context are described in [Daily navigation and sync](daily-workflow.md). Experience changes and verification are tracked in the [maintenance record](maintenance/2026-10-26-experience.md).
+The integrated settings, keyboard commands and browsing context are described in [Daily navigation and sync](daily-workflow.md). Experience changes and verification are tracked in the [maintenance record](maintenance/2026-10-26-experience.md).

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.11-beta.2 — 2026-10-27
+
+- Keep settings inside the main application window. Settings and Command–comma open the remembered category in the existing sidebar/content layout; appearance, metrics, refresh, developer options, updates and About share that navigation.
+- Preserve activity search, pagination and scroll position when returning from settings. Attach update confirmations to the main window and keep sheet/modal navigation guards.
+- Remove the separate preferences window and validate normal/large-text integrated settings with native synthetic screenshots. Numeric version remains 0.3.11, build 19.
+
 ## 0.3.11-beta.1 — 2026-10-27
 
 - Adapt dashboard cards, actions and connection status to narrow windows and larger text; keep battery percentages on one line. Preserve Connect IQ, independent preferences and browsing/scroll restoration.

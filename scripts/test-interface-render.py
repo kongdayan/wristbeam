@@ -151,8 +151,11 @@ import SwiftUI
         precondition(model.activityBrowsing.search == "Synthetic" && model.activityBrowsing.page == 1)
         trace("Returned list y=\(contentScroll().contentView.bounds.origin.y), expected=\(listY)")
         precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Return restores actual list scroll offset")
-        model.openSettings(.appearance); settle()
-        precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Preferences preserve list position")
+        model.openSettings(.appearance); readyForRoute()
+        precondition(model.page == .appearance && model.settingsPage == .appearance,"Settings route uses the main content")
+        precondition(contentScroll().contentView.bounds.origin.y < 2,"New settings category starts at top")
+        model.openSettings(.activities); readyForRoute(scrollable:true)
+        precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Return from inline settings restores list position")
         model.page = .overview
         let dashboardY = moveDown()
         model.openMetric(.heartRate); readyForRoute()
@@ -182,7 +185,7 @@ import SwiftUI
         AppPreferences.shared.set(GarminPrivateFile.digest(Data(browsingScope.utf8)),forKey:"activities.scope.china")
         model.activities.reconcile()
         model.scrollPositions.offsets = [:]; model.activityBrowsing = ActivityBrowsingState()
-        print("PASS native list/detail and dashboard/detail scroll restoration, search/page retention and independent preferences")
+        print("PASS native list/detail and dashboard/detail scroll restoration, search/page retention and inline settings return")
         Task { @MainActor in
             do { try await renderScenarios(model:model,output:output); exit(0) }
             catch { fputs("Native interface render failed: \(error)\n", stderr); exit(1) }
@@ -219,11 +222,7 @@ import SwiftUI
                 model.fontScale = 1.15
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
-                    if page.isSettings {
-                        try await render(PreferencesRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
-                    } else {
-                        try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
-                    }
+                    try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760).background(PulseTheme.background),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
                 model.openSettings(.overview)
@@ -233,8 +232,8 @@ import SwiftUI
                 model.fontScale = 1.6
                 try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
                 for page in [AppPage.settings,.appearance,.metricSelection,.developer,.updates] {
-                    model.settingsPage = page
-                    try await render(PreferencesRootView(model:model).frame(width:820,height:600),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    model.openSettings(page)
+                    try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600).background(PulseTheme.background),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
                 model.fontScale = 1.15

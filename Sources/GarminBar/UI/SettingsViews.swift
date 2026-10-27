@@ -15,26 +15,23 @@ struct SettingsRootView: View {
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
                 }.padding(.top, 20)
+                ScrollViewReader { sidebar in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 5) {
-                        ForEach(AppPage.navigationPages) { page in
-                            Button { model.detailMetric = nil; model.page = page } label: {
-                                HStack(spacing: 12) { Image(systemName: page.symbol).frame(width: 18); Text(L10n.text(page.title)).fixedSize(horizontal: false, vertical: true); Spacer() }
-                                    .font(PulseTheme.font(size: 12, weight: model.page.navigationPage == page ? .semibold : .regular))
-                                    .padding(.horizontal, 12).padding(.vertical, 12)
-                                    .foregroundStyle(model.page.navigationPage == page ? PulseTheme.mint : PulseTheme.secondary)
-                                    .background(model.page.navigationPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                            }.buttonStyle(PulseRowButtonStyle())
-                                .accessibilityValue(model.page.navigationPage == page ? L10n.text("已选择") : L10n.text("未选择"))
+                        ForEach(AppPage.navigationPages) { page in sidebarPage(page) }
+                        if model.page.isSettings {
+                            Divider().padding(.vertical, 8)
+                            ForEach(AppPage.settingsPages) { page in sidebarPage(page) }
                         }
                     }
+                }.onChange(of: model.page) { page in sidebar.scrollTo(page == .account ? .watch : page, anchor: .center) }
                 }
                 Spacer()
                 VStack(spacing: 8) {
                     Button { model.openSettings(model.settingsPage) } label: {
                         sidebarAction("设置", symbol: "gearshape")
                     }.keyboardShortcut(",", modifiers: .command)
+                        .foregroundStyle(model.page.isSettings ? PulseTheme.mint : Color.primary)
                     Button { model.onShowMenu?() } label: {
                         sidebarAction("打开菜单栏", symbol: "menubar.rectangle")
                     }
@@ -65,7 +62,7 @@ struct SettingsRootView: View {
                     case .watch, .account: DevicePage(model: model)
                     case .sync: SyncPage(model: model)
                     case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about:
-                        Button(L10n.text("设置")) { model.openSettings(model.page) }
+                        PreferencesPage(model: model)
                     }
                     }
                 }.id("settings-top").padding(32).frame(maxWidth: .infinity, alignment: .leading)
@@ -76,10 +73,26 @@ struct SettingsRootView: View {
             }
             }
         }.navigationSplitViewStyle(.balanced).id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
+            .onChange(of: model.page) { page in if page.isSettings { columns = .all } }
             .font(PulseTheme.font(size: 13)).controlSize(.large).buttonStyle(PulseButtonStyle())
             .preferredColorScheme(model.preferredColorScheme)
             .environment(\.locale, L10n.locale)
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
+    }
+    private func sidebarPage(_ page: AppPage) -> some View {
+        let selected = model.page == page || model.page == .account && page == .watch
+        return Button { model.openSettings(page) } label: {
+            HStack(spacing: 12) {
+                Image(systemName: page.symbol).frame(width: 18)
+                Text(page == .settings ? L10n.text("常规设置") : page.title).fixedSize(horizontal: false, vertical: true)
+                Spacer()
+            }.font(PulseTheme.font(size: 12, weight: selected ? .semibold : .regular))
+                .padding(.horizontal, 12).padding(.vertical, 12)
+                .foregroundStyle(selected ? PulseTheme.mint : PulseTheme.secondary)
+                .background(selected ? PulseTheme.mint.opacity(0.08) : .clear)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+        }.buttonStyle(PulseRowButtonStyle()).id(page)
+            .accessibilityValue(L10n.text(selected ? "已选择" : "未选择"))
     }
     private func sidebarAction(_ title: String, symbol: String) -> some View {
         HStack(spacing: 10) {
@@ -91,42 +104,6 @@ struct SettingsRootView: View {
     private var pageHeader: some View {
         Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title))
             .font(PulseTheme.font(size: 27, weight: .semibold))
-    }
-}
-
-struct PreferencesRootView: View {
-    @ObservedObject var model: AppModel
-    var body: some View {
-        HStack(spacing: 0) {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 5) {
-                    ForEach(AppPage.settingsPages) { page in
-                        Button { model.settingsPage = page } label: {
-                            Label(page == .settings ? L10n.text("常规设置") : page.title, systemImage: page.symbol)
-                                .font(PulseTheme.font(size: 12))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(12)
-                                .foregroundStyle(model.settingsPage == page ? PulseTheme.mint : Color.primary)
-                                .background(model.settingsPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                        }.buttonStyle(PulseRowButtonStyle())
-                            .accessibilityValue(model.settingsPage == page ? L10n.text("已选择") : L10n.text("未选择"))
-                    }
-                }.padding(12)
-            }.frame(width: 190).background(Color.primary.opacity(0.025))
-            Divider()
-            ScrollViewReader { scroll in
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 24) {
-                        Text(model.settingsPage == .settings ? L10n.text("常规设置") : model.settingsPage.title)
-                            .font(PulseTheme.font(size: 24, weight: .semibold))
-                        PreferencesPage(model: model)
-                    }.padding(24).frame(maxWidth: .infinity, alignment: .leading).id("preferences-top")
-                }.onChange(of: model.settingsPage) { _ in scroll.scrollTo("preferences-top", anchor: .top) }
-            }
-        }.id(model.language).background(PulseTheme.background)
-            .foregroundStyle(.primary).font(PulseTheme.font(size: 13)).buttonStyle(PulseButtonStyle())
-            .preferredColorScheme(model.preferredColorScheme).environment(\.locale, L10n.locale)
     }
 }
 

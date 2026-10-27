@@ -428,7 +428,7 @@ final class AppModel: ObservableObject {
     }
     func openSettings(_ page: AppPage = .overview) {
         if page.isSettings { settingsPage = page }
-        else { detailMetric = nil; self.page = page }
+        detailMetric = nil; self.page = page
         onOpenSettings?(page)
     }
     func enablePreview() {
