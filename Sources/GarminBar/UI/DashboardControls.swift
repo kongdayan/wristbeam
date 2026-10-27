@@ -20,8 +20,9 @@ struct WatchBatteryBadge: View {
             HStack(spacing: 4) {
                 Image(systemName: symbol(percent))
                     .foregroundStyle(model.isStale(.watchBattery) ? Color.secondary : percent <= 20 ? Color.orange : PulseTheme.mint)
-                Text("\(percent)%").monospacedDigit()
+                Text("\(percent)%").monospacedDigit().lineLimit(1)
             }.font(PulseTheme.font(size: 11, weight: .medium))
+                .fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(model.isStale(.watchBattery) ? Color.secondary : Color.primary)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(L10n.format("手表电量：{0}%", String(percent)))
@@ -50,7 +51,8 @@ struct DashboardConnectionStatus: View {
                     StatusDot(active: model.workflow.cloudActive)
                 }
             }.help(L10n.text(model.cloud.region.title))
-        }.buttonStyle(.plain).font(PulseTheme.font(size: 11, weight: .medium))
+        }.fixedSize(horizontal: true, vertical: false)
+            .buttonStyle(.plain).font(PulseTheme.font(size: 11, weight: .medium))
             .padding(12).background(PulseTheme.surface, in: RoundedRectangle(cornerRadius: 13))
             .overlay(RoundedRectangle(cornerRadius: 13).stroke(Color.primary.opacity(0.07)))
     }

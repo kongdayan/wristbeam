@@ -4,13 +4,16 @@ task_root="${0:A:h:h}"
 cd "$task_root"
 task_config="${PULSE_BUILD_CONFIGURATION:-release}"
 task_version="${PULSE_BUILD_VERSION:-$(cat VERSION)}"
-task_build="${PULSE_BUILD_NUMBER:-17}"
+task_build="${PULSE_BUILD_NUMBER:-18}"
 task_arch="${PULSE_BUILD_ARCHITECTURE:-$(uname -m)}"
 task_dist="${PULSE_OUTPUT_DIR:-$task_root/dist}"
 task_dist="${task_dist:A}"
 [[ "$task_version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || { print -u2 'Invalid release version'; exit 1; }
 [[ "$task_build" =~ '^[0-9]+$' ]] || { print -u2 'Invalid build number'; exit 1; }
 [[ "$task_arch" == arm64 || "$task_arch" == x86_64 ]] || { print -u2 'Unsupported architecture'; exit 1; }
+if [[ -n "${PULSE_RELEASE_TAG:-}" ]]; then
+    python3 scripts/check-release.py --tag "$PULSE_RELEASE_TAG"
+fi
 swift build -c "$task_config" --arch "$task_arch"
 task_app="$task_dist/WristBeam.app"
 mkdir -p "$task_app/Contents/MacOS" "$task_app/Contents/Resources"
@@ -44,6 +47,9 @@ cat > "$task_app/Contents/Info.plist" <<'PLIST'
 PLIST
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $task_version" "$task_app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $task_build" "$task_app/Contents/Info.plist"
+if [[ -n "${PULSE_RELEASE_TAG:-}" ]]; then
+    /usr/libexec/PlistBuddy -c "Add :WristBeamReleaseTag string $PULSE_RELEASE_TAG" "$task_app/Contents/Info.plist"
+fi
 mkdir -p "$task_app/Contents/Resources/Localization"
 cp Sources/GarminBar/Resources/Localization/en.json "$task_app/Contents/Resources/Localization/en.json"
 cp scripts/update-helper.sh "$task_app/Contents/Resources/update-helper.sh"

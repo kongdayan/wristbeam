@@ -22,9 +22,20 @@ def release_version(tag: str = '', version_file: Path | None = None) -> str:
     version = (version_file or ROOT / 'VERSION').read_text().strip()
     if SEMVER.fullmatch(version) is None:
         raise ValueError('VERSION must contain a stable major.minor.patch version')
-    if tag and tag != 'v' + version:
-        raise ValueError('Release tag must exactly match v + VERSION')
+    validate_tag(version, tag)
     return version
+
+
+def validate_tag(version: str, tag: str = '') -> str:
+    tag = tag or 'v' + version
+    if SEMVER.fullmatch(version) is None or re.fullmatch(r'v' + re.escape(version) + r'(?:-beta\.[1-9][0-9]*)?', tag) is None:
+        raise ValueError('Release tag must match v + VERSION, optionally followed by -beta.N')
+    return tag
+
+
+def publication_flags(version: str, tag: str) -> list[str]:
+    beta = '-beta.' in validate_tag(version, tag)
+    return ['--prerelease=true', '--latest=false'] if beta else ['--prerelease=false', '--latest']
 
 
 def archive_name(architecture: str) -> str:
@@ -75,6 +86,8 @@ def read_archive(path: Path, expected_version: str) -> dict:
                     or 'runtime-state.json' in parts or any(p.endswith('.appex') for p in parts)):
                 raise ValueError('Runtime data or unsupported extension found in archive')
         info = plistlib.loads(archive.read(APP_NAME + '/Contents/Info.plist'))
+        if 'WristBeamReleaseTag' in info:
+            validate_tag(expected_version, info['WristBeamReleaseTag'])
         if (info.get('CFBundleIdentifier') != BUNDLE_ID
                 or info.get('CFBundleExecutable') != 'GarminPulse'
                 or info.get('CFBundleShortVersionString') != expected_version
@@ -109,7 +122,8 @@ def extract_and_verify(archive: Path, destination: Path, version: str, architect
     return app
 
 
-def write_manifest(directory: Path, version: str, commit: str) -> dict:
+def write_manifest(directory: Path, version: str, commit: str, tag: str = '') -> dict:
+    tag = validate_tag(version, tag)
     if not re.fullmatch('[0-9a-f]{40}', commit):
         raise ValueError('Expected a full Git commit SHA')
     expected = {archive_name(a) for a in ARCHITECTURES}
@@ -118,9 +132,11 @@ def write_manifest(directory: Path, version: str, commit: str) -> dict:
     assets = []
     for architecture in ARCHITECTURES:
         path = directory / archive_name(architecture)
-        read_archive(path, version)
+        info = read_archive(path, version)
+        if info.get('WristBeamReleaseTag', 'v' + version) != tag:
+            raise ValueError('Application release tag does not match the manifest')
         assets.append({'name': path.name, 'architecture': architecture, 'bytes': path.stat().st_size, 'sha256': file_digest(path)})
-    manifest = {'version': version, 'tag': 'v' + version, 'commit': commit, 'minimum_macos': '13.0', 'assets': assets}
+    manifest = {'version': version, 'tag': tag, 'commit': commit, 'minimum_macos': '13.0', 'assets': assets}
     (directory / 'SHA256SUMS.txt').write_text(''.join(f"{a['sha256']}  {a['name']}\n" for a in assets))
     (directory / 'release-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     return manifest

@@ -8,7 +8,7 @@ import unittest
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
-from release_support import APP_NAME, ARCHITECTURES, BUNDLE_ID, archive_name, file_digest, read_archive, release_version, safe_member, write_manifest
+from release_support import APP_NAME, ARCHITECTURES, BUNDLE_ID, archive_name, file_digest, publication_flags, read_archive, release_version, safe_member, write_manifest
 
 
 class ReleaseTests(unittest.TestCase):
@@ -41,6 +41,17 @@ class ReleaseTests(unittest.TestCase):
             self.version_file.write_text(value)
             with self.subTest(value=value), self.assertRaises(ValueError):
                 release_version(version_file=self.version_file)
+
+    def test_beta_tags_match_numeric_bundle_version(self):
+        self.assertEqual(release_version('v0.3.1-beta.1', self.version_file), '0.3.1')
+        self.assertEqual(release_version('v0.3.1-beta.12', self.version_file), '0.3.1')
+        for tag in ['v0.3.0-beta.1', 'v0.3.1-beta.0', 'v0.3.1-beta.01', 'v0.3.1-beta.1\n', 'v0.3.1-rc.1', 'v0.3.1-beta.1/../bad']:
+            with self.subTest(tag=tag), self.assertRaises(ValueError):
+                release_version(tag, self.version_file)
+
+    def test_beta_publication_never_promotes_latest(self):
+        self.assertEqual(publication_flags('0.3.1', 'v0.3.1-beta.1'), ['--prerelease=true', '--latest=false'])
+        self.assertEqual(publication_flags('0.3.1', 'v0.3.1'), ['--prerelease=false', '--latest'])
 
     def test_archive_names_are_bounded(self):
         self.assertEqual(archive_name('universal'), 'WristBeam-macOS-universal.zip')
@@ -126,6 +137,18 @@ class ReleaseTests(unittest.TestCase):
         self.package('Demo.zip')
         with self.assertRaises(ValueError):
             write_manifest(self.root, '0.3.1', 'a' * 40)
+
+    def test_beta_manifest_requires_same_tag_in_every_bundle(self):
+        tag = 'v0.3.1-beta.1'
+        for architecture in ARCHITECTURES:
+            self.package(archive_name(architecture), changes={'WristBeamReleaseTag': tag})
+        manifest = write_manifest(self.root, '0.3.1', 'a' * 40, tag)
+        self.assertEqual(manifest['tag'], tag)
+        self.assertEqual(manifest['version'], '0.3.1')
+        for changes in [{}, {'WristBeamReleaseTag': 'v0.3.1-beta.2'}, {'WristBeamReleaseTag': 'v0.3.2-beta.1'}]:
+            self.package(archive_name('arm64'), changes=changes)
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                write_manifest(self.root, '0.3.1', 'a' * 40, tag)
 
     def test_streaming_checksum_changes_when_content_changes(self):
         p = self.root / 'bytes'

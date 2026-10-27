@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.11-beta.1 — 2026-10-27
+
+- Adapt dashboard cards, actions and connection status to narrow windows and larger text; keep battery percentages on one line. Preserve Connect IQ, independent preferences and browsing/scroll restoration.
+- Offer independent live-watch and cloud-history onboarding. Clarify data origins, timestamps, loading, cancellation and local export results.
+- Add account-scoped download management with sizes, Finder reveal and reversible Trash. Keep original watch files and account data.
+- Bound Connect IQ artwork decoding/cache use, reuse encoded share images, and improve native share preview feedback and screenshot resource cleanup.
+- Publish this preview as a GitHub prerelease, excluded from the stable updater. The app's numeric bundle version is 0.3.11 (build 18); About and Software updates show the beta tag.
+
 ## 0.3.10 — 2026-10-23
 
 - Expand Sync settings, Files and uploads, and other sections by clicking anywhere on their header. Keep controls inside expanded sections independent, with consistent borders and hover/focus feedback.

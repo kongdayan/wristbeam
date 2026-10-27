@@ -108,6 +108,8 @@ jobs:
       - name: Native XCTest suite
         run: swift test
       - name: Build and sign application
+        env:
+          PULSE_RELEASE_TAG: ${{ inputs.release-tag }}
         run: zsh scripts/build.sh
       - name: Installed application language and update lifecycle regression
         run: |

@@ -12,7 +12,7 @@ struct SoftwareUpdatePage: View {
                     HStack {
                         Label(L10n.text("腕映"), systemImage: "waveform.path.ecg").font(PulseTheme.font(size: 18, weight: .semibold))
                         Spacer()
-                        Text(L10n.text("v\(updater.currentVersion)")).font(PulseTheme.font(size: 15, design: .monospaced))
+                        Text("v\(updater.displayVersion)").font(PulseTheme.font(size: 15, design: .monospaced))
                     }
                     Text(L10n.text(updater.status)).font(PulseTheme.font(size: 13)).textSelection(.enabled)
                     if let date = updater.lastChecked { Text(L10n.text("上次检查：\(date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(L10n.locale)))")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary) }

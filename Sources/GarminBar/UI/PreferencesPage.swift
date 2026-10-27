@@ -82,7 +82,7 @@ struct PreferencesPage: View {
                 Image(systemName:"waveform.path.ecg").font(.system(size:48)).foregroundStyle(PulseTheme.mint)
                 Text(L10n.text("腕映")).font(PulseTheme.font(size:24,weight:.semibold))
                 Text(L10n.text("腕上健康，桌面可见。")).foregroundStyle(PulseTheme.secondary)
-                Text("v\(model.updater.currentVersion) · \(Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "—")").font(PulseTheme.font(size:12,design:.monospaced))
+                Text("v\(model.updater.displayVersion) · \(Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "—")").font(PulseTheme.font(size:12,design:.monospaced))
             }.frame(maxWidth:.infinity).padding(.vertical,18)
             PreferenceBlock(title:"开源项目") {
                 PreferenceLine(title:"源代码") { Link("GitHub ↗",destination:URL(string:"https://github.com/kongdayan/wristbeam")!) }

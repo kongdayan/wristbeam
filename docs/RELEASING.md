@@ -65,4 +65,10 @@ Release first looks for a successful `ci.yml` main-push run for the exact tag co
 
 A release is still an explicit operator action. These workflows do not create version tags automatically.
 
+## Beta previews
+
+An explicitly requested beta uses a tag such as `v0.3.11-beta.1` matching numeric `VERSION` (`0.3.11`). Release runs the full compatibility checks and synthetic native showcase rendering, then publishes the same three verified architecture packages as a GitHub prerelease with `latest=false`. The stable release stays Latest, and the production updater excludes prereleases. A beta from a development branch uses full release verification rather than reusing main artifacts; a beta does not merge that branch into main.
+
+Bundle identifiers and private data locations stay the same. `CFBundleShortVersionString` remains numeric; `WristBeamReleaseTag` identifies the precise beta in About, Software updates and the release manifest. Every architecture must contain that same tag. Install only the verified public release package, keep one `/Applications/WristBeam.app`, and move the superseded bundle to Trash without changing accounts, preferences or health data. Betas are installed manually; this does not introduce an automatic beta update channel. The numeric updater comparison does not offer a same-number stable release over a beta; manually install that stable package or update when the next numeric version is available.
+
 CI job/step trends and compiler/render resource measurements are described in [CI performance](CI-PERFORMANCE.md).

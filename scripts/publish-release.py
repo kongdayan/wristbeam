@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
-from release_support import ARCHITECTURES, ROOT, archive_name, file_digest, release_version
+from release_support import ARCHITECTURES, ROOT, archive_name, file_digest, publication_flags, release_version
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--directory', required=True, type=Path)
@@ -29,7 +29,7 @@ with tempfile.TemporaryDirectory(prefix='pulse-release-notes-') as temporary:
     notes = Path(temporary) / 'notes.md'
     notes.write_text(f'''Download the Apple Silicon, Intel, or Universal ZIP for your Mac. Requires macOS 13 or later.\n\n[What's new](https://github.com/{repo}/blob/{args.tag}/CHANGELOG.md) · [Setup guide](https://github.com/{repo}/blob/{args.tag}/docs/SETUP.md) · [Package verification](https://github.com/{repo}/blob/{args.tag}/docs/RELEASING.md)\n''')
     if current.returncode != 0:
-        subprocess.run(['gh', 'release', 'create', args.tag, '--repo', repo, '--verify-tag', '--draft', '--title', 'WristBeam ' + version, '--generate-notes', '--notes-file', str(notes)], check=True)
+        subprocess.run(['gh', 'release', 'create', args.tag, '--repo', repo, '--verify-tag', '--draft', '--title', 'WristBeam ' + args.tag.removeprefix('v'), '--generate-notes', '--notes-file', str(notes)], check=True)
     assets = [args.directory / archive_name(a) for a in ARCHITECTURES]
     assets += [args.directory / 'SHA256SUMS.txt', args.directory / 'release-manifest.json']
     subprocess.run(['gh', 'release', 'upload', args.tag, '--repo', repo, '--clobber', *map(str, assets)], check=True)
@@ -39,5 +39,5 @@ with tempfile.TemporaryDirectory(prefix='pulse-release-notes-') as temporary:
         asset = by_name.get(path.name)
         if asset is None or asset.get('size') != path.stat().st_size or asset.get('digest') != 'sha256:' + file_digest(path):
             raise ValueError('GitHub asset size/digest does not match validated file')
-    subprocess.run(['gh', 'release', 'edit', args.tag, '--repo', repo, '--draft=false', '--latest'], check=True)
+    subprocess.run(['gh', 'release', 'edit', args.tag, '--repo', repo, '--draft=false', *publication_flags(version, args.tag)], check=True)
 print('PASS published validated release:', args.tag)
