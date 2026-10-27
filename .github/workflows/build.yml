@@ -99,9 +99,9 @@ jobs:
           if-no-files-found: error
           retention-days: 3
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: inputs.showcase && matrix.runner == 'macos-15'
+        if: inputs.showcase && matrix.arch == 'arm64'
         with:
-          name: native-interface-macos15
+          name: native-interface-${{ matrix.runner == 'macos-15' && 'macos15' || matrix.runner }}
           path: |
             dist/interface-renders/*.png
             dist/interface-renders/*-timing.json

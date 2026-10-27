@@ -60,7 +60,7 @@ struct ActivityDownloadsView: View {
                     }
                 }
             }.frame(minHeight: 180, maxHeight: .infinity)
-        }.padding(24).frame(width: 620, height: 540).background(PulseTheme.background)
+        }.padding(24).frame(width: 620, height: PulseTheme.textScale >= 1.4 ? 650 : 540).background(PulseTheme.background)
             .font(PulseTheme.font(size: 13)).controlSize(.regular).buttonStyle(PulseButtonStyle())
             .task(id: library.cacheRevision) { await library.refreshDownloads() }
             .confirmationDialog(L10n.text("将下载文件移到废纸篓？"), isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }), titleVisibility: .visible) {

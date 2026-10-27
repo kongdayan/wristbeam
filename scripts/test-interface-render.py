@@ -239,6 +239,7 @@ import SwiftUI
                 precondition(!model.cloud.networkEnabled)
                 try await render(LoginSheet(model:model),name:"login-controls-\(language)-\(theme)",dark:dark,output:output)
                 try await render(MenuPopover(model:model),name:"menu-large-\(language)-\(theme)",dark:dark,output:output)
+                try await render(ActivityDownloadsView(library:model.activities),name:"downloads-large-\(language)-\(theme)",dark:dark,output:output)
                 try await renderMainPage(model:model,width:880,height:640,name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
                 for page in [AppPage.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)

@@ -44,10 +44,10 @@ struct SettingsRootView: View {
                 .padding(.bottom, 14)
             }.padding(.horizontal, 18).frame(maxWidth: .infinity)
                 .background(Color.primary.opacity(0.025))
-                .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 280)
+                .navigationSplitViewColumnWidth(min: 210 * sidebarScale, ideal: 230 * sidebarScale, max: 320)
         } detail: {
             ScrollViewReader { scroll in
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 VStack(alignment: .leading, spacing: PulseTheme.sectionSpacing) {
                     if let kind = model.detailMetric {
                         if kind.isOvernightHRV { HRVDetailView(model: model, kind: kind) } else { MetricDetailView(model: model, kind: kind) }
@@ -80,12 +80,15 @@ struct SettingsRootView: View {
             .coordinateSpace(name: "wristbeam-main-content")
     }
     private func sidebarPage(_ page: AppPage) -> some View {
-        Label {
-            Text(page == .settings ? L10n.text("常规设置") : page.title).fixedSize(horizontal: false, vertical: true)
-        } icon: {
-            Image(systemName: page.symbol)
+        let title = page == .settings ? L10n.text("常规设置") : page.title
+        return HStack(spacing: 9) {
+            Image(systemName: page.symbol).frame(width: 18).accessibilityHidden(true)
+            Text(title).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }.font(PulseTheme.font(size: 12)).padding(.vertical, 4).tag(page)
+            .help(title).accessibilityElement(children: .combine)
     }
+    private var sidebarScale: CGFloat { CGFloat(max(1, min(1.25, model.fontScale / 1.15))) }
     private func sidebarAction(_ title: String, symbol: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol).frame(width: 18)
