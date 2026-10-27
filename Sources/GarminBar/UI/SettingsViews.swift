@@ -24,7 +24,8 @@ struct SettingsRootView: View {
                             ForEach(AppPage.settingsPages) { page in sidebarPage(page) }
                         }
                     }
-                }.onChange(of: model.page) { page in sidebar.scrollTo(page == .account ? .watch : page, anchor: .center) }
+                }.onAppear { sidebar.scrollTo(model.page == .account ? .watch : model.page, anchor: .center) }
+                    .onChange(of: model.page) { page in sidebar.scrollTo(page == .account ? .watch : page, anchor: .center) }
                 }
                 Spacer()
                 VStack(spacing: 8) {
