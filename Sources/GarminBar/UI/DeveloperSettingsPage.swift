@@ -35,7 +35,7 @@ struct DeveloperSettingsPage: View {
                         .font(PulseTheme.font(size:12)).foregroundStyle(.orange).padding(15)
                 }
                 PreferenceLine(title:"监听范围") {
-                    Picker("",selection:$access.configuration.host) { Text(L10n.text("仅本机")).tag("127.0.0.1"); Text(L10n.text("局域网（要求 HTTPS）")).tag("0.0.0.0") }.pickerStyle(.menu).labelsHidden()
+                    Picker("",selection:$access.configuration.host) { Text(L10n.text("仅本机")).tag("127.0.0.1"); Text(L10n.text("局域网（要求 HTTPS）")).tag("0.0.0.0") }.pickerStyle(.menu).buttonStyle(.bordered).labelsHidden()
                 }
                 PreferenceLine(title:"端口") { TextField("17890",value:$access.configuration.port,format:.number.grouping(.never)).frame(width:95).textFieldStyle(.roundedBorder) }
                 PreferenceLine(title:"使用 HTTPS") { Toggle("",isOn:$access.configuration.https).labelsHidden().toggleStyle(.switch) }
@@ -67,7 +67,7 @@ struct DeveloperSettingsPage: View {
             PreferenceBlock(title:"Webhook") {
                 PreferenceLine(title:"启用数据更新 Webhook",note:"开启后，将所选健康指标与同步状态发送到下方地址。目标服务会获得这些数据，请只填写你信任的接收端。") { Toggle("",isOn:$access.configuration.webhookEnabled).labelsHidden().toggleStyle(.switch) }
                 PreferenceLine(title:"接收地址") { TextField("https://your-service.example/hook",text:$access.configuration.webhookURL).textFieldStyle(.roundedBorder) }
-                PreferenceLine(title:"合并投递间隔") { Picker("",selection:$access.configuration.webhookInterval) { Text(L10n.text("10 秒")).tag(10); Text(L10n.text("1 分钟")).tag(60); Text(L10n.text("5 分钟")).tag(300) }.pickerStyle(.menu).labelsHidden() }
+                PreferenceLine(title:"合并投递间隔") { Picker("",selection:$access.configuration.webhookInterval) { Text(L10n.text("10 秒")).tag(10); Text(L10n.text("1 分钟")).tag(60); Text(L10n.text("5 分钟")).tag(300) }.pickerStyle(.menu).buttonStyle(.bordered).labelsHidden() }
                 PulseDisclosure(L10n.text("选择发送的指标")) {
                     LazyVGrid(columns:[GridItem(.adaptive(minimum:180))],alignment:.leading) {
                         ForEach(kinds) { kind in

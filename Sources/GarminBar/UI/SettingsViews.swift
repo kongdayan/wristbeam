@@ -17,17 +17,7 @@ struct SettingsRootView: View {
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
                 }.padding(.top, 20)
-                List(selection: Binding<AppPage?>(get: { model.page == .account ? .watch : model.page }, set: { if let page = $0 { model.openSettings(page) } })) {
-                    Section {
-                        ForEach(AppPage.navigationPages) { page in sidebarPage(page) }
-                    }
-                    if model.page.isSettings {
-                        Section(L10n.text("设置")) {
-                            ForEach(AppPage.settingsPages) { page in sidebarPage(page) }
-                        }
-                    }
-                }.listStyle(.sidebar).scrollContentBackground(.hidden)
-                    .environment(\.defaultMinListRowHeight, 36)
+                sidebarNavigation
                 VStack(spacing: 8) {
                     Button { model.openSettings(model.settingsPage) } label: {
                         sidebarAction("设置", symbol: "gearshape")
@@ -79,14 +69,37 @@ struct SettingsRootView: View {
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
             .coordinateSpace(name: "wristbeam-main-content")
     }
+    private var sidebarNavigation: some View {
+        ScrollViewReader { sidebar in
+            List(selection: Binding<AppPage?>(get: { selectedSidebarPage }, set: { if let page = $0 { model.openSettings(page) } })) {
+                Section {
+                    ForEach(AppPage.navigationPages) { page in sidebarPage(page) }
+                }
+                if model.page.isSettings {
+                    Section(L10n.text("设置")) {
+                        ForEach(AppPage.settingsPages) { page in sidebarPage(page) }
+                    }
+                }
+            }.listStyle(.sidebar).scrollContentBackground(.hidden)
+                .environment(\.defaultMinListRowHeight, 36)
+                .background { if onLayout != nil { recordBounds("sidebar-list") } }
+                .task(id: "\(selectedSidebarPage.id):\(model.fontScale)") {
+                    await Task.yield()
+                    guard !Task.isCancelled else { return }
+                    sidebar.scrollTo(selectedSidebarPage.id, anchor: .center)
+                }
+        }
+    }
+    private var selectedSidebarPage: AppPage { model.page == .account ? .watch : model.page }
     private func sidebarPage(_ page: AppPage) -> some View {
         let title = page == .settings ? L10n.text("常规设置") : page.title
         return HStack(spacing: 9) {
             Image(systemName: page.symbol).frame(width: 18).accessibilityHidden(true)
             Text(title).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-        }.font(PulseTheme.font(size: 12)).padding(.vertical, 4).tag(page)
+        }.font(PulseTheme.font(size: 12)).padding(.vertical, 4).tag(page).id(page.id)
             .help(title).accessibilityElement(children: .combine)
+            .background { if onLayout != nil && selectedSidebarPage == page { recordBounds("sidebar-selection") } }
     }
     private var sidebarScale: CGFloat { CGFloat(max(1, min(1.25, model.fontScale / 1.15))) }
     private func sidebarAction(_ title: String, symbol: String) -> some View {
@@ -559,7 +572,7 @@ struct LoginSheet: View {
             PulseFlowLayout(spacing: 12) {
                 Picker(L10n.text("登录方式"), selection: Binding(get: { model.cloud.loginMode }, set: { model.cloud.prepareLogin(mode: $0) })) {
                     ForEach(GarminLoginMode.allCases) { mode in Text(L10n.text(mode.label)).tag(mode) }
-                }.pickerStyle(.menu).labelsHidden().accessibilityLabel(L10n.text("登录方式")).fixedSize()
+                }.pickerStyle(.menu).buttonStyle(.bordered).labelsHidden().accessibilityLabel(L10n.text("登录方式")).fixedSize()
                 Button(L10n.text("在浏览器中登录 ↗")) {
                     model.cloud.prepareLogin(mode: .portal)
                     NSWorkspace.shared.open(model.cloud.makeLoginURL())

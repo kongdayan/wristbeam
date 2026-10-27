@@ -365,6 +365,12 @@ import SwiftUI
         try data.write(to:output.appendingPathComponent(name + ".png"))
         try await writeWindowCapture(window,name:name,output:output)
         let original = window.frame
+        let previousScale = model.fontScale
+        model.fontScale = 1.6
+        window.setFrame(NSRect(origin:original.origin,size:NSSize(width:880,height:640)),display:true)
+        try await writeWindowCapture(window,name:name + "-narrow",output:output)
+        model.fontScale = previousScale
+        window.setFrame(original,display:true)
         window.performZoom(nil)
         try await Task.sleep(nanoseconds:100_000_000)
         precondition(window.frame != original, "Native zoom did not resize the window")
@@ -429,7 +435,10 @@ import SwiftUI
         if let ready {
             let deadline = Date().addingTimeInterval(10)
             while !ready() && Date() < deadline { try await Task.sleep(nanoseconds:50_000_000) }
-            precondition(ready(), "Native preview did not become ready: \(name)")
+            if !ready() {
+                if captureWindowFrame { try await writeWindowCapture(window,name:name + "-not-ready",output:output) }
+                throw NSError(domain:"NativePreview",code:1,userInfo:[NSLocalizedDescriptionKey:"Native preview did not become ready: \(name)"])
+            }
             try await Task.sleep(nanoseconds:50_000_000)
         }
         host.layoutSubtreeIfNeeded()
@@ -456,16 +465,24 @@ import SwiftUI
     }
     @MainActor static func renderMainPage(model:AppModel,width:CGFloat,height:CGFloat,name:String,dark:Bool,output:URL) async throws {
         var frames: [String:CGRect] = [:]
+        defer {
+            let geometry = frames.mapValues { ["x":Double($0.minX),"y":Double($0.minY),"width":Double($0.width),"height":Double($0.height)] }
+            if let data = try? JSONSerialization.data(withJSONObject:geometry,options:[.prettyPrinted,.sortedKeys]) {
+                try? data.write(to:output.appendingPathComponent(name + "-layout.json"))
+            }
+        }
         let view = SettingsRootView(model:model,onLayout:{ frames.merge($0,uniquingKeysWith:{ _, latest in latest }) }).frame(width:width,height:height)
-        try await render(view,name:name,dark:dark,output:output,ready:{ frames["app-brand"] != nil },captureWindowFrame:true)
-        let geometry = frames.mapValues { ["x":$0.minX,"y":$0.minY,"width":$0.width,"height":$0.height] }
-        try JSONSerialization.data(withJSONObject:geometry,options:[.prettyPrinted,.sortedKeys]).write(to:output.appendingPathComponent(name + "-layout.json"))
+        try await render(view,name:name,dark:dark,output:output,ready:{
+            guard frames["app-brand"] != nil, let list = frames["sidebar-list"], let row = frames["sidebar-selection"] else { return false }
+            return list.insetBy(dx:-1,dy:-1).contains(row)
+        },captureWindowFrame:true)
         let viewport = CGRect(x:0,y:0,width:width,height:height).insetBy(dx:-1,dy:-1)
         let identifiers = model.page.isSettings ? ["app-brand","page-title"] : ["app-brand"]
         for identifier in identifiers {
             guard let frame = frames[identifier] else { fatalError("Missing layout marker \(identifier) in \(name)") }
             precondition(frame.width > 0 && frame.height > 0 && viewport.contains(frame), "Clipped \(identifier) in \(name): \(frame)")
         }
+        precondition(frames["sidebar-list"]!.insetBy(dx:-1,dy:-1).contains(frames["sidebar-selection"]!), "Selected sidebar row is clipped in \(name)")
     }
     @MainActor static func writeWindowCapture(_ window:NSWindow,name:String,output:URL) async throws {
         precondition(PulseRuntime.isPreview && window.isVisible)
@@ -532,7 +549,7 @@ struct ControlShowcase: View {
                         Text(L10n.text("跟随系统")).tag(0)
                         Text(L10n.text("浅色")).tag(1)
                         Text(L10n.text("深色")).tag(2)
-                    }.pickerStyle(.menu).labelsHidden()
+                    }.pickerStyle(.menu).buttonStyle(.bordered).labelsHidden()
                 }
                 PreferenceLine(title:"自动检查新版本") { Toggle("",isOn:$enabled).toggleStyle(.switch).labelsHidden() }
                 PreferenceLine(title:"客户端名称") { TextField(L10n.text("客户端名称"),text:$text).textFieldStyle(.roundedBorder) }
