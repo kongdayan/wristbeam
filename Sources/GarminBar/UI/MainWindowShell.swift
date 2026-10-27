@@ -3,8 +3,9 @@ import SwiftUI
 
 /// One native window shell shared by the application and the CI window fixture.
 @MainActor
-final class PulseSettingsWindow: NSWindow {
+final class PulseSettingsWindow: NSWindow, NSWindowDelegate {
     var onPreviewSnapshot: (() -> Void)?
+    var restoresAccessoryOnClose = false
 
     static func make(model: AppModel) -> PulseSettingsWindow {
         let window = PulseSettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 1020, height: 740),
@@ -18,7 +19,19 @@ final class PulseSettingsWindow: NSWindow {
         window.minSize = NSSize(width: 880, height: 640)
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: SettingsRootView(model: model))
+        window.delegate = window
+        window.restoresAccessoryOnClose = !model.preview
         return window
+    }
+
+    func presentMainWindow() {
+        NSApp.setActivationPolicy(.regular)
+        makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        if restoresAccessoryOnClose { NSApp.setActivationPolicy(.accessory) }
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {

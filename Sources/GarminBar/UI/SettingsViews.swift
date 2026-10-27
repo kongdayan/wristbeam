@@ -540,6 +540,7 @@ struct LoginSheet: View {
     @State private var callbackURL = ""
     @State private var callbackError = ""
     @State private var loginLoading = false
+    @State private var copyStatus = ""
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -548,21 +549,21 @@ struct LoginSheet: View {
                 if loginLoading { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在打开官方登录页…")) }
                 Button(L10n.text("关闭")) { model.showLogin = false }.buttonStyle(PulseButtonStyle()).keyboardShortcut(.cancelAction)
             }.padding(17).background(PulseTheme.background)
-            HStack(spacing: 12) {
+            PulseFlowLayout(spacing: 12) {
                 Picker(L10n.text("登录方式"), selection: Binding(get: { model.cloud.loginMode }, set: { model.cloud.prepareLogin(mode: $0) })) {
                     ForEach(GarminLoginMode.allCases) { mode in Text(L10n.text(mode.label)).tag(mode) }
-                }.labelsHidden().frame(width: 175)
+                }.pickerStyle(.menu).labelsHidden().accessibilityLabel(L10n.text("登录方式")).fixedSize()
                 Button(L10n.text("在浏览器中登录 ↗")) {
                     model.cloud.prepareLogin(mode: .portal)
                     NSWorkspace.shared.open(model.cloud.makeLoginURL())
-                }.buttonStyle(.plain)
+                }.buttonStyle(PulseButtonStyle())
                 Button(L10n.text("重新加载")) { model.cloud.prepareLogin() }.buttonStyle(PulseButtonStyle())
                 Button(L10n.text("复制登录配置链接")) {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(model.cloud.makeLoginURL().absoluteString, forType: .string)
-                }.buttonStyle(.plain)
-                Spacer()
+                    copyStatus = NSPasteboard.general.setString(model.cloud.makeLoginURL().absoluteString, forType: .string) ? "链接已复制" : "复制失败，请重试"
+                }.buttonStyle(PulseButtonStyle())
             }.font(PulseTheme.font(size: 11)).padding(.horizontal, 17).padding(.bottom, 12).background(PulseTheme.background)
+            if !copyStatus.isEmpty { Text(L10n.text(copyStatus)).font(PulseTheme.font(size: 11)).padding(.horizontal, 17).padding(.bottom, 8) }
             GarminLoginWebView(cloud: model.cloud, isLoading: $loginLoading)
             PulseDisclosure(L10n.text("浏览器登录后的连接")) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -570,10 +571,11 @@ struct LoginSheet: View {
                         .font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                     HStack {
                         SecureField(L10n.text("粘贴官方认证回跳地址"), text: $callbackURL).textFieldStyle(.roundedBorder)
+                            .accessibilityLabel(L10n.text("粘贴官方认证回跳地址"))
                         Button(L10n.text("连接")) {
                             if let url = URL(string: callbackURL), model.cloud.handleNavigation(url) { callbackURL = ""; callbackError = "" }
                             else { callbackError = "此地址未包含当前登录方式的有效官方回跳凭据" }
-                        }
+                        }.buttonStyle(PulseButtonStyle(prominent: true)).disabled(callbackURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                     if !callbackError.isEmpty { Text(L10n.text(callbackError)).font(PulseTheme.font(size: 10)).foregroundStyle(.orange) }
                 }

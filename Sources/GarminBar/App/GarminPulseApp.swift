@@ -32,7 +32,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
     let model = AppModel()
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
-    private var settingsWindow: NSWindow?
+    private var settingsWindow: PulseSettingsWindow?
     private var floatingPanel: NSPanel?
     private var subscriptions: Set<AnyCancellable> = []
     private var controlObserver: NSObjectProtocol?
@@ -193,7 +193,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
             else { window.setFrameAutosaveName("GarminPulseSettings") }
             settingsWindow = window
         }
-        applyAppearance(); settingsWindow?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        applyAppearance(); settingsWindow?.presentMainWindow()
     }
 
     @objc private func openPreferences() { model.openSettings(model.settingsPage) }

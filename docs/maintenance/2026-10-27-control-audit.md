@@ -4,7 +4,7 @@
 
 The user requested another pass over every button and component after the integrated-settings beta. Settings stay in the main window. This is an explicit product choice; macOS's conventional separate Settings window is not being reinstated.
 
-Baseline: `30ce849`, installed public `v0.3.11-beta.3`. The baseline inventory contains 327 control construction sites across 22 SwiftUI files. A construction site can generate many controls through `ForEach`; this is not a claim that 327 runtime states were exercised. AppKit window chrome and application menus are reviewed separately. No private account, watch, location, health values, or FIT data belong in this record or the fixtures.
+Baseline: `30ce849`, installed public `v0.3.11-beta.3`. The baseline search found 327 control references; excluding one `NSButton` return-type signature leaves 326 control construction sites across 21 SwiftUI files. A construction site can generate many controls through `ForEach`; this is not a claim that 326 runtime states were exercised. [Per-site catalog](2026-10-27-controls.csv) preserves baseline source locations, code, control-type decisions and page-specific review decisions. AppKit window chrome and application menus are reviewed separately. No private account, watch, location, health values, or FIT data belong in this record or the fixtures.
 
 ## Review decisions before implementation
 
@@ -40,6 +40,38 @@ Read from `.agents/skills/apple-design/references/hig/` using the project-local 
 | loading.md › Showing progress | Determinate progress when quantity is known; otherwise indeterminate. |
 
 Apple documents that `titlebarAppearsTransparent` controls the background, not the existence of standard buttons, and that a full-screen window does not draw its normal title bar. Neither fact establishes the cause of the installed screenshot: [title-bar background](https://developer.apple.com/documentation/appkit/nswindow/titlebarappearstransparent), [full-screen style](https://developer.apple.com/documentation/appkit/nswindow/stylemask-swift.struct/fullscreen).
+
+## Page and component coverage
+
+| Source area | Baseline sites | Review result |
+| --- | ---: | --- |
+| ActivityDetailContent | 3 | Statistics/lap disclosure headers keep independent chart content and expansion announcements; add shared row focus/hover. Heart-rate-zone bars keep numeric amounts. Chart cursor supports arrow keys as well as pointing. |
+| ActivityDownloadsView | 9 | Keep search, refresh/busy guard, native file menu, recoverable-trash confirmation and Escape dismissal. Shared regular action geometry applies. File names can wrap. |
+| ActivityLibraryCard | 27 | Keep cached content while loading, cancel/retry, pagination bounds, offline export capability, native save panels, list/detail restoration and meaningful empty states. Refresh interval uses explicit popup selection. |
+| CompactViews | 5 | Keep named floating-window toggle with value, connection shortcut, receive, Settings shortcut and Quit. These are compact menu actions; the compact28-point token applies. |
+| ConnectIQPage | 36 | Enlarge clear-search target, wrap installed/detail actions, name external store link, allow catalog card height to grow and remove competing primary emphasis from every Settings button. Keep actual account/device/install guards, progress/cancel, download confirmation and verified runtime identifiers. |
+| ConnectIQSettingsView | 9 | Keep official native/WebKit wrapper, back versus close, unsaved-change confirmation, disabled save during work, inline errors/retry, account/device-change cancellation and origin restrictions. Official vendor field variants are outside offline synthetic coverage. |
+| DashboardControls | 13 | Unify secondary button and row feedback. Keep switch versus selection distinction, section expand/collapse, bulk selection, search and state counts. Popover keeps local configuration context. |
+| DashboardSharingView | 11 | Unify selection rows; wrap export actions; let native system-share button use intrinsic width and scale its font. Keep explicit preview, selection, single-value mode, image generation state, copy/save errors and native share picker. Rendered image composition keeps a fixed publication layout, distinct from controls. |
+| DeveloperClientsView | 9 | Keep native independent scope checkboxes, name validation and secondary management menu. Name the field explicitly; add revoke consequence confirmation. Retain hidden-key lifecycle and existing scopes. |
+| DeveloperSettingsPage | 29 | Explicit popup selection, wrapping action groups, primary Apply/Save, empty-import guard and key-regeneration consequence confirmation. Keep secure fields, certificate validation, apply/stop distinction, webhook destination guidance, selected metrics and signing controls. |
+| FloatingPulseView | 5 | Keep two-mode segment, horizontally scrolling metric selector, selected trait and distinct Hide action. Native accessibility names/values remain; detail action keeps real routing. Shared compact action sizing applies. |
+| HRVViews | 6 | Date/range controls retain native semantics; wrap date actions and unify secondary buttons/night-row feedback. Keep missing-night states, personal baseline wording, chart gaps and numeric values. |
+| MetricCharts | 11 | Wrap independent date/range controls and unify secondary actions. Keep bounded dates, past/future arrows, stress overlay choice, raw reading disclosure, keyboard cursor and nearest-reading behavior. |
+| PairingGuide | 11 | Keep staged permission/scan/stop/confirm/receive choices and protocol retry. Wide disclosures preserve child interactions. Primary emphasis belongs to the next useful step; shared geometry applies. |
+| PreferencesPage | 21 | Explicit stored-preference popups, two-mode segment, intrinsic percentage and named slider. Keep grouped row titles, prerequisite guidance, native feature switches, automatic saving and official project links. Settings content has a bounded readable width and is centered in wider windows. |
+| SettingsViews | 68 | Keep five primary destinations visible while settings destinations scroll; remove redundant sidebar Quit. Preserve navigation history and scroll state. Add mixed-selection announcements/native checkbox representation; wrap capture actions. Keep device/account/login guards, region selection, explicit login, manual secure callback and diagnostic details. |
+| SetupGuides | 11 | Keep permission request on explicit connection action; receive and upload remain independent switches. Explicit sync-interval popup. Guidance states why unavailable controls cannot act. |
+| SoftwareUpdatePage | 9 | Wrap version/actions; prioritize available install over Check. Keep native repository entry, validation, automatic-check switch, determinate bytes/progress, cancel and file-operation guards. |
+| SyncPage | 18 | Retain distinct receive, upload, import, watched-folder, export and local-data actions, per-section disclosures and local-storage recovery. Existing main actions already adapt; shared geometry applies. |
+| Theme | 5 | Separate action/card/row/disclosure/selection roles. Real checkbox accessibility represents visual grid cells. Empty-state action groups wrap; custom controls retain focus, disabled and reduced-motion behavior. |
+| WatchWeatherCard | 10 | City entry gets its own row and explicit name; independent search/location/status actions wrap. Preserve user-triggered location request, source disclosure, candidate selection, busy guards, delivery status and partial-data guidance. |
+
+Noninteractive/shared structures also reviewed: `PreferenceBlock`/`PreferenceLine`/`PreferenceRowLayout` (consistent margins, semantic names and leading stacked controls), `PulseCard`/`ConnectIQSurface` (surface/separator contrast and18-point corner family), `PulseNotice`/`PulseEmptyState` (local feedback, no color-only meaning), `StatusDot`/`WatchBatteryBadge` (text accompanies state; timestamp remains available), `MetricCard` (one whole-card action with combined value/origin/time), `MetricIcon` (decorative when a name is already present), `SyncProgressView` (receive/local/cloud are distinct and combine accessible text), `ScrollPositionKeeper` (route-specific positions), `NavigationWindowPolicy` (sheets retain command ownership) and `WebScrollAppearance` (official editor scroll appearance).
+
+AppKit review: actual native close/minimize/zoom buttons, full-screen capability, retained main-window instance, Command-W/M and Control-Command-F, Window-menu reopen Command-0, App/Edit/Go menus, modal navigation guards, file save/open panels, WebKit alert/confirmation/text-input sheets and the system share picker. Sheet dismissal stays distinct from quitting the background application. The preview screenshot shortcut now matches Command-S exactly, so it cannot swallow additional-modifier shortcuts.
+
+Fixed brand-color pairs were calculated from the source sRGB values using WCAG relative luminance: light accent on white / white on light accent6.27:1; dark accent on dark surface12.10:1; black on dark accent15.26:1. These figures do not establish every rendered semantic/disabled/hover color's contrast. System semantic colors retain macOS appearance and accessibility adaptation.
 
 ## Verification record
 

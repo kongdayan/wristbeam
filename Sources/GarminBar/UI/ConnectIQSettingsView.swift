@@ -83,7 +83,7 @@ struct ConnectIQSettingsView: View {
                 Button { back() } label: {
                     Label(L10n.text(commands.nested ? "返回" : "关闭"), systemImage: commands.nested ? "chevron.left" : "xmark")
                 }.disabled(saving)
-                Text(context.appName).font(PulseTheme.font(size: 17, weight: .semibold)).lineLimit(1)
+                Text(context.appName).font(PulseTheme.font(size: 17, weight: .semibold)).lineLimit(1).help(context.appName)
                 Spacer()
                 if !commands.nested {
                     Button(L10n.text(saving ? "正在保存…" : "保存到手表")) { submit() }
@@ -315,6 +315,7 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
             alert.addButton(withTitle: L10n.text("确定"))
             alert.addButton(withTitle: L10n.text("取消"))
             let input = NSTextField(string: defaultText ?? "")
+            input.setAccessibilityLabel(prompt)
             input.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
             alert.accessoryView = input
             alert.beginSheetModal(for: window) { [weak self] response in

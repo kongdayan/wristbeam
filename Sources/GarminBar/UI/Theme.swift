@@ -14,6 +14,7 @@ enum PulseTheme {
     static let secondary = Color(nsColor: .secondaryLabelColor)
     static let separator = Color(nsColor: .separatorColor)
     static let onAccent = adaptive(.white, .black)
+    static let destructive = adaptive(NSColor(red: 0.70, green: 0.12, blue: 0.08, alpha: 1), NSColor(red: 1, green: 0.54, blue: 0.50, alpha: 1))
     static func font(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
         .system(size: max(11, size * textScale), weight: weight, design: design)
     }
@@ -228,7 +229,7 @@ struct PulseButtonStyle: ButtonStyle {
         @Environment(\.controlSize) private var controlSize
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
         private var minimumHeight: CGFloat { compact ? 28 : controlSize == .large ? 40 : 32 }
-        private var actionColor: Color { configuration.role == .destructive ? .red : .primary }
+        private var actionColor: Color { configuration.role == .destructive ? PulseTheme.destructive : .primary }
         private var shape: RoundedRectangle {
             RoundedRectangle(cornerRadius: card ? 18 : 7, style: .continuous)
         }

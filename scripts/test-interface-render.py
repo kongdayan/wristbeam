@@ -225,7 +225,6 @@ import SwiftUI
                 model.bluetooth.isScanning = false; model.bluetooth.isConnecting = false
                 model.bluetooth.isConnected = false; model.bluetooth.canSyncFiles = false
                 model.fontScale = 1.15
-                try await verifyWindowChrome(model:model,dark:dark,output:output,name:"window-chrome-\(language)-\(theme)")
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
                     try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
@@ -236,6 +235,8 @@ import SwiftUI
                 try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
                 model.dashboardGrouped = true
                 model.fontScale = 1.6
+                precondition(!model.cloud.networkEnabled)
+                try await render(LoginSheet(model:model),name:"login-controls-\(language)-\(theme)",dark:dark,output:output)
                 try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
                 for page in [AppPage.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
@@ -275,6 +276,17 @@ import SwiftUI
             }
         }
         precondition(model.cloud.requestCount == 0)
+        // Window management must not mutate the render model's scroll/layout state.
+        for english in [false,true] {
+            for dark in [false,true] {
+                let windowModel = AppModel(); windowModel.enablePreview()
+                windowModel.language = english ? .en : .zhHans
+                windowModel.appearance = dark ? .dark : .light
+                windowModel.openSettings(.settings)
+                try await verifyWindowChrome(model:windowModel,dark:dark,output:output,
+                    name:"window-chrome-\(english ? "en" : "zh")-\(dark ? "dark" : "light")")
+            }
+        }
         print("PASS: production-view renders including cached activity detail and Connect IQ; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font; no cloud requests")
     }
     @MainActor static func verifyDisclosureHitTargets(output: URL) {
@@ -330,8 +342,8 @@ import SwiftUI
         let window = PulseSettingsWindow.make(model:model)
         defer { window.contentView = nil; window.close() }
         window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
-        window.center(); window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps:true)
+        window.center(); window.presentMainWindow()
+        precondition(NSApp.activationPolicy() == .regular)
         try await Task.sleep(nanoseconds:150_000_000)
         for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
             guard let button = window.standardWindowButton(type) else { fatalError("Missing native window button") }
@@ -341,9 +353,9 @@ import SwiftUI
         }
         precondition(window.collectionBehavior.contains(.fullScreenPrimary))
         // Capture NSThemeFrame, including native title bar, instead of only NSHostingView.
-        guard let frame = window.contentView?.superview,
-              let bitmap = frame.bitmapImageRepForCachingDisplay(in:frame.bounds) else { fatalError("Missing window frame") }
+        guard let frame = window.contentView?.superview else { fatalError("Missing window frame") }
         frame.layoutSubtreeIfNeeded(); frame.displayIfNeeded()
+        guard let bitmap = frame.bitmapImageRepForCachingDisplay(in:frame.bounds) else { fatalError("Missing window bitmap") }
         frame.cacheDisplay(in:frame.bounds,to:bitmap)
         guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("Window PNG failed") }
         try data.write(to:output.appendingPathComponent(name + ".png"))
@@ -364,9 +376,30 @@ import SwiftUI
             try await Task.sleep(nanoseconds:100_000_000)
         }
         precondition(!window.isMiniaturized)
+        if name == "window-chrome-zh-light" {
+            let transition = FullScreenTransitionProbe()
+            window.delegate = transition
+            window.toggleFullScreen(nil)
+            for _ in 0..<100 {
+                if transition.entered { break }
+                try await Task.sleep(nanoseconds:100_000_000)
+            }
+            precondition(transition.entered && window.styleMask.contains(.fullScreen), "Native full-screen entry failed")
+            window.toggleFullScreen(nil)
+            for _ in 0..<100 {
+                if transition.exited { break }
+                try await Task.sleep(nanoseconds:100_000_000)
+            }
+            precondition(transition.exited && !window.styleMask.contains(.fullScreen), "Native full-screen exit failed")
+            window.delegate = window
+            print("PASS native full-screen entry and exit completed")
+        }
+        window.restoresAccessoryOnClose = true
         window.performClose(nil)
         precondition(!window.isVisible)
-        window.makeKeyAndOrderFront(nil)
+        precondition(NSApp.activationPolicy() == .accessory)
+        window.presentMainWindow()
+        precondition(NSApp.activationPolicy() == .regular)
         precondition(window.isVisible, "Closing must allow the same window to reopen")
         print("PASS \(name): native close, minimize, zoom, reopen, fullscreen capability and complete window capture")
     }
@@ -379,9 +412,13 @@ import SwiftUI
         defer { window.contentView = nil; window.close() }
         window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
         window.contentView = host
+        // NavigationSplitView can install a toolbar when attached. Re-establish
+        // the requested content dimensions after that AppKit layout has settled.
         host.layoutSubtreeIfNeeded()
         // Yield the main actor so view tasks and background PNG encoding can finish.
         try await Task.sleep(nanoseconds:50_000_000)
+        window.setContentSize(size)
+        host.layoutSubtreeIfNeeded()
         if let ready {
             let deadline = Date().addingTimeInterval(10)
             while !ready() && Date() < deadline { try await Task.sleep(nanoseconds:50_000_000) }
@@ -389,6 +426,9 @@ import SwiftUI
             try await Task.sleep(nanoseconds:50_000_000)
         }
         host.layoutSubtreeIfNeeded()
+        if name.hasPrefix("page-") || name.hasPrefix("preferences-narrow-") {
+            print("LAYOUT \(name) host=\(host.frame) bounds=\(host.bounds) window=\(window.frame) fitting=\(host.fittingSize)")
+        }
         try autoreleasepool {
             guard let bitmap = host.bitmapImageRepForCachingDisplay(in:host.bounds) else { fatalError("Render failed: \(name)") }
             host.cacheDisplay(in:host.bounds,to:bitmap)
@@ -404,6 +444,12 @@ import SwiftUI
 }
 @MainActor final class InteractionHostingView: NSHostingView<DisclosureInteractionFixture> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+@MainActor final class FullScreenTransitionProbe: NSObject, NSWindowDelegate {
+    var entered = false
+    var exited = false
+    func windowDidEnterFullScreen(_ notification:Notification) { entered = true }
+    func windowDidExitFullScreen(_ notification:Notification) { exited = true }
 }
 @MainActor final class DisclosureInteractionState: ObservableObject {
     @Published var expanded = false
