@@ -1,10 +1,10 @@
 # Changelog
 
-## 0.3.11-beta.2 — 2026-10-27
+## 0.3.11-beta.3 — 2026-10-27
 
 - Keep settings inside the main application window. Settings and Command–comma open the remembered category in the existing sidebar/content layout; appearance, metrics, refresh, developer options, updates and About share that navigation.
 - Preserve activity search, pagination and scroll position when returning from settings. Attach update confirmations to the main window and keep sheet/modal navigation guards.
-- Remove the separate preferences window and validate normal/large-text integrated settings with native synthetic screenshots. Numeric version remains 0.3.11, build 19.
+- Remove the separate preferences window and validate normal/large-text integrated settings with native synthetic screenshots. Numeric version remains 0.3.11, build 20. The beta 2 validation was cancelled before publication to update an obsolete routing assertion.
 
 ## 0.3.11-beta.1 — 2026-10-27
 

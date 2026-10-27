@@ -45,11 +45,11 @@ import SwiftUI
         model.page = .activities
         model.detailMetric = .heartRate
         model.openSettings(.appearance)
-        precondition(model.page == .activities && model.detailMetric == .heartRate && model.settingsPage == .appearance)
+        precondition(model.page == .appearance && model.detailMetric == nil && model.settingsPage == .appearance)
         model.openSettings(.account)
         precondition(model.page == .account && model.detailMetric == nil && model.settingsPage == .appearance)
         precondition(AppPage.navigationPages.allSatisfy { !$0.isSettings })
-        print("PASS preferences routing preserves main content and device links return to the main window")
+        print("PASS settings and device links share main-window routing and retain the selected settings category")
         model.autoSync = true; model.cloudSyncEnabled = true; model.autoUpload = true
         model.cloudSyncEnabled = false
         precondition(model.autoSync && !model.autoUpload && !model.cloud.networkEnabled)
