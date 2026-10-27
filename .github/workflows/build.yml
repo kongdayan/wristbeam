@@ -64,7 +64,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-interaction-failure-${{ matrix.runner }}
-          path: dist/interface-renders/*.png
+          path: |
+            dist/interface-renders/*.png
+            dist/interface-renders/*-layout.json
           if-no-files-found: ignore
           retention-days: 3
       - name: Render showcase images
@@ -103,6 +105,7 @@ jobs:
           path: |
             dist/interface-renders/*.png
             dist/interface-renders/*-timing.json
+            dist/interface-renders/*-layout.json
           if-no-files-found: error
           retention-days: 3
       - name: Native XCTest suite

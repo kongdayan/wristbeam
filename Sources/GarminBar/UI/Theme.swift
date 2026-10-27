@@ -190,8 +190,9 @@ struct PulseBackButton: View {
     var body: some View {
         Button(action: action) {
             Label(L10n.text(title), systemImage: "chevron.left")
-                .font(PulseTheme.font(size: 14, weight: .medium)).padding(.vertical, 4)
-        }.buttonStyle(PulseButtonStyle()).controlSize(.large).help(L10n.text("返回") + " · ⌘[")
+                .font(PulseTheme.font(size: 13, weight: .medium))
+                .padding(.horizontal, 8).padding(.vertical, 6).frame(minHeight: 32)
+        }.buttonStyle(PulseRowButtonStyle()).help(L10n.text("返回") + " · ⌘[")
     }
 }
 

@@ -1524,5 +1524,6 @@
   "撤销此客户端的访问？": "Revoke access for this client?",
   "使用此密钥的客户端将无法继续访问。": "Clients using this key will no longer have access.",
   "复制失败，请重试": "Copy failed. Please try again.",
-  "链接已复制": "Link copied"
+  "链接已复制": "Link copied",
+  "正在刷新账户…": "Refreshing account…"
 }

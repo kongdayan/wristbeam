@@ -228,28 +228,28 @@ import SwiftUI
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
                     model.scrollPositions.offsets[model.mainScrollKey] = 0
-                    try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    try await renderMainPage(model:model,width:1020,height:768,name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760).background(PulseTheme.background),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
                 model.openSettings(.overview)
                 model.dashboardGrouped = false
-                try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:1020,height:768,name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
                 model.dashboardGrouped = true
                 model.fontScale = 1.6
                 precondition(!model.cloud.networkEnabled)
                 try await render(LoginSheet(model:model),name:"login-controls-\(language)-\(theme)",dark:dark,output:output)
                 try await render(MenuPopover(model:model),name:"menu-large-\(language)-\(theme)",dark:dark,output:output)
-                try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:880,height:640,name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
                 for page in [AppPage.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
                     model.scrollPositions.offsets[model.mainScrollKey] = 0
-                    try await render(SettingsRootView(model:model).frame(width:880,height:640),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    try await renderMainPage(model:model,width:880,height:640,name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600).background(PulseTheme.background),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
                 model.fontScale = 1.15
                 model.activityBrowsing.search = "no-such-fixture"
                 model.page = .activities
-                try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activities-no-results-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:1020,height:768,name:"activities-no-results-\(language)-\(theme)",dark:dark,output:output)
                 model.activityBrowsing.search = ""
                 try await render(FirstConnectionGuide(model:model).padding(24).frame(width:600).background(PulseTheme.background),name:"onboarding-\(language)-\(theme)",dark:dark,output:output)
                 try await render(ActivityDownloadsView(library:model.activities),name:"downloads-\(language)-\(theme)",dark:dark,output:output)
@@ -265,10 +265,10 @@ import SwiftUI
                 precondition(model.workflow.transferTitle == "已保存到本机")
                 try await render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
                 model.page = .overview; model.detailMetric = .hrvNight
-                try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:1020,height:768,name:"hrv-\(language)-\(theme)",dark:dark,output:output)
                 model.detailMetric = nil
                 model.page = .activities; model.selectedActivityID = "1001"
-                try await render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:1020,height:768,name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
                 model.selectedActivityID = nil
                 if let detail = model.activities.detail("1001") {
                     try await render(ActivityChartsSection(detail:detail).padding(24).frame(width:820),name:"activity-charts-\(language)-\(theme)",dark:dark,output:output)
@@ -362,6 +362,7 @@ import SwiftUI
         frame.cacheDisplay(in:frame.bounds,to:bitmap)
         guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("Window PNG failed") }
         try data.write(to:output.appendingPathComponent(name + ".png"))
+        try await writeWindowCapture(window,name:name,output:output)
         let original = window.frame
         window.performZoom(nil)
         try await Task.sleep(nanoseconds:100_000_000)
@@ -406,7 +407,7 @@ import SwiftUI
         precondition(window.isVisible, "Closing must allow the same window to reopen")
         print("PASS \(name): native close, minimize, zoom, reopen, fullscreen capability and complete window capture")
     }
-    @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL,ready:(() -> Bool)? = nil) async throws {
+    @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL,ready:(() -> Bool)? = nil,captureWindowFrame:Bool = false) async throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))
         let size = host.fittingSize
         host.frame = NSRect(origin:.zero,size:size)
@@ -415,9 +416,11 @@ import SwiftUI
         defer { window.contentView = nil; window.close() }
         window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
         window.contentView = host
+        window.makeKeyAndOrderFront(nil)
         // NavigationSplitView can install a toolbar when attached. Re-establish
         // the requested content dimensions after that AppKit layout has settled.
         host.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
         // Yield the main actor so view tasks and background PNG encoding can finish.
         try await Task.sleep(nanoseconds:50_000_000)
         window.setContentSize(size)
@@ -425,36 +428,67 @@ import SwiftUI
         if let ready {
             let deadline = Date().addingTimeInterval(10)
             while !ready() && Date() < deadline { try await Task.sleep(nanoseconds:50_000_000) }
-            precondition(ready(), "Native share preview did not finish")
+            precondition(ready(), "Native preview did not become ready: \(name)")
             try await Task.sleep(nanoseconds:50_000_000)
         }
         host.layoutSubtreeIfNeeded()
         if name.hasPrefix("page-") || name.hasPrefix("preferences-narrow-") {
             print("LAYOUT \(name) host=\(host.frame) bounds=\(host.bounds) window=\(window.frame) fitting=\(host.fittingSize)")
         }
+        if captureWindowFrame {
+            try await writeWindowCapture(window,name:name,output:output)
+            print("PASS \(name): visible native window capture")
+            return
+        }
         try autoreleasepool {
-            guard let bitmap = host.bitmapImageRepForCachingDisplay(in:host.bounds) else { fatalError("Render failed: \(name)") }
-            host.cacheDisplay(in:host.bounds,to:bitmap)
+            let captureView: NSView = host
+            guard let bitmap = captureView.bitmapImageRepForCachingDisplay(in:captureView.bounds) else { fatalError("Render failed: \(name)") }
+            captureView.cacheDisplay(in:captureView.bounds,to:bitmap)
             guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("PNG failed") }
             if name.hasPrefix("share-sheet-") {
                 precondition((bitmap.colorAt(x: 5, y: 5)?.alphaComponent ?? 0) > 0.99, "Share sheet must have an opaque readable surface")
             }
             precondition(bitmap.pixelsWide >= 300 && bitmap.pixelsHigh >= 225 && data.count > 5000)
             try data.write(to:output.appendingPathComponent(name + ".png"))
-            if name.hasPrefix("page-settings-") || name.hasPrefix("page-appearance-") || name.hasPrefix("preferences-narrow-") {
-                for identifier in ["app-brand","page-title"] {
-                    let frames = accessibilityFrames(host,identifier:identifier).map { host.convert(window.convertFromScreen($0),from:nil) }
-                    precondition(frames.contains { $0.width > 0 && $0.height > 0 && host.bounds.insetBy(dx:-1,dy:-1).contains($0) },
-                        "Missing or clipped \(identifier) in \(name): \(frames)")
-                }
-            }
             print("PASS \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh)")
         }
     }
-    @MainActor static func accessibilityFrames(_ value:Any,identifier:String,depth:Int = 0) -> [NSRect] {
-        guard depth < 32, let element = value as? NSAccessibilityProtocol else { return [] }
-        let own = element.accessibilityIdentifier() == identifier ? [element.accessibilityFrame()] : []
-        return own + (element.accessibilityChildren() ?? []).flatMap { accessibilityFrames($0,identifier:identifier,depth:depth + 1) }
+    @MainActor static func renderMainPage(model:AppModel,width:CGFloat,height:CGFloat,name:String,dark:Bool,output:URL) async throws {
+        var frames: [String:CGRect] = [:]
+        let view = SettingsRootView(model:model,onLayout:{ frames.merge($0,uniquingKeysWith:{ _, latest in latest }) }).frame(width:width,height:height)
+        try await render(view,name:name,dark:dark,output:output,ready:{ frames["app-brand"] != nil },captureWindowFrame:true)
+        let geometry = frames.mapValues { ["x":$0.minX,"y":$0.minY,"width":$0.width,"height":$0.height] }
+        try JSONSerialization.data(withJSONObject:geometry,options:[.prettyPrinted,.sortedKeys]).write(to:output.appendingPathComponent(name + "-layout.json"))
+        let viewport = CGRect(x:0,y:0,width:width,height:height).insetBy(dx:-1,dy:-1)
+        let identifiers = model.page.isSettings ? ["app-brand","page-title"] : ["app-brand"]
+        for identifier in identifiers {
+            guard let frame = frames[identifier] else { fatalError("Missing layout marker \(identifier) in \(name)") }
+            precondition(frame.width > 0 && frame.height > 0 && viewport.contains(frame), "Clipped \(identifier) in \(name): \(frame)")
+        }
+    }
+    @MainActor static func writeWindowCapture(_ window:NSWindow,name:String,output:URL) async throws {
+        precondition(PulseRuntime.isPreview && window.isVisible)
+        window.displayIfNeeded()
+        try await Task.sleep(nanoseconds:100_000_000)
+        let file = output.appendingPathComponent(name + ".png")
+        let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("wristbeam-window-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at:scratch) }
+        let capture = Process()
+        capture.executableURL = URL(fileURLWithPath:"/usr/sbin/screencapture")
+        capture.arguments = ["-x","-o","-l",String(window.windowNumber),scratch.path]
+        capture.standardOutput = FileHandle.nullDevice
+        capture.standardError = FileHandle.nullDevice
+        try capture.run()
+        for _ in 0..<100 {
+            if !capture.isRunning { break }
+            try await Task.sleep(nanoseconds:50_000_000)
+        }
+        if capture.isRunning { capture.terminate(); throw NSError(domain:"NativeWindowCapture",code:1,userInfo:[NSLocalizedDescriptionKey:"Window capture timed out: \(name)"]) }
+        guard capture.terminationStatus == 0, let data = try? Data(contentsOf:scratch),
+              data.count > 5000, NSBitmapImageRep(data:data) != nil else {
+            throw NSError(domain:"NativeWindowCapture",code:2,userInfo:[NSLocalizedDescriptionKey:"WindowServer could not capture the synthetic window: \(name)"])
+        }
+        try data.write(to:file,options:.atomic)
     }
 }
 @MainActor final class InteractionHostingView: NSHostingView<DisclosureInteractionFixture> {

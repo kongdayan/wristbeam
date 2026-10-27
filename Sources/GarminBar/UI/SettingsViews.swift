@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct SettingsRootView: View {
     @ObservedObject var model: AppModel
+    var onLayout: (([String: CGRect]) -> Void)? = nil
     @State private var columns: NavigationSplitViewVisibility = .all
     var body: some View {
         NavigationSplitView(columnVisibility: $columns) {
@@ -12,6 +13,7 @@ struct SettingsRootView: View {
                     Image(systemName: "waveform.path.ecg").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L10n.text("腕映")).font(PulseTheme.font(size: 18, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7).accessibilityIdentifier("app-brand")
+                            .background { if onLayout != nil { recordBounds("app-brand") } }
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
                 }.padding(.top, 20)
@@ -75,6 +77,7 @@ struct SettingsRootView: View {
             .preferredColorScheme(model.preferredColorScheme)
             .environment(\.locale, L10n.locale)
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
+            .coordinateSpace(name: "wristbeam-main-content")
     }
     private func sidebarPage(_ page: AppPage) -> some View {
         Label {
@@ -94,6 +97,14 @@ struct SettingsRootView: View {
         Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title))
             .font(PulseTheme.font(size: 27, weight: .semibold))
             .accessibilityIdentifier("page-title")
+            .background { if onLayout != nil { recordBounds("page-title") } }
+    }
+    private func recordBounds(_ identifier: String) -> some View {
+        GeometryReader { geometry in
+            let frame = geometry.frame(in: .named("wristbeam-main-content"))
+            Color.clear.onAppear { onLayout?([identifier: frame]) }
+                .onChange(of: frame) { onLayout?([identifier: $0]) }
+        }
     }
 }
 
@@ -342,6 +353,7 @@ struct WatchPage: View {
 struct AccountPage: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var cloud: GarminChinaCloud
+    @State private var refreshingAccount = false
     init(model: AppModel) { self.model = model; cloud = model.cloud }
     var body: some View {
         VStack(spacing: 19) {
@@ -377,9 +389,13 @@ struct AccountPage: View {
                     }
                     Text(L10n.text(cloud.status)).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).textSelection(.enabled)
                     if cloud.isAuthenticated {
-                        HStack {
-                            Button(L10n.text("刷新账户")) { Task { await cloud.refreshAccount() } }.buttonStyle(PulseButtonStyle())
-                            Spacer()
+                        PulseFlowLayout {
+                            Button(L10n.text(refreshingAccount ? "正在刷新账户…" : "刷新账户")) {
+                                guard !refreshingAccount else { return }
+                                refreshingAccount = true
+                                Task { defer { refreshingAccount = false }; await cloud.refreshAccount() }
+                            }.buttonStyle(PulseButtonStyle()).disabled(refreshingAccount || model.preview || !model.cloudSyncEnabled)
+                            if refreshingAccount { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在刷新账户…")) }
                             Button(L10n.text("退出账户")) { cloud.logout() }.buttonStyle(PulseButtonStyle(compact: true)).foregroundStyle(PulseTheme.secondary)
                         }
                     } else {
