@@ -7,16 +7,22 @@ final class PulseSettingsWindow: NSWindow, NSWindowDelegate {
     var onPreviewSnapshot: (() -> Void)?
     var restoresAccessoryOnClose = false
 
+    static func title(for model: AppModel) -> String {
+        let page = model.detailMetric.map { L10n.text($0.title) }
+            ?? (model.page == .settings ? L10n.text("常规设置") : model.page.title)
+        return model.preview ? "\(page) · WristBeam Demo" : page
+    }
+
     static func make(model: AppModel) -> PulseSettingsWindow {
         let window = PulseSettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 1020, height: 740),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        window.title = model.preview ? "WristBeam Demo" : L10n.text("腕映")
+        window.title = title(for: model)
         window.titleVisibility = .visible
         window.titlebarAppearsTransparent = false
         window.toolbarStyle = .unified
         window.collectionBehavior = [.fullScreenPrimary]
         window.backgroundColor = NSColor(PulseTheme.background)
-        window.minSize = NSSize(width: 880, height: 640)
+        window.minSize = NSSize(width: 760, height: 600)
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: SettingsRootView(model: model))
         window.delegate = window

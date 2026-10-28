@@ -86,7 +86,10 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
         popover.contentSize = NSSize(width: 420, height: 500)
         popover.contentViewController = NSHostingController(rootView: MenuPopover(model: model))
         model.objectWillChange.receive(on: RunLoop.main).sink { [weak self] in
-            DispatchQueue.main.async { self?.refreshStatusItem() }
+            DispatchQueue.main.async {
+                self?.refreshStatusItem()
+                if let self { self.settingsWindow?.title = PulseSettingsWindow.title(for: self.model) }
+            }
         }.store(in: &subscriptions)
         menuAppearanceObserver = DistributedNotificationCenter.default().addObserver(forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
             DispatchQueue.main.async { self?.refreshStatusItem() }
@@ -197,12 +200,17 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
     }
 
     @objc private func openPreferences() { model.openSettings(model.settingsPage) }
+    @objc private func openAbout() { model.openSettings(.about) }
 
     private func configureApplicationMenu() {
         let menu = NSMenu()
         let appItem = NSMenuItem()
         menu.addItem(appItem)
         let appMenu = NSMenu(title: "WristBeam")
+        let about = NSMenuItem(title: L10n.text("关于") + " " + L10n.text("腕映"), action: #selector(openAbout), keyEquivalent: "")
+        about.target = self
+        appMenu.addItem(about)
+        appMenu.addItem(.separator())
         let settings = NSMenuItem(title: L10n.text("设置") + "…", action: #selector(openPreferences), keyEquivalent: ",")
         settings.target = self
         appMenu.addItem(settings)
@@ -317,7 +325,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
 
     private func applyAppearance() {
         let appearance = model.appearance == .system ? nil : NSAppearance(named: model.appearance == .light ? .aqua : .darkAqua)
-        settingsWindow?.appearance = appearance; settingsWindow?.title = model.preview ? "WristBeam Demo" : L10n.text("腕映"); floatingPanel?.appearance = appearance
+        settingsWindow?.appearance = appearance; settingsWindow?.title = PulseSettingsWindow.title(for: model); floatingPanel?.appearance = appearance
         configureApplicationMenu()
         popover?.appearance = appearance
         refreshStatusItem()

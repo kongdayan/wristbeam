@@ -8,7 +8,7 @@ struct SettingsRootView: View {
     @State private var columns: NavigationSplitViewVisibility = .all
     var body: some View {
         NavigationSplitView(columnVisibility: $columns) {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 10) {
                     Image(systemName: "waveform.path.ecg").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
                     VStack(alignment: .leading, spacing: 2) {
@@ -16,13 +16,9 @@ struct SettingsRootView: View {
                             .background { if onLayout != nil { recordBounds("app-brand") } }
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
-                }.padding(.top, 20)
+                }.padding(.top, 12)
                 sidebarNavigation
                 VStack(spacing: 8) {
-                    Button { model.openSettings(model.settingsPage) } label: {
-                        sidebarAction("设置", symbol: "gearshape")
-                    }.keyboardShortcut(",", modifiers: .command)
-                        .foregroundStyle(model.page.isSettings ? PulseTheme.mint : Color.primary)
                     Button { model.onShowMenu?() } label: {
                         sidebarAction("打开菜单栏", symbol: "menubar.rectangle")
                     }
@@ -54,7 +50,8 @@ struct SettingsRootView: View {
                     }
                     }
                 }.id("settings-top").frame(maxWidth: model.page.isSettings ? 780 : .infinity, alignment: .leading)
-                    .padding(32).frame(maxWidth: .infinity, alignment: model.page.isSettings ? .center : .leading)
+                    .padding(.horizontal, 24).padding(.vertical, 28)
+                    .frame(maxWidth: .infinity, alignment: model.page.isSettings ? .center : .leading)
                     .background(ScrollPositionKeeper(positions: model.scrollPositions, key: model.mainScrollKey))
             }.id(model.mainScrollKey)
             .onChange(of: model.activityBrowsing) { _ in
@@ -75,12 +72,15 @@ struct SettingsRootView: View {
                 Section {
                     ForEach(AppPage.navigationPages) { page in sidebarPage(page) }
                 }
+                Section {
+                    sidebarPage(.settings)
+                }
                 if model.page.isSettings {
                     Section(L10n.text("设置")) {
-                        ForEach(AppPage.settingsPages) { page in sidebarPage(page) }
+                        ForEach(AppPage.settingsPages.filter { $0 != .settings }) { page in sidebarPage(page) }
                     }
                 }
-            }.listStyle(.sidebar).scrollContentBackground(.hidden)
+            }.listStyle(.sidebar).scrollContentBackground(.hidden).tint(Color.accentColor)
                 .environment(\.defaultMinListRowHeight, 36)
                 .background { if onLayout != nil { recordBounds("sidebar-list") } }
                 .task(id: "\(selectedSidebarPage.id):\(model.fontScale)") {

@@ -241,11 +241,11 @@ import SwiftUI
                 try await render(LoginSheet(model:model),name:"login-controls-\(language)-\(theme)",dark:dark,output:output)
                 try await render(MenuPopover(model:model),name:"menu-large-\(language)-\(theme)",dark:dark,output:output)
                 try await render(ActivityDownloadsView(library:model.activities),name:"downloads-large-\(language)-\(theme)",dark:dark,output:output)
-                try await renderMainPage(model:model,width:880,height:640,name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:760,height:600,name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
                 for page in [AppPage.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
                     model.scrollPositions.offsets[model.mainScrollKey] = 0
-                    try await renderMainPage(model:model,width:880,height:640,name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    try await renderMainPage(model:model,width:760,height:600,name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600).background(PulseTheme.background),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
                 model.fontScale = 1.15
@@ -346,6 +346,11 @@ import SwiftUI
     @MainActor static func verifyWindowChrome(model:AppModel,dark:Bool,output:URL,name:String) async throws {
         let window = PulseSettingsWindow.make(model:model)
         defer { window.contentView = nil; window.close() }
+        precondition(window.minSize == NSSize(width:760,height:600))
+        precondition(window.title == PulseSettingsWindow.title(for:model))
+        model.openSettings(.appearance)
+        precondition(PulseSettingsWindow.title(for:model).hasPrefix(model.page.title))
+        model.openSettings(.settings)
         window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
         window.center(); window.presentMainWindow()
         precondition(NSApp.activationPolicy() == .regular)
@@ -368,7 +373,7 @@ import SwiftUI
         let original = window.frame
         let previousScale = model.fontScale
         model.fontScale = 1.6
-        window.setFrame(NSRect(origin:original.origin,size:NSSize(width:880,height:640)),display:true)
+        window.setFrame(NSRect(origin:original.origin,size:NSSize(width:760,height:600)),display:true)
         try await writeWindowCapture(window,name:name + "-narrow",output:output)
         model.fontScale = previousScale
         window.setFrame(original,display:true)
