@@ -10,7 +10,7 @@ final class PulseSettingsWindow: NSWindow, NSWindowDelegate {
     static func title(for model: AppModel) -> String {
         let page = model.detailMetric.map { L10n.text($0.title) }
             ?? (model.page == .settings ? L10n.text("常规设置") : model.page.title)
-        return model.preview ? "\(page) · WristBeam Demo" : page
+        return page
     }
 
     static func make(model: AppModel) -> PulseSettingsWindow {

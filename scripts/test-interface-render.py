@@ -349,7 +349,7 @@ import SwiftUI
         precondition(window.minSize == NSSize(width:760,height:600))
         precondition(window.title == PulseSettingsWindow.title(for:model))
         model.openSettings(.appearance)
-        precondition(PulseSettingsWindow.title(for:model).hasPrefix(model.page.title))
+        precondition(PulseSettingsWindow.title(for:model) == model.page.title)
         model.openSettings(.settings)
         window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
         window.center(); window.presentMainWindow()
