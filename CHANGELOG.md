@@ -1,11 +1,12 @@
 # Changelog
 
-## 0.3.11-beta.4 — 2026-10-28
+## 0.3.11-beta.5 — 2026-10-28
 
 - Improve native popup controls, sidebar selection visibility, keyboard focus and large-text layouts across the integrated settings flow.
 - Keep Settings in the main sidebar, with its categories revealed when opened. Use the system accent color for sidebar selection.
 - Fit the main window at 760×600 and let content reflow at larger text sizes. Show the current page or metric in the window title.
 - Check the compact layout with synthetic Chinese/English, light/dark and enlarged-text native renders.
+- Beta 4 stopped during macOS 14 window fixture validation and was not published.
 
 ## 0.3.11-beta.3 — 2026-10-27
 

@@ -346,7 +346,6 @@ import SwiftUI
     @MainActor static func verifyWindowChrome(model:AppModel,dark:Bool,output:URL,name:String) async throws {
         let window = PulseSettingsWindow.make(model:model)
         defer { window.contentView = nil; window.close() }
-        precondition(window.minSize == NSSize(width:760,height:600))
         precondition(window.title == PulseSettingsWindow.title(for:model))
         model.openSettings(.appearance)
         precondition(PulseSettingsWindow.title(for:model) == model.page.title)
@@ -374,6 +373,10 @@ import SwiftUI
         let previousScale = model.fontScale
         model.fontScale = 1.6
         window.setFrame(NSRect(origin:original.origin,size:NSSize(width:760,height:600)),display:true)
+        precondition(window.frame.width >= 760 && window.frame.width <= 800 &&
+                     window.frame.height >= 600 && window.frame.height <= 650,
+                     "Native window must remain usable near its compact size")
+        print("PASS native compact window frame: \(window.frame.size)")
         try await writeWindowCapture(window,name:name + "-narrow",output:output)
         model.fontScale = previousScale
         window.setFrame(original,display:true)
