@@ -28,11 +28,16 @@ final class ConnectIQSettingsTests: XCTestCase {
         for _ in 0..<34 { nested = .array([nested]) }
         XCTAssertThrowsError(try GFDIMonkeyCodec.encode(nested))
     }
-    func testConnectIQWireBooleanUsesNonzeroTrueAndDuplicateKeysUseLastValue() throws {
+    func testConnectIQWireBooleanUsesSignedPositiveTrueAndDuplicateKeysUseLastValue() throws {
         // Independent wire vectors: these are not produced by our encoder.
         let boolean = Data([0xda, 0x7a, 0xda, 0x7a, 0, 0, 0, 7,
                             5, 0, 0, 0, 1, 9, 2])
         XCTAssertEqual(try GFDIMonkeyCodec.decode(boolean), .array([.bool(true)]))
+        for byte in [UInt8(0), 128, 255] {
+            var vector = boolean
+            vector[vector.count - 1] = byte
+            XCTAssertEqual(try GFDIMonkeyCodec.decode(vector), .array([.bool(false)]))
+        }
 
         let duplicateKeys = Data([
             0xab, 0xcd, 0xab, 0xcd, 0, 0, 0, 4, 0, 2, 97, 0,

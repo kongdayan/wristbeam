@@ -108,8 +108,8 @@ enum GFDIMonkeyCodec {
                 guard let text = strings[UInt32(try reader.number(4))] else { throw GFDIConnectIQSettingsError.malformed }
                 node.value = .string(text)
             case 5: node.count = Int(try reader.number(4))
-            // Connect IQ's j27 decoder treats every nonzero byte as true.
-            case 9: node.value = .bool(try reader.byte() != 0)
+            // Android ByteBuffer.get() returns a signed byte; d55.h tests it > 0.
+            case 9: node.value = .bool(Int8(bitPattern: try reader.byte()) > 0)
             case 11: node.count = Int(try reader.number(4)); node.dictionary = true
             case 14: node.value = .int64(Int64(bitPattern: try reader.number(8)))
             case 15: node.value = .double(Double(bitPattern: try reader.number(8)))
