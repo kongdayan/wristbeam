@@ -109,9 +109,10 @@ struct MetricCard: View {
     var body: some View {
         Button { model.openMetric(kind) } label: {
         VStack(alignment: .leading, spacing: compact ? 9 : 10) {
-            HStack {
+            HStack(alignment: .top) {
                 MetricIcon(kind: kind).foregroundStyle(PulseTheme.color(kind))
-                Text(L10n.text(kind.title)).font(PulseTheme.font(size: compact ? 11 : 13, weight: .medium)).foregroundStyle(PulseTheme.secondary).lineLimit(2)
+                Text(L10n.text(kind.title)).font(PulseTheme.font(size: compact ? 11 : 13, weight: .medium)).foregroundStyle(PulseTheme.secondary)
+                    .lineLimit(2, reservesSpace: !compact)
                 Spacer(minLength: 0)
                 if !compact, let sample = model.metrics[kind] {
                     Text(sample.timestamp, format: (kind.isOvernightHRV || sample.timestampIsMeasurement == false) ? .dateTime.month().day() : .dateTime.hour().minute())
