@@ -1357,6 +1357,8 @@
   "配置已保存，手表回读确认一致": "Settings saved and verified on your watch",
   "保存已取消，请重新读取确认手表状态": "Saving cancelled. Read the watch again to confirm its state.",
   "表盘设置数据无效": "Invalid watch face settings data",
+  "手表的表盘设置响应无法识别": "Could not read the watch face settings response",
+  "手表返回的表盘设置内容无法解析": "Could not decode the watch face settings from the watch",
   "此表盘设置包含暂不支持的数据类型": "These watch face settings contain an unsupported data type",
   "手表未找到所选表盘，请重新读取已安装列表": "The watch could not find this face. Read the installed list again.",
   "手表未接受表盘设置": "The watch did not accept the settings",

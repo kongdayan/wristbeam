@@ -28,6 +28,22 @@ final class ConnectIQSettingsTests: XCTestCase {
         for _ in 0..<34 { nested = .array([nested]) }
         XCTAssertThrowsError(try GFDIMonkeyCodec.encode(nested))
     }
+    func testConnectIQWireBooleanUsesNonzeroTrueAndDuplicateKeysUseLastValue() throws {
+        // Independent wire vectors: these are not produced by our encoder.
+        let boolean = Data([0xda, 0x7a, 0xda, 0x7a, 0, 0, 0, 7,
+                            5, 0, 0, 0, 1, 9, 2])
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(boolean), .array([.bool(true)]))
+
+        let duplicateKeys = Data([
+            0xab, 0xcd, 0xab, 0xcd, 0, 0, 0, 4, 0, 2, 97, 0,
+            0xda, 0x7a, 0xda, 0x7a, 0, 0, 0, 25,
+            11, 0, 0, 0, 2,
+            3, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+            3, 0, 0, 0, 0, 1, 0, 0, 0, 2
+        ])
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(duplicateKeys), .dictionary(["a": .int32(2)]))
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(duplicateKeys.dropLast()))
+    }
     func testSettingsServiceUsesStoreUUIDAndCorrelatedSuccess() throws {
         let id = "00112233-4455-6677-8899-aabbccddeeff"
         let uuid = try GFDIConnectIQSDK.uuidBytes(id)
@@ -36,7 +52,9 @@ final class ConnectIQSettingsTests: XCTestCase {
         let response = p.bytes(4, p.bytes(4, p.bytes(1, uuid) + p.integer(2, 1)))
         XCTAssertNoThrow(try GFDIConnectIQSettings.checkResponse(response, appID: id, saving: true))
         XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(response, appID: "11112233-4455-6677-8899-aabbccddeeff", saving: true))
-        XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(p.bytes(4, p.bytes(4, p.bytes(1, uuid))), appID: id, saving: true))
+        XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(p.bytes(4, p.bytes(4, p.bytes(1, uuid))), appID: id, saving: true)) { error in
+            XCTAssertEqual(error as? GFDIConnectIQSettingsError, .malformedResponse)
+        }
         let binary = try GFDIMonkeyCodec.encode(.dictionary(["key": .int32(7)]))
         let push = p.bytes(4, p.bytes(5, p.bytes(1, uuid) + p.bytes(2, binary)))
         XCTAssertEqual(try GFDIConnectIQSettings.push(push)?.appID, id)

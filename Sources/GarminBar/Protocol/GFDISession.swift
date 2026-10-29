@@ -1108,8 +1108,11 @@ final class GFDISession {
                 return
             }
             if let expected = settingsExpected, received.values != expected { throw GFDIConnectIQSettingsError.unconfirmed }
+            let jsonData: Data
+            do { jsonData = try received.values.jsonData() }
+            catch { throw GFDIConnectIQSettingsError.malformedProperties }
             let snapshot = GFDIConnectIQSettingsSnapshot(appID: settingsAppID, unitID: settingsUnitID, values: received.values,
-                jsonData: try received.values.jsonData(), rawData: received.raw, savedAndVerified: settingsExpected != nil)
+                jsonData: jsonData, rawData: received.raw, savedAndVerified: settingsExpected != nil)
             settingsLastSnapshot = snapshot
             finishSettings(.success(snapshot))
         } catch { finishSettings(.failure(error)) }
@@ -1147,7 +1150,10 @@ final class GFDISession {
                 do {
                     settingsReceived = (try GFDIMonkeyCodec.decode(pushed.data), pushed.data)
                     completeSettingsReadIfReady(operationID: operationID)
-                } catch { finishSettings(.failure(error)) }
+                } catch {
+                    let failure = error as? GFDIConnectIQSettingsError
+                    finishSettings(.failure(failure == .unsupported ? error : GFDIConnectIQSettingsError.malformedProperties))
+                }
             } else if try GFDIBattery.isChangeNotification(transfer.data) {
                 send(message.response(payload: fragment.ack))
                 if !fragment.duplicate { nextBatteryRefresh = Date() }
