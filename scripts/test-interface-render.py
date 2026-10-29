@@ -244,6 +244,18 @@ import SwiftUI
                 model.dashboardColumns = savedDashboardColumns
                 model.dashboardGrouped = false
                 try await renderMainPage(model:model,width:1020,height:768,name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
+                let savedNotes = model.metricNotes
+                let savedOrder = model.dashboardOrder
+                let fourColumnMetrics: [MetricKind] = [.heartRate,.bodyBattery,.stress,.steps,.hrvNight,.hrvStatus,MetricKind(rawValue:"daily.restingHeartRate")!,.solarIntensity]
+                model.dashboardMetrics = Set(fourColumnMetrics)
+                model.dashboardOrder = fourColumnMetrics.map(\.rawValue)
+                model.dashboardColumns = 4
+                for kind in [MetricKind.heartRate,.stress,.hrvNight,.hrvStatus] { model.metricNotes[kind] = "读数已过期" }
+                try await renderMainPage(model:model,width:1512,height:1000,name:"dashboard-four-columns-\(language)-\(theme)",dark:dark,output:output)
+                model.metricNotes = savedNotes
+                model.dashboardOrder = savedOrder
+                model.dashboardMetrics = savedDashboardMetrics
+                model.dashboardColumns = savedDashboardColumns
                 model.dashboardGrouped = true
                 model.fontScale = 1.6
                 precondition(!model.cloud.networkEnabled)
@@ -501,6 +513,17 @@ import SwiftUI
             precondition(frame.width > 0 && frame.height > 0 && viewport.contains(frame), "Clipped \(identifier) in \(name): \(frame)")
         }
         precondition(frames["sidebar-list"]!.insetBy(dx:-1,dy:-1).contains(frames["sidebar-selection"]!), "Selected sidebar row is clipped in \(name)")
+        if name.hasPrefix("dashboard-four-columns-") {
+            let cards = frames.filter { $0.key.hasPrefix("metric-card-") }.map(\.value).sorted {
+                abs($0.minY - $1.minY) > 1 ? $0.minY < $1.minY : $0.minX < $1.minX
+            }
+            precondition(cards.count == 8, "Four-column fixture must lay out eight mixed cards")
+            for start in stride(from:0,to:8,by:4) {
+                let row = Array(cards[start..<start+4])
+                precondition(row.allSatisfy { abs($0.minY-row[0].minY) < 1 && abs($0.maxY-row[0].maxY) < 1 }, "Four-column card edges differ: \(row)")
+            }
+            print("PASS \(name): both rows have four cards with aligned top and bottom edges")
+        }
     }
     @MainActor static func writeWindowCapture(_ window:NSWindow,name:String,output:URL) async throws {
         precondition(PulseRuntime.isPreview && window.isVisible)

@@ -146,7 +146,7 @@ struct MetricCard: View {
             }
         }
         .padding(compact ? 14 : model.cardSize.padding)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: compact ? nil : .infinity, alignment: .topLeading)
         .background {
             RoundedRectangle(cornerRadius: compact ? 12 : 18)
                 .fill(PulseTheme.surface)

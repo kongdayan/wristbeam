@@ -40,7 +40,7 @@ struct SettingsRootView: View {
                     } else {
                     if model.page != .overview && model.page != .activities { pageHeader }
                     switch model.page {
-                    case .overview: OverviewPage(model: model)
+                    case .overview: OverviewPage(model: model, onLayout: onLayout)
                     case .activities: ActivitiesPage(model: model)
                     case .connectIQ: ConnectIQPage(model: model)
                     case .watch, .account: DevicePage(model: model)
@@ -131,6 +131,7 @@ struct SettingsRootView: View {
 
 struct OverviewPage: View {
     @ObservedObject var model: AppModel
+    var onLayout: (([String: CGRect]) -> Void)? = nil
     @State private var showStyle = false
     @State private var shareRequest: DashboardShareRequest?
     @State private var contentWidth: CGFloat = 0
@@ -207,6 +208,15 @@ struct OverviewPage: View {
                         Button(L10n.text("分享这张卡片")) { shareRequest = DashboardShareRequest(kinds: [kind]) }
                         Button(L10n.text("移到最前")) { model.dashboardOrder = [kind.rawValue] + model.dashboardVisibleMetrics.filter { $0 != kind }.map(\.rawValue) }
                         Button(L10n.text("从健康看板隐藏")) { model.dashboardMetrics.remove(kind) }
+                    }
+                    .background {
+                        if onLayout != nil {
+                            GeometryReader { proxy in
+                                let frame = proxy.frame(in: .named("wristbeam-main-content"))
+                                Color.clear.onAppear { onLayout?(["metric-card-\(kind.rawValue)": frame]) }
+                                    .onChange(of: frame) { onLayout?(["metric-card-\(kind.rawValue)": $0]) }
+                            }
+                        }
                     }
             }
         }.frame(maxWidth: CGFloat(gridColumns.count) * PulseLayout.metricMaximumWidth * max(1, model.fontScale / 1.15)
