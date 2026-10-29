@@ -233,6 +233,15 @@ import SwiftUI
                 }
                 try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760).background(PulseTheme.background),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
                 model.openSettings(.overview)
+                let savedDashboardMetrics = model.dashboardMetrics
+                let savedDashboardColumns = model.dashboardColumns
+                model.dashboardMetrics = [.heartRate,.bodyBattery,.stress]
+                model.dashboardColumns = 0
+                try await renderMainPage(model:model,width:1512,height:850,name:"dashboard-wide-three-\(language)-\(theme)",dark:dark,output:output)
+                model.dashboardMetrics = []
+                try await renderMainPage(model:model,width:760,height:600,name:"dashboard-empty-\(language)-\(theme)",dark:dark,output:output)
+                model.dashboardMetrics = savedDashboardMetrics
+                model.dashboardColumns = savedDashboardColumns
                 model.dashboardGrouped = false
                 try await renderMainPage(model:model,width:1020,height:768,name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
                 model.dashboardGrouped = true

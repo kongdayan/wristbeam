@@ -28,6 +28,16 @@ enum PulseTheme {
     }
 }
 
+/// Main-window rhythm: page edges, section breaks, and related content groups.
+enum PulseLayout {
+    static let pageInset: CGFloat = 24
+    static let sectionGap: CGFloat = 24
+    static let groupGap: CGFloat = 12
+    static let itemGap: CGFloat = 8
+    static let dashboardMaximumWidth: CGFloat = 1120
+    static let metricMaximumWidth: CGFloat = 360
+}
+
 struct PulseCard<Content: View>: View {
     @Environment(\.colorSchemeContrast) private var contrast
     var content: Content

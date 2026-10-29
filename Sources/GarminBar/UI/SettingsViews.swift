@@ -49,9 +49,9 @@ struct SettingsRootView: View {
                         PreferencesPage(model: model)
                     }
                     }
-                }.id("settings-top").frame(maxWidth: model.page.isSettings ? 780 : .infinity, alignment: .leading)
-                    .padding(.horizontal, 24).padding(.vertical, 28)
-                    .frame(maxWidth: .infinity, alignment: model.page.isSettings ? .center : .leading)
+                }.id("settings-top").frame(maxWidth: contentMaximumWidth, alignment: .leading)
+                    .padding(PulseLayout.pageInset)
+                    .frame(maxWidth: .infinity, alignment: model.page.isSettings || model.page == .overview ? .center : .leading)
                     .background(ScrollPositionKeeper(positions: model.scrollPositions, key: model.mainScrollKey))
             }.id(model.mainScrollKey)
             .onChange(of: model.activityBrowsing) { _ in
@@ -65,6 +65,11 @@ struct SettingsRootView: View {
             .environment(\.locale, L10n.locale)
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
             .coordinateSpace(name: "wristbeam-main-content")
+    }
+    private var contentMaximumWidth: CGFloat {
+        if model.page.isSettings { return 780 }
+        if model.page == .overview && model.detailMetric == nil { return PulseLayout.dashboardMaximumWidth }
+        return .infinity
     }
     private var sidebarNavigation: some View {
         ScrollViewReader { sidebar in
@@ -129,13 +134,14 @@ struct OverviewPage: View {
     @State private var showStyle = false
     @State private var shareRequest: DashboardShareRequest?
     @State private var contentWidth: CGFloat = 0
-    private var columns: [GridItem] {
+    private func columns(for metrics: [MetricKind]) -> [GridItem] {
         let minimum = model.cardSize.minimumWidth * max(1, model.fontScale / 1.15)
         let count = MetricLayout.columnCount(width: contentWidth, minimum: minimum, preferred: model.dashboardColumns)
-        return Array(repeating: GridItem(.flexible(), spacing: 14), count: count)
+        return Array(repeating: GridItem(.flexible(), spacing: PulseLayout.groupGap, alignment: .top), count: max(1, min(count, metrics.count)))
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: PulseLayout.sectionGap) {
+            VStack(alignment: .leading, spacing: PulseLayout.groupGap) {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .center) { title; Spacer(minLength: 12); DashboardConnectionStatus(model: model) }
                 VStack(alignment: .leading, spacing: 12) { title; DashboardConnectionStatus(model: model) }
@@ -149,20 +155,21 @@ struct OverviewPage: View {
                 HStack(spacing: 12) { refreshStatus; Spacer(minLength: 8); dashboardActions }
                 VStack(alignment: .leading, spacing: 12) { refreshStatus; dashboardActions }
             }
+            }
             if model.preview && model.previewSetup {
                 Button(L10n.text("加载演示数据")) { model.previewSetup = false; model.enablePreview() }.buttonStyle(PulseButtonStyle())
             }
             if (!model.preview || model.previewSetup) && !model.bluetooth.sessionActivated && !model.bluetooth.isConnected && model.availableMetricKinds.isEmpty && !model.cloud.isAuthenticated { FirstConnectionGuide(model: model) }
             if model.dashboardGrouped {
                 ForEach(MetricLayout.dashboardSections(model.dashboardVisibleMetrics)) { section in
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
+                    VStack(alignment: .leading, spacing: PulseLayout.groupGap) {
+                        HStack(spacing: PulseLayout.itemGap) {
                             Text(section.title).font(PulseTheme.font(size: 16, weight: .semibold))
-                            Spacer()
                             Text("\(section.metrics.count)").font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                            Spacer(minLength: 0)
                         }.accessibilityAddTraits(.isHeader)
                         metricGrid(section.metrics, emphasized: section.id == "focus")
-                    }.padding(.top, 8)
+                    }
                 }
             } else {
                 metricGrid(model.dashboardVisibleMetrics)
@@ -182,7 +189,8 @@ struct OverviewPage: View {
         }.sheet(item: $shareRequest) { request in DashboardShareSheet(model: model, request: request) }
     }
     private func metricGrid(_ metrics: [MetricKind], emphasized: Bool = false) -> some View {
-        LazyVGrid(columns: columns, spacing: 12) {
+        let gridColumns = columns(for: metrics)
+        return LazyVGrid(columns: gridColumns, alignment: .leading, spacing: PulseLayout.groupGap) {
             ForEach(metrics) { kind in
                 MetricCard(model: model, kind: kind, emphasized: emphasized)
                     .onDrag { NSItemProvider(object: kind.rawValue as NSString) }
@@ -201,7 +209,9 @@ struct OverviewPage: View {
                         Button(L10n.text("从健康看板隐藏")) { model.dashboardMetrics.remove(kind) }
                     }
             }
-        }
+        }.frame(maxWidth: CGFloat(gridColumns.count) * PulseLayout.metricMaximumWidth * max(1, model.fontScale / 1.15)
+            + CGFloat(gridColumns.count - 1) * PulseLayout.groupGap, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
     private var refreshStatus: some View {
         HStack(spacing: 8) {
