@@ -196,6 +196,18 @@ enum GFDIConnectIQSettings {
     }
     static func checkResponse(_ data: Data, appID: String, saving: Bool) throws {
         let root = try Proto(data)
+        // Store b70/a70 ignores the Get reply and completes only when z60 receives
+        // SendAppSettingsRequest. Some firmware returns an empty Smart envelope.
+        // A transport reply alone never supplies settings or completes our read.
+        if !saving {
+            guard let serviceData = try root.blob(4), let responseData = try Proto(serviceData).blob(2) else { return }
+            let response = try Proto(responseData)
+            if let identity = try response.blob(1), identity != (try GFDIConnectIQSDK.uuidBytes(appID)) {
+                throw GFDIConnectIQSettingsError.stale
+            }
+            if try response.number(2) == 2 { throw GFDIConnectIQSettingsError.notInstalled }
+            return
+        }
         guard let serviceData = try root.blob(4), let responseData = try Proto(serviceData).blob(saving ? 4 : 2) else { throw GFDIConnectIQSettingsError.malformedResponse }
         let response = try Proto(responseData)
         guard try response.blob(1) == GFDIConnectIQSDK.uuidBytes(appID) else { throw GFDIConnectIQSettingsError.stale }

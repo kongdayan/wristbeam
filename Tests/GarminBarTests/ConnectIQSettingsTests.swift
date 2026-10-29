@@ -53,6 +53,14 @@ final class ConnectIQSettingsTests: XCTestCase {
         let id = "00112233-4455-6677-8899-aabbccddeeff"
         let uuid = try GFDIConnectIQSDK.uuidBytes(id)
         let p = GFDIConnectIQ.Proto.self
+        // A Get transport reply can be empty; only the separately correlated
+        // Send push supplies values. Save still requires explicit SUCCESS.
+        XCTAssertNoThrow(try GFDIConnectIQSettings.checkResponse(Data(), appID: id, saving: false))
+        XCTAssertNoThrow(try GFDIConnectIQSettings.checkResponse(p.bytes(4, Data()), appID: id, saving: false))
+        XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(Data(), appID: id, saving: true))
+        XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(p.bytes(4, p.bytes(2, p.bytes(1, uuid) + p.integer(2, 2))), appID: id, saving: false)) { error in
+            XCTAssertEqual(error as? GFDIConnectIQSettingsError, .notInstalled)
+        }
         XCTAssertEqual(try GFDIConnectIQSettings.request(appID: id), Data([0x22,20,0x0a,18,0x0a,16]) + uuid)
         let response = p.bytes(4, p.bytes(4, p.bytes(1, uuid) + p.integer(2, 1)))
         XCTAssertNoThrow(try GFDIConnectIQSettings.checkResponse(response, appID: id, saving: true))
