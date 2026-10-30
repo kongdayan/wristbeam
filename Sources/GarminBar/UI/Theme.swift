@@ -34,7 +34,7 @@ enum PulseLayout {
     static let sectionGap: CGFloat = 24
     static let groupGap: CGFloat = 12
     static let itemGap: CGFloat = 8
-    static let dashboardMaximumWidth: CGFloat = 1120
+    static let dashboardMaximumWidth: CGFloat = 1280
     static let metricMaximumWidth: CGFloat = 360
 }
 

@@ -36,6 +36,9 @@ final class AppModel: ObservableObject {
     @Published var events: [ActivityLog] = []
     var now = Date()
     @Published var page = AppPage.overview
+    @Published var connectIQScope = 0
+    @Published var connectIQCatalogTab = 0
+    @Published var connectIQSearchText = ""
     @Published var settingsPage = AppPage.settings
     @Published var selectedActivityID: String? {
         didSet { if let id = selectedActivityID, id != oldValue { scrollPositions.offsets.removeValue(forKey: "activity." + id) } }

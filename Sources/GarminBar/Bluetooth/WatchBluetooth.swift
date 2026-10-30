@@ -97,10 +97,22 @@ final class WatchBluetooth: NSObject, ObservableObject {
         session?.sendWeather(snapshot) == true
     }
 
-    func refreshWatchFaces(expectedUnitID: UInt32) {
-        guard !watchFaceOpenBusy, !connectIQInstallBusy, !connectIQSettingsBusy else { return }
-        guard let session, isConnected else { watchFaceStatus = "请先连接手表"; return }
-        session.refreshWatchFaces(expectedUnitID: expectedUnitID)
+    @discardableResult
+    func refreshWatchFaces(expectedUnitID: UInt32) -> Bool {
+        guard !watchFaceOpenBusy, !connectIQInstallBusy, !connectIQSettingsBusy else { return false }
+        guard let session, isConnected else { watchFaceStatus = "请先连接手表"; return false }
+        return session.refreshWatchFaces(expectedUnitID: expectedUnitID)
+    }
+
+    /// Isolated native preview fixture; never starts a Bluetooth session.
+    func previewWatchFaceInventory(_ inventory: GFDIInstalledWatchFaceInventory?, busy: Bool = false) {
+        precondition(PulseRuntime.isPreview)
+        isConnected = true; protocolReady = true; canSyncFiles = true
+        connectedName = "Garmin Preview"
+        installedWatchFaces = inventory?.apps ?? []
+        installedWatchFaceAvailableSpace = inventory?.availableSpace
+        watchFaceBusy = busy
+        watchFaceStatus = busy ? "正在读取手表已安装表盘" : ""
     }
 
     func selectWatchFace(_ choice: GFDIWatchFaceOption, expectedUnitID: UInt32) {
@@ -146,22 +158,7 @@ final class WatchBluetooth: NSObject, ObservableObject {
                                       expectedUnitID: expectedUnitID, expectedAccountGUID: expectedAccountGUID)
     }
 
-    /// Explicit user action bound to the device's installed inventory. The official SDK
-    /// sends command 6 directly; its separate command 5 is not an open prerequisite.
-    func openInstalledWatchFace(_ app: GFDIInstalledWatchFace, expectedUnitID: UInt32, runtimeAppID: String? = nil) {
-        guard !watchFaceOpenBusy, !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy, !isTransferringFiles else { return }
-        guard isConnected, protocolReady, expectedUnitID != 0, session?.deviceInfo?.unitID == expectedUnitID,
-              app.unitID == expectedUnitID, installedWatchFaces.contains(app),
-              selected != nil, ciqRX != nil, ciqTX != nil else {
-            watchFaceOpenStatus = "请连接同一手表并重新读取已安装表盘"; return
-        }
-        guard let runtimeAppID, let runtimeUUID = UUID(uuidString: runtimeAppID) else {
-            watchFaceOpenStatus = "请先下载并校验此表盘，再请求打开"; return
-        }
-        startWatchFaceSDKRequest(appID: runtimeUUID.uuidString.lowercased(), expectedUnitID: expectedUnitID, command: 6)
-    }
-
-    /// A read-only SDK application-info query. Never advances to command 6.
+    /// Read-only SDK application-info query; this is not a watch-face selection API.
     /// A successful result reports installed version, not active/current state.
     func probeConnectIQApplication(appID: String, expectedUnitID: UInt32) {
         guard !watchFaceOpenBusy, !watchFaceBusy, !connectIQInstallBusy, !connectIQSettingsBusy, !isTransferringFiles else { return }
@@ -173,15 +170,15 @@ final class WatchBluetooth: NSObject, ObservableObject {
     }
 
     private func startWatchFaceSDKRequest(appID: String, expectedUnitID: UInt32, command: UInt8) {
-        guard let selected, let ciqRX else { return }
+        guard command == 5, let selected, let ciqRX else { return }
         ciqOpenApp = (appID, expectedUnitID)
         ciqOpenCommand = command; ciqOpenSent = false; watchFaceSDKVersion = nil
         watchFaceOpenBusy = true
-        watchFaceOpenStatus = command == 6 ? "正在请求手表打开表盘" : "正在核对手表应用"
+        watchFaceOpenStatus = "正在核对手表应用"
         ciqOpenTimeout?.cancel()
         ciqOpenTimeout = Task { @MainActor [weak self] in
             do { try await Task.sleep(nanoseconds: 25_000_000_000) } catch { return }
-            self?.finishWatchFaceOpen(command == 6 ? "手表打开请求超时，请查看手表" : "手表应用查询超时，请重试")
+            self?.finishWatchFaceOpen("手表应用查询超时，请重试")
         }
         if ciqRX.isNotifying { sendPendingWatchFaceOpen() }
         else { selected.setNotifyValue(true, for: ciqRX) }
@@ -208,21 +205,10 @@ final class WatchBluetooth: NSObject, ObservableObject {
         guard data.count >= 18, data[0] == 0, data[1] == ciqOpenCommand,
               (try? GFDIConnectIQSDK.uuidBytes(app.id)) == Data(data[2..<18]) else { return }
         do {
-            if ciqOpenCommand == 5 {
-                let version = try GFDIConnectIQSDK.applicationVersion(data, appID: app.id)
-                guard version != UInt16.max else { finishWatchFaceOpen("手表 SDK 未找到此应用"); return }
-                watchFaceSDKVersion = version
-                finishWatchFaceOpen("手表 SDK 确认应用已安装，内部版本 \(version)")
-            } else {
-                let status = try GFDIConnectIQSDK.openStatus(data, appID: app.id)
-                switch status {
-                case 0: finishWatchFaceOpen("手表已显示打开提示，请在手表确认")
-                case 1: finishWatchFaceOpen("手表未显示打开提示，请在手表查看当前状态")
-                case 2: finishWatchFaceOpen("手表报告此应用未安装，请重新读取")
-                case 3: finishWatchFaceOpen("手表报告此表盘已在运行")
-                default: finishWatchFaceOpen("手表未能打开此表盘（状态 \(status)）")
-                }
-            }
+            let version = try GFDIConnectIQSDK.applicationVersion(data, appID: app.id)
+            guard version != UInt16.max else { finishWatchFaceOpen("手表 SDK 未找到此应用"); return }
+            watchFaceSDKVersion = version
+            finishWatchFaceOpen("手表 SDK 确认应用已安装，内部版本 \(version)")
         } catch { finishWatchFaceOpen(error.localizedDescription) }
     }
 
@@ -434,13 +420,13 @@ final class WatchBluetooth: NSObject, ObservableObject {
     }
 
     func requestFileSync() {
-        guard !watchFaceOpenBusy else { transferStatus = "请等待表盘打开请求完成"; return }
+        guard !watchFaceOpenBusy else { transferStatus = "请等待设置表盘请求完成"; return }
         guard canSyncFiles else { transferStatus = "当前连接尚未提供文件同步通道"; return }
         session?.requestSync()
     }
 
     func requestRecentActivity() {
-        guard !watchFaceOpenBusy else { transferStatus = "请等待表盘打开请求完成"; return }
+        guard !watchFaceOpenBusy else { transferStatus = "请等待设置表盘请求完成"; return }
         guard canSyncFiles else { transferStatus = "当前连接尚未提供文件同步通道"; return }
         session?.requestSync(includeArchivedActivities: true)
     }

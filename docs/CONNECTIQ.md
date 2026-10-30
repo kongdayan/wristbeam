@@ -28,23 +28,25 @@ Garmin exposes program files through its device installation queue. Download con
 
 **Read watch faces** first queries Smart extension 3, `GetInstalledAppsRequest(WATCH_FACE=3)`. It reads the actual names, store IDs, file sizes and available storage from the connected watch. Disabled/favorite flags are not current-selection indicators. Store details can be unavailable for a sideloaded or removed application.
 
-WristBeam separately queries realtime settings (Smart extension 42, composition 36361) for firmware that offers a switchable grid. Empty replies do not erase the installed list. Grid writes use freshly validated device-returned indexes and require acknowledgement plus selection readback.
+WristBeam separately queries realtime settings (Smart extension 42, composition 36361) for firmware that offers a switchable grid. A once-per-connection StartUpDataRequest precedes the grid read. RTS locale tags use zh_CN/en_US, as in the official client. It supports both direct responses and device-initiated RTS notifications. An empty direct reply waits for a matching notification until the bounded query deadline; it does not prove lack of support or erase the installed list. Grid writes use freshly validated device-returned indexes and require acknowledgement plus selection readback.
 
-## Install and open
+## Install and select
 
 Installation is a separate explicit action. Before a transfer, WristBeam verifies the saved package checksum, account/device selection and compatibility. It reads the matching cloud task and re-downloads its payload for a checksum comparison, obtaining the authentic task identifier without creating another task. The identifier stays in memory.
 
 The official installer sends the complete payload as datatype `0xff`, identifier `11 00 00`. GFDI create/upload/data messages provide file allocation, resume offsets, cumulative CRCs and acknowledgements. Explicit installation continues even when the UUID already exists: an inventory entry does not prove that its version or bytes match the selected package, and must not suppress an update or reinstall. Transfer completion is not sufficient evidence of installation: the target UUID must appear in a subsequent device inventory. This confirms acknowledged transfer and inventory presence, not a byte-for-byte readback or package-version comparison. The operation does not delete another watch face.
 
-**Open on watch** uses the separate Connect IQ SDK Bluetooth channel. The SDK application UUID differs from the public store UUID. WristBeam obtains it from the entry section of a checksum-verified local program, binding the outer store UUID to the selected inventory entry. Unknown formats and ambiguous entries are rejected. Download the package first when no local identity is available.
+Selecting the current watch face is separate from installation and editing its parameters. WristBeam exposes **Switch to this face** only for fresh device-returned realtime-settings choices, with write acknowledgement and selection readback. The tested Instinct 2 Solar returned an empty choice list, so its installed-face rows offer **Watch face settings** and **Details**, with guidance to select the current face on the watch.
 
-After checking the selected entry against the same watch's installed inventory, WristBeam sends command 6 with the runtime UUID, matching the official Android `openApplication` flow. The separate installation-status action uses read-only command 5. Device status 0 means a prompt was displayed; status 3 means the app is already running. Neither an outgoing packet nor a displayed prompt is labelled as a verified screen change. Firmware can reject a watch face or require confirmation on the watch.
+The previous **Set as watch face** button incorrectly used the Connect IQ SDK `openApplication` command 6. A live request for an installed face returned status 1 (`PROMPT_NOT_SHOWN_ON_DEVICE`), not a selection acknowledgement. The device's earlier status 3 (`APP_IS_ALREADY_RUNNING`) likewise did not establish a change of current face. That action and its production sender have been removed; SDK command 5 remains available for a read-only installation/version probe. Do not reinstate command 6 as a watch-face selector without separate evidence of actual selection and persistence.
+
+The SDK application UUID differs from the public store UUID. For the installation/version probe, WristBeam obtains it from a checksum-verified local program and binds the outer store UUID to the selected inventory entry. Unknown formats and ambiguous entries are rejected. Download the package first when no local identity is available. No unverified alternate launch packet is sent to work around the absent selection list.
 
 The read-only MCP/API does not gain write operations. Local runtime diagnostics expose public installed-app fields and operation status, not queue identifiers or credentials.
 
 ## Configure an installed face
 
-The installed-face row has a **Settings** action. It uses the installed internal version and the selected watch's part number, rather than the latest store version. The watch must be connected and idle, and the selected cloud device must match its inventory.
+The installed-face row has a **Watch face settings** action. It uses the installed internal version and the selected watch's part number, rather than the latest store version. The watch must be connected and idle, and the selected cloud device must match its inventory.
 
 The Android application renders Garmin's hosted editor. WristBeam follows that same sequence:
 
@@ -54,9 +56,19 @@ The Android application renders Garmin's hosted editor. WristBeam follows that s
 4. POST the complete returned JSON to the matching `/appSettings2/{app}/versions/{installed-version}/devices/{part}/binary` endpoint. Neither editor nor serializer receives the account Bearer token.
 5. Re-read the watch's properties to detect concurrent changes, send the serialized settings through extension 4, require the device's save acknowledgement, then read back and compare typed values. Only that final comparison produces a verified-save status.
 
+Monkey C decoding follows the declared object-area length, as the official Android decoder does. Bytes after that area are ignored; devices can append padding. Reads remain bounded to the declared slice, so a truncated scalar cannot consume trailer bytes.
+
 The editor preserves unknown and hidden properties. Defaults from the program package are not a substitute for a successful current-settings read. Settings and any developer-specific keys remain in memory; they are not added to the downloaded library, diagnostics or repository. As in the Android application, the current properties are sent to Garmin's regional editor and serializer.
 
 Cancellation, device/account changes and disconnects invalidate the editor operation. Navigation is confined to the same application's official settings route, with a bounded resource allowlist; there is no general JavaScript-to-native bridge. Save failures retain the editor and describe the result as unverified, since a lost acknowledgement can occur after a device write.
+
+### Editor loading diagnostics
+
+`python3 scripts/test-connectiq-webkit.py` compiles the production resource rules using macOS WebKit and checks allowed and denied resource URLs without a network request or device write. Run it when editing the resource policy. WebKit's content-blocker regex parser rejects alternation: the former `(woff|ttf)` font rule prevented the entire list from compiling, before the editor POST could start. Font types now have separate rules.
+
+Debug builds support opt-in local metadata capture: create `settings-editor-capture.enabled` in the app support directory and reproduce the load. `settings-editor-diagnostic.jsonl` records rule compilation, HTTP status/MIME and JavaScript readiness, with private file permissions. It excludes request bodies, settings values, credentials and URL queries. Remove the marker to stop capture; do not commit runtime captures.
+
+For protocol validation, debug builds can opt into metadata-only RTS capture with `rts-capture.enabled` in the active receive directory. `rts-diagnostic.jsonl` records request phase, expected response field, composition, byte count and whether a response matches. It excludes raw packets, identities and settings values. Remove the marker after testing.
 
 ## Evidence
 

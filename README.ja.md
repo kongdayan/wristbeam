@@ -27,7 +27,7 @@ Mac の前に座り、腕には時計がある。それなのに同期のたび�
 
 [AI と接続](docs/developer/API.md) · [対応デバイス](docs/DEVICES.md) · [利用できる指標](docs/METRICS.md)
 
-![WristBeam](docs/images/showcase-hero.png)
+![WristBeam](docs/images/showcase-hero.webp)
 
 [ダウンロード](https://github.com/kongdayan/wristbeam/releases/latest) · [不具合・デバイス報告](https://github.com/kongdayan/wristbeam/issues) · [貢献](CONTRIBUTING.md) · [更新履歴](CHANGELOG.md)
 
@@ -35,13 +35,13 @@ Mac の前に座り、腕には時計がある。それなのに同期のたび�
 
 ## 画面
 
-![メニューバーとクリック後のパネル](docs/images/showcase-menu.png)
+![メニューバーとクリック後のパネル](docs/images/showcase-menu.webp)
 
-![テーマとダッシュボード](docs/images/showcase-themes.png)
+![テーマとダッシュボード](docs/images/showcase-themes.webp)
 
-![表示設定](docs/images/showcase-settings.png)
+![表示設定](docs/images/showcase-settings.webp)
 
-![Compact and Detailed floating panels](docs/images/showcase-floating.png)
+![Compact and Detailed floating panels](docs/images/showcase-floating.webp)
 
 実際のアプリ UI に、独立したデモデータを表示しています。[元の画像と制作方法](docs/SHOWCASE.md)。
 

@@ -94,7 +94,10 @@ enum GFDIMonkeyCodec {
         }
         guard tag == 0xda7ada7a else { throw GFDIConnectIQSettingsError.malformed }
         let objectSize = Int(try reader.number(4))
-        guard objectSize == reader.remaining else { throw GFDIConnectIQSettingsError.malformed }
+        // d55.h slices the declared object area; real watch payloads can include trailing padding.
+        // Bound all node reads to that area so a truncated object cannot consume the trailer.
+        guard objectSize <= reader.remaining else { throw GFDIConnectIQSettingsError.malformed }
+        reader = Reader(data: Array(try reader.take(objectSize)))
         if objectSize == 0 { return .dictionary([:]) } // ahc.m also accepts an empty object list.
         var nodes: [Node] = []
         while reader.remaining > 0 {

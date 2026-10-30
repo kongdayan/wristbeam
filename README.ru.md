@@ -27,7 +27,7 @@
 
 [Подключить ИИ](docs/developer/API.md) · [Поддерживаемые устройства](docs/DEVICES.md) · [Доступные показатели](docs/METRICS.md)
 
-![WristBeam](docs/images/showcase-hero.png)
+![WristBeam](docs/images/showcase-hero.webp)
 
 [Скачать](https://github.com/kongdayan/wristbeam/releases/latest) · [Ошибки и отчёты об устройствах](https://github.com/kongdayan/wristbeam/issues) · [Участие](CONTRIBUTING.md) · [Изменения](CHANGELOG.md)
 
@@ -35,13 +35,13 @@
 
 ## Интерфейс
 
-![Строка меню и панель после нажатия](docs/images/showcase-menu.png)
+![Строка меню и панель после нажатия](docs/images/showcase-menu.webp)
 
-![Темы и панель](docs/images/showcase-themes.png)
+![Темы и панель](docs/images/showcase-themes.webp)
 
-![Настройки отображения](docs/images/showcase-settings.png)
+![Настройки отображения](docs/images/showcase-settings.webp)
 
-![Compact and Detailed floating panels](docs/images/showcase-floating.png)
+![Compact and Detailed floating panels](docs/images/showcase-floating.webp)
 
 Настоящий интерфейс приложения с изолированными демонстрационными данными. [Исходные изображения и оформление](docs/SHOWCASE.md).
 

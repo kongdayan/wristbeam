@@ -27,7 +27,7 @@ Your AI can already count tokens. Now it can ask how *you're* doing.
 
 [Connect IQ watch faces](docs/CONNECTIQ.md) · [Connect your AI](docs/developer/API.md) · [Supported devices](docs/DEVICES.md) · [Available metrics](docs/METRICS.md)
 
-![WristBeam](docs/images/showcase-hero.png)
+![WristBeam](docs/images/showcase-hero.webp)
 
 [Download](https://github.com/kongdayan/wristbeam/releases/latest) · [Issues & device reports](https://github.com/kongdayan/wristbeam/issues) · [Contribute](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
@@ -35,13 +35,13 @@ Your AI can already count tokens. Now it can ask how *you're* doing.
 
 ## A closer look
 
-![Menu bar and click-to-open panel](docs/images/showcase-menu.png)
+![Menu bar and click-to-open panel](docs/images/showcase-menu.webp)
 
-![Themes and dashboard](docs/images/showcase-themes.png)
+![Themes and dashboard](docs/images/showcase-themes.webp)
 
-![Display configuration](docs/images/showcase-settings.png)
+![Display configuration](docs/images/showcase-settings.webp)
 
-![Compact and Detailed floating panels](docs/images/showcase-floating.png)
+![Compact and Detailed floating panels](docs/images/showcase-floating.webp)
 
 Real app UI with isolated demo data. [Original captures and artwork notes](docs/SHOWCASE.md).
 
@@ -58,7 +58,7 @@ Real app UI with isolated demo data. [Original captures and artwork notes](docs/
 
 Opt-in read-only MCP, HTTP/HTTPS API, Python SDK and signed webhooks in Settings → Developer integrations. [Developer API](docs/developer/API.md).
 
-![Framed sharing preview with three synthetic metric cards](docs/images/share-cards-en.png)
+![Framed sharing preview with three synthetic metric cards](docs/images/share-cards-en.webp)
 
 ## Device support
 

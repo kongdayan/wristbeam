@@ -20,13 +20,28 @@ final class ConnectIQSettingsTests: XCTestCase {
     func testMonkeyBoundsUnknownTagsAndBadStringReferencesFailClosed() throws {
         let bytes = try GFDIMonkeyCodec.encode(.dictionary(["a": .int32(3)]))
         XCTAssertThrowsError(try GFDIMonkeyCodec.decode(bytes.dropLast()))
-        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(bytes + Data([0])))
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(bytes + Data([0])), .dictionary(["a": .int32(3)]))
         XCTAssertThrowsError(try GFDIMonkeyCodec.decode(Data([0xda,0x7a,0xda,0x7a,0,0,0,1,0xff])))
         XCTAssertThrowsError(try GFDIMonkeyCodec.decode(Data([0xda,0x7a,0xda,0x7a,0,0,0,5,3,0,0,0,0])))
         XCTAssertThrowsError(try GFDIMonkeyCodec.encode(.dictionary(["bad": .double(.nan)])))
         var nested: GFDIMonkeyValue = .array([])
         for _ in 0..<34 { nested = .array([nested]) }
         XCTAssertThrowsError(try GFDIMonkeyCodec.encode(nested))
+    }
+    func testDeclaredObjectAreaIgnoresTrailerButNeverConsumesItAsNodeData() throws {
+        // Independent wire vector: array of one int32, followed by device padding.
+        let vector = Data([0xda, 0x7a, 0xda, 0x7a, 0, 0, 0, 10,
+                           5, 0, 0, 0, 1, 1, 0, 0, 0, 7])
+        let expected = GFDIMonkeyValue.array([.int32(7)])
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(vector + Data([0])), expected)
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(vector + Data([0xff, 0x11, 0x22])), expected)
+        var truncatedArea = vector
+        truncatedArea[7] = 9 // Last byte of the integer now lies outside the declared object area.
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(truncatedArea + Data([0])))
+        var oversizedArea = vector
+        oversizedArea[7] = 11
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(oversizedArea))
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(Data([0xda, 0x7a, 0xda, 0x7a, 0, 0, 0, 0, 0])), .dictionary([:]))
     }
     func testConnectIQWireBooleanUsesSignedPositiveTrueAndDuplicateKeysUseLastValue() throws {
         // Independent wire vectors: these are not produced by our encoder.

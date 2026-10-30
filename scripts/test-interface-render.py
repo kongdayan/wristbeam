@@ -10,6 +10,8 @@ root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', nargs='?', type=Path)
 parser.add_argument('--compile-only', action='store_true', help='Compile native views without invoking the GPU renderer')
+parser.add_argument('--dashboard-layout-only', action='store_true', help='Render and verify mixed four-column dashboard rows and narrow reflow only')
+parser.add_argument('--connectiq-layout-only', action='store_true', help='Render installed, discovery, loading, empty and disconnected Connect IQ states')
 args = parser.parse_args()
 output = args.output or Path(tempfile.mkdtemp(prefix='wristbeam-native-renders-'))
 output.mkdir(parents=True, exist_ok=True)
@@ -31,6 +33,22 @@ import SwiftUI
         let output = URL(fileURLWithPath:CommandLine.arguments[1],isDirectory:true)
         let model = AppModel()
         model.enablePreview()
+        if CommandLine.arguments.contains("--connectiq-layout-only") {
+            Task { @MainActor in
+                do { try await renderConnectIQCases(model:model,output:output); exit(0) }
+                catch { fputs("Connect IQ layout failed: \(error)\n",stderr); exit(1) }
+            }
+            RunLoop.main.run()
+            return
+        }
+        if CommandLine.arguments.contains("--dashboard-layout-only") {
+            Task { @MainActor in
+                do { try await renderDashboardLayoutCases(model:model,output:output); exit(0) }
+                catch { fputs("Dashboard layout failed: \(error)\n",stderr); exit(1) }
+            }
+            RunLoop.main.run()
+            return
+        }
         verifyDisclosureHitTargets(output: output)
         model.receive(MetricSample(kind:.watchBattery,value:77,source:"fixture"))
         precondition(model.metrics[.watchBattery]?.value == 77)
@@ -192,6 +210,63 @@ import SwiftUI
         }
         RunLoop.main.run()
     }
+    @MainActor static func renderConnectIQCases(model:AppModel,output:URL) async throws {
+        model.openSettings(.connectIQ); model.watchUnitID = "424242"
+        for english in [false,true] {
+            model.language = english ? .en : .zhHans
+            let language = english ? "en" : "zh"
+            let names = english ? ["Analog Classic", "Retro", "Field Notes — High Contrast Edition", "Minimal", "Orbit", "Trail"]
+                : ["经典指针", "复古数字", "户外记录 · 高对比度长名称版", "极简", "轨道", "山径"]
+            let faces = names.enumerated().map { index, name in
+                GFDIInstalledWatchFace(unitID:424242,id:String(format:"00000000-0000-0000-0000-%012d",index+1),name:name,
+                    version:1,filename:nil,fileSize:UInt64((index+1)*16000),disabled:false,favorite:nil,nativeAppID:nil)
+            }
+            let inventory = GFDIInstalledWatchFaceInventory(availableSpace:280000,availableSlots:8,apps:faces)
+            for dark in [false,true] {
+                model.appearance = dark ? .dark : .light
+                let theme = dark ? "dark" : "light"
+                model.bluetooth.previewWatchFaceInventory(inventory)
+                for scope in [0,1] {
+                    model.connectIQScope = scope
+                    model.fontScale = 1.15
+                    try await renderMainPage(model:model,width:1020,height:760,name:"connectiq-\(scope)-\(language)-\(theme)",dark:dark,output:output)
+                    model.fontScale = 1.6
+                    try await renderMainPage(model:model,width:760,height:600,name:"connectiq-narrow-\(scope)-\(language)-\(theme)",dark:dark,output:output)
+                }
+                model.connectIQScope = 0; model.fontScale = 1.15
+                model.bluetooth.previewWatchFaceInventory(nil,busy:true)
+                try await renderMainPage(model:model,width:1020,height:760,name:"connectiq-loading-\(language)-\(theme)",dark:dark,output:output)
+                model.bluetooth.previewWatchFaceInventory(.init(availableSpace:280000,availableSlots:8,apps:[]))
+                try await renderMainPage(model:model,width:1020,height:760,name:"connectiq-empty-\(language)-\(theme)",dark:dark,output:output)
+                model.bluetooth.isConnected = false
+                try await renderMainPage(model:model,width:1020,height:760,name:"connectiq-disconnected-\(language)-\(theme)",dark:dark,output:output)
+            }
+        }
+        precondition(model.cloud.requestCount == 0 && !model.bluetooth.sessionActivated)
+        print("PASS Connect IQ states render without cloud requests or a Bluetooth session")
+    }
+    @MainActor static func renderDashboardLayoutCases(model:AppModel,output:URL) async throws {
+        model.dashboardGrouped = false
+        let metrics: [MetricKind] = [.heartRate,.bodyBattery,.stress,.steps,.hrvNight,.hrvStatus,MetricKind(rawValue:"daily.restingHeartRate")!,.solarIntensity]
+        model.dashboardMetrics = Set(metrics)
+        model.dashboardOrder = metrics.map(\.rawValue)
+        model.dashboardColumns = 4
+        for kind in [MetricKind.heartRate,.stress,.hrvNight,.hrvStatus] { model.metricNotes[kind] = "读数已过期" }
+        for english in [false,true] {
+            model.language = english ? .en : .zhHans
+            let language = english ? "en" : "zh"
+            for dark in [false,true] {
+                model.appearance = dark ? .dark : .light
+                let theme = dark ? "dark" : "light"
+                for size in [PulseCardSize.compact,.regular,.spacious] {
+                    model.fontScale = 1.15; model.cardSize = size
+                    try await renderMainPage(model:model,width:1512,height:800,name:"dashboard-four-columns-\(size.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                }
+                model.fontScale = 1.6; model.cardSize = .regular
+                try await renderMainPage(model:model,width:760,height:600,name:"dashboard-four-reflow-\(language)-\(theme)",dark:dark,output:output)
+            }
+        }
+    }
     @MainActor static func renderScenarios(model:AppModel,output:URL) async throws {
         for english in [false,true] {
             model.language = english ? .en : .zhHans
@@ -251,7 +326,7 @@ import SwiftUI
                 model.dashboardOrder = fourColumnMetrics.map(\.rawValue)
                 model.dashboardColumns = 4
                 for kind in [MetricKind.heartRate,.stress,.hrvNight,.hrvStatus] { model.metricNotes[kind] = "读数已过期" }
-                try await renderMainPage(model:model,width:1512,height:1000,name:"dashboard-four-columns-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:1512,height:800,name:"dashboard-four-columns-\(language)-\(theme)",dark:dark,output:output)
                 model.metricNotes = savedNotes
                 model.dashboardOrder = savedOrder
                 model.dashboardMetrics = savedDashboardMetrics
@@ -514,8 +589,11 @@ import SwiftUI
         }
         precondition(frames["sidebar-list"]!.insetBy(dx:-1,dy:-1).contains(frames["sidebar-selection"]!), "Selected sidebar row is clipped in \(name)")
         if name.hasPrefix("dashboard-four-columns-") {
-            let cards = frames.filter { $0.key.hasPrefix("metric-card-") }.map(\.value).sorted {
-                abs($0.minY - $1.minY) > 1 ? $0.minY < $1.minY : $0.minX < $1.minX
+            var cards: [CGRect] = []
+            for (key, frame) in frames where key.hasPrefix("metric-card-") { cards.append(frame) }
+            cards.sort { lhs, rhs in
+                if abs(lhs.minY - rhs.minY) > 1 { return lhs.minY < rhs.minY }
+                return lhs.minX < rhs.minX
             }
             precondition(cards.count == 8, "Four-column fixture must lay out eight mixed cards")
             for start in stride(from:0,to:8,by:4) {
@@ -615,4 +693,6 @@ struct ControlShowcase: View {
         print('PASS: native views compiled; GPU rendering explicitly not executed')
     else:
         subprocess.run([sys.executable, str(root / 'scripts/ci-metrics.py'), 'measure', '--name', 'interface-render',
-                        '--output', str(output / 'interface-render-timing.json'), '--', str(binary), str(output), '--preview'], check=True, cwd=root)
+                        '--output', str(output / 'interface-render-timing.json'), '--', str(binary), str(output), '--preview',
+                        *(['--dashboard-layout-only'] if args.dashboard_layout_only else []),
+                        *(['--connectiq-layout-only'] if args.connectiq_layout_only else [])], check=True, cwd=root)

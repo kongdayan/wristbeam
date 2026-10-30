@@ -2,6 +2,13 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+private struct PulseLayoutBoundsKey: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
+}
+
 struct SettingsRootView: View {
     @ObservedObject var model: AppModel
     var onLayout: (([String: CGRect]) -> Void)? = nil
@@ -51,7 +58,7 @@ struct SettingsRootView: View {
                     }
                 }.id("settings-top").frame(maxWidth: contentMaximumWidth, alignment: .leading)
                     .padding(PulseLayout.pageInset)
-                    .frame(maxWidth: .infinity, alignment: model.page.isSettings || model.page == .overview ? .center : .leading)
+                    .frame(maxWidth: .infinity, alignment: model.page.isSettings || model.page == .overview || model.page == .connectIQ ? .center : .leading)
                     .background(ScrollPositionKeeper(positions: model.scrollPositions, key: model.mainScrollKey))
             }.id(model.mainScrollKey)
             .onChange(of: model.activityBrowsing) { _ in
@@ -65,10 +72,12 @@ struct SettingsRootView: View {
             .environment(\.locale, L10n.locale)
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
             .coordinateSpace(name: "wristbeam-main-content")
+            .onPreferenceChange(PulseLayoutBoundsKey.self) { onLayout?($0) }
     }
     private var contentMaximumWidth: CGFloat {
         if model.page.isSettings { return 780 }
         if model.page == .overview && model.detailMetric == nil { return PulseLayout.dashboardMaximumWidth }
+        if model.page == .connectIQ { return PulseLayout.dashboardMaximumWidth }
         return .infinity
     }
     private var sidebarNavigation: some View {
@@ -123,8 +132,7 @@ struct SettingsRootView: View {
     private func recordBounds(_ identifier: String) -> some View {
         GeometryReader { geometry in
             let frame = geometry.frame(in: .named("wristbeam-main-content"))
-            Color.clear.onAppear { onLayout?([identifier: frame]) }
-                .onChange(of: frame) { onLayout?([identifier: $0]) }
+            Color.clear.preference(key: PulseLayoutBoundsKey.self, value: [identifier: frame])
         }
     }
 }
@@ -213,8 +221,7 @@ struct OverviewPage: View {
                         if onLayout != nil {
                             GeometryReader { proxy in
                                 let frame = proxy.frame(in: .named("wristbeam-main-content"))
-                                Color.clear.onAppear { onLayout?(["metric-card-\(kind.rawValue)": frame]) }
-                                    .onChange(of: frame) { onLayout?(["metric-card-\(kind.rawValue)": $0]) }
+                                Color.clear.preference(key: PulseLayoutBoundsKey.self, value: ["metric-card-\(kind.rawValue)": frame])
                             }
                         }
                     }

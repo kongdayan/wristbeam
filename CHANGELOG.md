@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.11 — 2026-10-30
+
+- Bring the validated macOS beta interface to stable: integrated settings, native controls, keyboard navigation and compact/large-text layouts.
+- Align mixed dashboard cards across four-column rows and adapt them to narrow windows.
+- Automatically read installed watch faces and simplify Connect IQ navigation, search and settings actions.
+- Fix valid watch-face settings rejected because of trailing padding, and repair WebKit resource rules that prevented settings forms from loading.
+- End empty direct-mode capability checks promptly and release settings actions after timeouts. Saving watch-face settings was confirmed on a physical device; switching the active face remains dependent on device-provided controls.
+- Compress README showcase images and keep image references consistent across all five languages.
+
 ## 0.3.11-beta.5 — 2026-10-28
 
 - Improve native popup controls, sidebar selection visibility, keyboard focus and large-text layouts across the integrated settings flow.

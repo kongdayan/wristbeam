@@ -11,6 +11,7 @@ import Foundation
     var mainScrollKey: String {
         if let kind = detailMetric { return "metric." + kind.rawValue }
         if page == .activities, let id = selectedActivityID { return "activity." + id }
+        if page == .connectIQ { return "page.connectIQ.\(connectIQScope)" }
         return "page." + page.rawValue
     }
     var canGoBack: Bool { detailMetric != nil || (page == .activities && selectedActivityID != nil) }

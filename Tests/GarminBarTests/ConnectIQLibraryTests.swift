@@ -20,13 +20,19 @@ import XCTest
     var searchContinuations: [CheckedContinuation<[ConnectIQApp], Error>] = []
     var searchCalls: [(keywords: String, page: Int)] = []
     var searchRows: [ConnectIQApp]?
+    var appRequests: [String] = []
+    var missingAppIDs = Set<String>()
     var app = ConnectIQApp(id: "00000000-0000-0000-0000-000000000001", name: "Fixture Face", description: "",
                            version: "1.0", internalVersion: 1, isWatchFace: true, compatiblePartNumbers: ["fixture-part"],
                            permissions: [], paymentModel: nil, hasTrialMode: false, iconFileID: nil)
     func fetchConnectIQHistory(deviceID: String, page: Int) async throws -> [ConnectIQDownloadRecord] {
         try await withCheckedThrowingContinuation { historyContinuation = $0 }
     }
-    func fetchConnectIQApp(id: String, deviceID: String) async throws -> ConnectIQApp { app }
+    func fetchConnectIQApp(id: String, deviceID: String) async throws -> ConnectIQApp {
+        appRequests.append(id)
+        if missingAppIDs.contains(id) { throw ConnectIQError.invalidData }
+        return app
+    }
     func fetchConnectIQFeatured(deviceID: String, page: Int) async throws -> [ConnectIQApp] {
         duplicateFeatured ? [app, app] : [app]
     }
@@ -47,6 +53,27 @@ import XCTest
 }
 
 final class ConnectIQLibraryTests: XCTestCase {
+    @MainActor func testInstalledMetadataLoadsOnceWithoutHistoryAndRetriesAfterAccountChange() async {
+        let cloud = ConnectIQLibraryCloud(), library = ConnectIQLibrary()
+        let missingID = "00000000-0000-0000-0000-000000000002"
+        cloud.missingAppIDs = [missingID]
+        library.attach(cloud)
+        library.refreshInstalledMetadata(appIDs: [cloud.app.id, cloud.app.id, missingID])
+        await settle { !library.busy }
+        XCTAssertEqual(cloud.appRequests.count, 2)
+        XCTAssertNotNil(library.apps[cloud.app.id])
+        XCTAssertNil(cloud.historyContinuation)
+        library.refreshInstalledMetadata(appIDs: [cloud.app.id, missingID])
+        XCTAssertEqual(cloud.appRequests.count, 2)
+        XCTAssertFalse(library.busy)
+        cloud.loginRevision = UUID(); library.reconcile()
+        library.refreshInstalledMetadata(appIDs: [cloud.app.id])
+        await settle { !library.busy }
+        XCTAssertEqual(cloud.appRequests.count, 3)
+        cloud.networkEnabled = false; library.reconcile()
+        library.refreshInstalledMetadata(appIDs: [cloud.app.id])
+        XCTAssertEqual(cloud.appRequests.count, 3)
+    }
     @MainActor func testKeywordSearchDeduplicatesPagesAndResetsForNewQuery() async {
         let cloud = ConnectIQLibraryCloud(), library = ConnectIQLibrary()
         cloud.searchRows = Array(repeating: cloud.app, count: ConnectIQService.pageSize)

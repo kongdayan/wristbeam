@@ -27,7 +27,7 @@ Mac 앞에 앉아 있고 손목에는 시계가 있는데, 동기화하려면 �
 
 [AI 연결하기](docs/developer/API.md) · [지원 기기](docs/DEVICES.md) · [사용 가능한 지표](docs/METRICS.md)
 
-![WristBeam](docs/images/showcase-hero.png)
+![WristBeam](docs/images/showcase-hero.webp)
 
 [다운로드](https://github.com/kongdayan/wristbeam/releases/latest) · [문제 및 기기 보고](https://github.com/kongdayan/wristbeam/issues) · [기여](CONTRIBUTING.md) · [변경 기록](CHANGELOG.md)
 
@@ -35,13 +35,13 @@ Mac 앞에 앉아 있고 손목에는 시계가 있는데, 동기화하려면 �
 
 ## 화면
 
-![메뉴 막대와 클릭 후 패널](docs/images/showcase-menu.png)
+![메뉴 막대와 클릭 후 패널](docs/images/showcase-menu.webp)
 
-![테마와 대시보드](docs/images/showcase-themes.png)
+![테마와 대시보드](docs/images/showcase-themes.webp)
 
-![표시 설정](docs/images/showcase-settings.png)
+![표시 설정](docs/images/showcase-settings.webp)
 
-![Compact and Detailed floating panels](docs/images/showcase-floating.png)
+![Compact and Detailed floating panels](docs/images/showcase-floating.webp)
 
 실제 앱 UI에 분리된 데모 데이터를 표시합니다. [원본 화면과 제작 설명](docs/SHOWCASE.md).
 

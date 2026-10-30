@@ -28,7 +28,7 @@ Mac 有电量条，人也该有。
 
 [Connect IQ 表盘](docs/CONNECTIQ.md) · [接入你的 AI](docs/developer/API.md) · [支持的设备](docs/DEVICES.md) · [可用指标](docs/METRICS.md)
 
-![腕映：菜单栏、浮窗与健康看板](docs/images/showcase-hero-zh.png)
+![腕映：菜单栏、浮窗与健康看板](docs/images/showcase-hero-zh.webp)
 
 [下载](https://github.com/kongdayan/wristbeam/releases/latest) · [反馈与设备支持](https://github.com/kongdayan/wristbeam/issues) · [参与贡献](CONTRIBUTING.md) · [版本记录](CHANGELOG.md)
 
@@ -36,13 +36,13 @@ Mac 有电量条，人也该有。
 
 ## 展示
 
-![菜单栏与点击后的弹窗](docs/images/showcase-menu-zh.png)
+![菜单栏与点击后的弹窗](docs/images/showcase-menu-zh.webp)
 
-![主题与看板](docs/images/showcase-themes-zh.png)
+![主题与看板](docs/images/showcase-themes-zh.webp)
 
-![显示配置](docs/images/showcase-settings-zh.png)
+![显示配置](docs/images/showcase-settings-zh.webp)
 
-![紧凑与详细浮窗](docs/images/showcase-floating-zh.png)
+![紧凑与详细浮窗](docs/images/showcase-floating-zh.webp)
 
 真实应用界面，使用隔离演示数据。[原始截图与制作说明](docs/SHOWCASE.md)。
 
@@ -60,7 +60,7 @@ Mac 有电量条，人也该有。
 
 只读 MCP、HTTP/HTTPS API、Python SDK 与签名 Webhook，在「设置 → 开发者集成」中配置。默认关闭。[开发者接口文档](docs/developer/API.md)。
 
-![带壳分享示例：三张选中卡片，隔离演示数据](docs/images/share-cards-zh.png)
+![带壳分享示例：三张选中卡片，隔离演示数据](docs/images/share-cards-zh.webp)
 
 ## 设备支持
 
