@@ -1,111 +1,45 @@
-<div align="center">
-<img src="docs/images/app-icon.png" width="76" alt="WristBeam" />
-
 # WristBeam
 
-Mac にバッテリー表示があるなら、自分にも。
-
-[![CI](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kongdayan/wristbeam/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/kongdayan/wristbeam)](https://github.com/kongdayan/wristbeam/releases/latest)
-[![MIT](https://img.shields.io/badge/license-MIT-91d8b1)](LICENSE)
-[![macOS](https://img.shields.io/badge/macOS-13%2B-1d2628?logo=apple)](https://github.com/kongdayan/wristbeam/releases/latest)
+Garmin ウォッチを Mac に接続し、健康データやワークアウトを確認する macOS アプリです。データを Mac に保存し、MCP や API で AI アシスタントや自作ツールから利用できます。
 
 [English](README.md) · [简体中文](README.cn.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Русский](README.ru.md)
 
-</div>
+**[macOS 版をダウンロード](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip)** · [更新履歴](CHANGELOG.md) · [問題を報告](https://github.com/kongdayan/wristbeam/issues)
 
-**Garmin → Mac → Garmin Connect。スマホアプリを経由せずに。**
+macOS 13 以降が必要です。Universal アプリなので、Apple Silicon と Intel のどちらの Mac でも同じファイルを使えます。
 
-Mac の前に座り、腕には時計がある。それなのに同期のたびにスマホを取り出してアプリを開く。そのひと手間をなくしたくて、WristBeam を作りました。時計を Bluetooth で Mac に直接つなぎ、アクティビティと健康データを Garmin Connect に同期します。
+## はじめに
 
-- **スマホにも休憩を。** 対応する Garmin ウォッチから Mac 経由で Garmin Connect 中国／グローバルへ同期。
-- **自分のバッテリーをメニューバーに。** 心拍数、Body Battery、ストレス、歩数などを、メニューバーやフローティングパネル、日々のグラフで確認。
-- **AI にも体調を伝える。** MCP で同期済みの健康指標を AI アシスタントに接続し、「昨夜の睡眠はどうだった？」と聞いてみましょう。HTTP/HTTPS API、Python SDK、Webhook で独自のツールも作れます。
-- **Mac から文字盤を変更。** Connect IQ の文字盤を名前やキーワードで検索し、公式パッケージを保存して Bluetooth でインストール。対応する文字盤の設定も編集でき、保存後に読み戻して確認します。
+1. ダウンロードした ZIP を展開し、**WristBeam.app** を **アプリケーション** フォルダに移動します。
+2. **Devices → Connection** を開き、画面の案内に従って Bluetooth を許可し、ウォッチをペアリングします。
+3. **Dashboard** でデータを確認します。メニューバーやフローティングパネルの表示項目は **Settings** で選べます。
 
-トークンの残量だけでなく、あなたのエネルギーも気にかけてくれる AI へ。
+ウォッチのデータをローカルで使うだけならログインは不要です。Garmin のクラウド履歴やファイルのアップロードを使う場合は、**Devices → Device account** でログインし、**Sync records** で同期方法を選びます。
 
-[AI と接続](docs/developer/API.md) · [対応デバイス](docs/DEVICES.md) · [利用できる指標](docs/METRICS.md)
+[接続と設定ガイド](docs/SETUP.md)。現在の配布版はアドホック署名で、Apple の公証は受けていません。
 
-![WristBeam](docs/images/showcase-hero.webp)
+![デモデータを使ったダッシュボード、メニューバー、フローティングパネル](docs/images/showcase-hero.webp)
 
-[ダウンロード](https://github.com/kongdayan/wristbeam/releases/latest) · [不具合・デバイス報告](https://github.com/kongdayan/wristbeam/issues) · [貢献](CONTRIBUTING.md) · [更新履歴](CHANGELOG.md)
+## 主な機能
 
-**0.3.10 の更新：**押しやすいボタン、行全体で開閉できるセクション、大きな文字でも使いやすい配置、スクロールバーのないすっきりした画面。[更新履歴](CHANGELOG.md#0310--2026-10-23)。
+- **ローカル保存。** ウォッチから運動・健康データの元の FIT ファイルを受信し、Mac に保存・エクスポートします。クラウド同期は任意です。
+- **AI と自動化。** 読み取り専用 MCP、HTTP/HTTPS API、Python SDK で保存済みデータを照会できます。Webhook も設定可能で、連携は有効にするまで動作しません。
+- **日々の健康状態。** 心拍数、Body Battery、ストレス、歩数や取得できた推移を、ダッシュボード・メニューバー・パネルに表示します。
+- **ワークアウトの確認。** 履歴、統計、グラフを開き、データに応じて JSON、TCX、GPX、元ファイルをエクスポートできます。
+- **ウォッチフェイスの管理。** Connect IQ で検索し、Bluetooth でインストールして対応する設定を編集します。使用中のフェイスを切り替えられるかどうかは、ウォッチが提供する操作に依存します。
 
-## 画面
+## 対応機種
 
-![メニューバーとクリック後のパネル](docs/images/showcase-menu.webp)
+**Instinct 2 Solar** は実機で確認済みです。他の Garmin 機種やファームウェアは個別の確認が必要です。取得できる指標は機種とデータソースにより異なり、クラウド由来の記録にはログインが必要です。
 
-![テーマとダッシュボード](docs/images/showcase-themes.webp)
+[対応機種](docs/DEVICES.md) · [指標一覧](docs/METRICS.md) · [検証範囲](VERIFICATION.md)
 
-![表示設定](docs/images/showcase-settings.webp)
+## ドキュメントと開発
 
-![Compact and Detailed floating panels](docs/images/showcase-floating.webp)
+- [設定とトラブルシューティング](docs/SETUP.md)
+- [Connect IQ ウォッチフェイス](docs/CONNECTIQ.md)
+- [MCP・API・Python SDK](docs/developer/API.md)
+- [開発とコントリビュート](CONTRIBUTING.md) · [セキュリティ](SECURITY.md)
+- [その他のスクリーンショット](docs/SHOWCASE.md) · [更新履歴](CHANGELOG.md)
 
-実際のアプリ UI に、独立したデモデータを表示しています。[元の画像と制作方法](docs/SHOWCASE.md)。
-
-## 機能
-
-- **設定をひとつのウィンドウに。** メインウィンドウのサイドバーで外観、指標の選択、更新間隔、開発者連携、ソフトウェア更新を分類。セクションの見出しは行全体で開閉でき、スクロールバーを隠しても通常どおりスクロールできます。
-- **クラウドは任意。** アカウントなしで時計のデータを受信し、Garmin クラウドへのアクセスを停止できます。ローカルの FIT＋CSV を書き出したり、後からアップロードしたりできます。[ローカルモード](docs/SETUP.md)。
-- **ワークアウトを AI にも。** アクティビティ一覧から統計とグラフを開き、JSON／TCX／GPX／元ファイルを書き出せます。MCP でキャッシュ済みの運動履歴を照会でき、概要の定期更新も設定できます。[API](docs/developer/API.md#activity-library)。
-- コンパクトな立体カードに更新時刻を表示。レイアウトと基本指標を一か所で設定し、看板全体・選択カード・単一値を明暗のフレーム付き画像としてコピー、保存、共有できます。
-- メニューバー、パネル、ダッシュボードを個別に設定。グループ選択、検索、並べ替え、文字サイズとレイアウト調整。
-- 日次曲線、時間帯別の棒グラフ、日付／時間範囲、カーソル値、元の記録。欠測は空白のまま。
-- Garmin Bluetooth ペアリングガイド、元 FIT の永続キュー、重複排除とクラウド同期。
-- ライト／ダーク／システムテーマ。システム言語が中国語の場合は中国語、それ以外は英語で表示し、手動でも切り替えられます。README は別途多言語で提供しています。更新は確認後に実行。
-
-任意の開発者インターフェース：読み取り専用 MCP、HTTP/HTTPS API、Bearer キー、署名付き Webhook、Python SDK と stdio ブリッジ。[API ドキュメント](docs/developer/API.md)。初期状態では無効です。
-
-## デバイス対応
-
-現在は **Garmin** の時計に対応しています。実機検証済みモデルは下表をご覧ください。他ブランドやデバイスは今後の拡張対象です。
-
-| 時計 | ライブ指標 | 元 FIT＋中国クラウド | ソーラー記録 | 状態 |
-| --- | --- | --- | --- | --- |
-| Instinct 2 Solar | ✓ | ✓ | ✓ | 実機確認済み |
-| Instinct 2 / 2S / 2X | 未検証 | 未検証 | モデルによる | 報告歓迎 |
-| fēnix / epix / Forerunner | 未検証 | 未検証 | モデルによる | 報告歓迎 |
-| Venu / vívoactive・その他 | 未検証 | 未検証 | モデルによる | 報告歓迎 |
-
-ファームウェアと利用可能なサービスに依存します。シリーズ全体の互換性は保証しません。[詳細と報告方法](docs/DEVICES.md)。
-
-## 取得できるデータ
-
-| 指標 | 取得元 | 表示 |
-| --- | --- | --- |
-| 心拍数・Body Battery・ストレス | Garmin 通知＋クラウドの日次記録 | 現在値、日次曲線 |
-| 歩数 | Bluetooth＋クラウド | 日次合計、時間帯別増分 |
-| 呼吸数・SpO₂ | 時計の測定通知／クラウド | 測定値、日次推移 |
-| RR 間隔 | Bluetooth | ミリ秒。夜間 HRV スコアではありません |
-| 夜間 HRV | クラウド睡眠記録 | 夜間平均・7日平均・状態・基準範囲・夜間グラフ。欠測値は補完しません |
-| 時計の電池 | Garmin Bluetooth | デバイス情報に電池アイコンと残量を表示。変更通知と定期更新 |
-| カロリー・階数・運動強度分 | 時計／クラウドが返す項目 | 日次集計、一部は時間帯別 |
-| 安静時心拍数・睡眠時間・回復集計 | クラウドの日次集計 | 集計値、関連推移 |
-| 時計の天気 | Open-Meteo またはデバイスのクラウドアカウント | 現在・時間別・日別の天気を時計に送信。[設定](docs/developer/WEATHER.md) |
-| ソーラー強度 | 有効なクラウドの分単位記録 | 0〜24 時の曲線 |
-| 日照／ソーラー充電時間 | 有効な入力分から推定 | 推定値として明示 |
-| アクティビティ・健康 FIT | 時計の元ファイル | ローカル保存、クラウド送信 |
-
-**60 個の健康指標と 1 個のデバイス状態フィールド**を用意しています。有効なデータを受信した項目だけを表示し、取得可否は時計によって異なります。[全一覧と検証状態](docs/METRICS.md)。
-
-## インストール
-
-| Mac | パッケージ |
-| --- | --- |
-| Apple Silicon | [arm64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-arm64.zip) |
-| Intel | [x86_64](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-x86_64.zip) |
-| 両方のアーキテクチャ | [Universal](https://github.com/kongdayan/wristbeam/releases/latest/download/WristBeam-macOS-universal.zip) |
-
-インストール済みの場合は **Settings → Software updates → Check for updates** から更新できます。クラウドアカウントは任意で、ローカル利用にはログイン不要です。
-
-macOS 13 以降が必要です。展開して書き込み可能な Applications フォルダへ移します。「デバイス → 接続」で心拍ブロードキャストをオフにした時計を準備し、接続ボタンを押して Bluetooth を許可します。デバイスアカウントで中国／グローバルを選び、Garmin 公式ページでログイン後、同期履歴で手動／自動アップロードを選びます。起動時の自動接続は既定でオフです。ペアリング後に有効にできます。
-
-アドホック署名で、Apple 公証は未実施です。実際のグローバルアカウント送信と他のファームウェアは未検証。アプリ層暗号化、native MLR / CoreTransfer、デスクトップウィジェットは未対応です。Mac のスリープ中は即時同期できません。[検証範囲](VERIFICATION.md)。
-
-## 貢献と共有
-
-PR、翻訳、デバイス検証、アイデアを歓迎します。**[MIT](LICENSE)** により、ライセンスを残して利用・変更・再配布できます。Garmin 公式とは関係のない独立プロジェクトです。
-
-[開発・PR ガイド](CONTRIBUTING.md) · [安全性の報告](SECURITY.md) · [自動リリース](docs/RELEASING.md)
+[MIT ライセンス](LICENSE)で公開しています。機種の動作報告、修正、翻訳を歓迎します。
