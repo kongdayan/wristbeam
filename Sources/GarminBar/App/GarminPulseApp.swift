@@ -32,8 +32,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
     let model = AppModel()
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
-    private var settingsWindow: NSWindow?
-    private var preferencesWindow: NSWindow?
+    private var settingsWindow: PulseSettingsWindow?
     private var floatingPanel: NSPanel?
     private var subscriptions: Set<AnyCancellable> = []
     private var controlObserver: NSObjectProtocol?
@@ -54,7 +53,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
         }
         model.onQuit = { NSApplication.shared.terminate(nil) }
         configureApplicationMenu()
-        model.updater.canInstall = { [weak self] in self?.model.uploads.isSyncing == false && self?.model.bluetooth.isTransferringFiles == false && self?.model.preview == false }
+        model.updater.canInstall = { [weak self] in self?.model.hasActiveFileOperations == false && self?.model.preview == false }
         model.updater.onConfirmation = { [weak self] in self?.confirmUpdate() }
         controlObserver = DistributedNotificationCenter.default().addObserver(forName: PulseLocalControl.notification, object: nil, queue: .main) { [weak self] notification in
             guard let command = notification.userInfo?["command"] as? String,
@@ -87,7 +86,10 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
         popover.contentSize = NSSize(width: 420, height: 500)
         popover.contentViewController = NSHostingController(rootView: MenuPopover(model: model))
         model.objectWillChange.receive(on: RunLoop.main).sink { [weak self] in
-            DispatchQueue.main.async { self?.refreshStatusItem() }
+            DispatchQueue.main.async {
+                self?.refreshStatusItem()
+                if let self { self.settingsWindow?.title = PulseSettingsWindow.title(for: self.model) }
+            }
         }.store(in: &subscriptions)
         menuAppearanceObserver = DistributedNotificationCenter.default().addObserver(forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
             DispatchQueue.main.async { self?.refreshStatusItem() }
@@ -182,16 +184,11 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
 
     func showSettings(_ page: AppPage) {
         popover?.performClose(nil)
-        if page.isSettings { showPreferences(page); return }
+        model.detailMetric = nil
+        if page.isSettings { model.settingsPage = page }
         model.page = page
         if settingsWindow == nil {
-            let window = PulseSettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 1020, height: 740), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            window.title = model.preview ? "WristBeam Demo" : L10n.text("腕映")
-            window.titlebarAppearsTransparent = true
-            window.backgroundColor = NSColor(PulseTheme.background)
-            window.minSize = NSSize(width: 880, height: 640)
-            window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView: SettingsRootView(model: model))
+            let window = PulseSettingsWindow.make(model: model)
             if model.preview, let screen = NSScreen.screens.first {
                 window.setFrameOrigin(NSPoint(x: screen.visibleFrame.minX + 40, y: screen.visibleFrame.maxY - window.frame.height - 60))
             } else { window.center() }
@@ -199,16 +196,21 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
             else { window.setFrameAutosaveName("GarminPulseSettings") }
             settingsWindow = window
         }
-        applyAppearance(); settingsWindow?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        applyAppearance(); settingsWindow?.presentMainWindow()
     }
 
-    @objc private func openPreferences() { showPreferences(model.settingsPage) }
+    @objc private func openPreferences() { model.openSettings(model.settingsPage) }
+    @objc private func openAbout() { model.openSettings(.about) }
 
     private func configureApplicationMenu() {
         let menu = NSMenu()
         let appItem = NSMenuItem()
         menu.addItem(appItem)
         let appMenu = NSMenu(title: "WristBeam")
+        let about = NSMenuItem(title: L10n.text("关于") + " " + L10n.text("腕映"), action: #selector(openAbout), keyEquivalent: "")
+        about.target = self
+        appMenu.addItem(about)
+        appMenu.addItem(.separator())
         let settings = NSMenuItem(title: L10n.text("设置") + "…", action: #selector(openPreferences), keyEquivalent: ",")
         settings.target = self
         appMenu.addItem(settings)
@@ -234,8 +236,25 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
             item.target = self; navigation.addItem(item)
         }
         navigationItem.submenu = navigation; menu.addItem(navigationItem)
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: L10n.text("窗口"))
+        for (title, action, key) in [("关闭窗口", #selector(NSWindow.performClose(_:)), "w"),
+                                      ("最小化", #selector(NSWindow.performMiniaturize(_:)), "m"),
+                                      ("缩放", #selector(NSWindow.performZoom(_:)), "")] {
+            windowMenu.addItem(NSMenuItem(title: L10n.text(title), action: action, keyEquivalent: key))
+        }
+        let fullScreen = NSMenuItem(title: L10n.text("切换全屏"), action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
+        fullScreen.keyEquivalentModifierMask = [.control, .command]
+        windowMenu.addItem(fullScreen)
+        windowMenu.addItem(.separator())
+        let reopen = NSMenuItem(title: L10n.text("腕映"), action: #selector(reopenMainWindow), keyEquivalent: "0")
+        reopen.target = self; windowMenu.addItem(reopen)
+        windowItem.submenu = windowMenu; menu.addItem(windowItem)
+        NSApp.windowsMenu = windowMenu
         NSApp.mainMenu = menu
     }
+
+    @objc private func reopenMainWindow() { showSettings(model.page) }
 
     @objc private func navigateToPage(_ item: NSMenuItem) {
         guard AppPage.navigationPages.indices.contains(item.tag) else { return }
@@ -246,7 +265,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
     @objc private func searchActivities() { model.activitySearchRequest += 1 }
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         guard NavigationWindowPolicy.allowsNavigation(key: NSApp.keyWindow, main: settingsWindow,
-            preferences: preferencesWindow, modal: NSApp.modalWindow) else { return false }
+            preferences: nil, modal: NSApp.modalWindow) else { return false }
         let mainActive = settingsWindow?.isKeyWindow == true
         switch menuItem.action {
         case #selector(goBack): return mainActive && model.canGoBack
@@ -258,22 +277,6 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
             return (model.page == .overview || model.detailMetric != nil) && !model.isRefreshingHealth
         default: return true
         }
-    }
-
-    private func showPreferences(_ page: AppPage) {
-        model.settingsPage = page
-        if preferencesWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 680), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            window.minSize = NSSize(width: 820, height: 600)
-            window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView: PreferencesRootView(model: model))
-            window.setFrameAutosaveName("WristBeamPreferences")
-            window.center()
-            preferencesWindow = window
-        }
-        applyAppearance()
-        preferencesWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     func setFloating(_ enabled: Bool) {
@@ -304,7 +307,7 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
     private func confirmUpdate() {
         guard let release = model.updater.release, model.updater.available, !model.updater.isInstalling else { return }
         showSettings(.updates)
-        guard let window = preferencesWindow, window.attachedSheet == nil else { return }
+        guard let window = settingsWindow, window.attachedSheet == nil else { return }
         let alert = NSAlert()
         alert.messageText = L10n.format("发现新版本 {0}", release.tagName)
         alert.informativeText = L10n.text(model.updater.installable ? "确认后下载并校验安装包，完成后自动重启。账户授权、显示设置和本地数据会保留。" : "此版本没有适合本机的安装包，请在 GitHub 查看详情。")
@@ -322,23 +325,10 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
 
     private func applyAppearance() {
         let appearance = model.appearance == .system ? nil : NSAppearance(named: model.appearance == .light ? .aqua : .darkAqua)
-        settingsWindow?.appearance = appearance; settingsWindow?.title = model.preview ? "WristBeam Demo" : L10n.text("腕映"); floatingPanel?.appearance = appearance
-        preferencesWindow?.appearance = appearance
-        preferencesWindow?.title = L10n.text("设置")
+        settingsWindow?.appearance = appearance; settingsWindow?.title = PulseSettingsWindow.title(for: model); floatingPanel?.appearance = appearance
         configureApplicationMenu()
         popover?.appearance = appearance
         refreshStatusItem()
         floatingPanel?.title = L10n.text("WristBeam 浮动指标")
-    }
-}
-
-@MainActor
-final class PulseSettingsWindow: NSWindow {
-    var onPreviewSnapshot: (() -> Void)?
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "s", let onPreviewSnapshot {
-            onPreviewSnapshot(); return true
-        }
-        return super.performKeyEquivalent(with: event)
     }
 }

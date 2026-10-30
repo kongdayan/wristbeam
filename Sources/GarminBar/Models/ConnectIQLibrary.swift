@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import ImageIO
+import CoreGraphics
 
 @MainActor protocol ConnectIQCloudClient: AnyObject {
     var objectWillChange: ObservableObjectPublisher { get }
@@ -67,6 +69,24 @@ private final class ConnectIQArtworkRedirectPolicy: NSObject, URLSessionTaskDele
 
 enum ConnectIQPackageStore {
     static let maximumPackageBytes = 32 * 1024 * 1024
+    /// Decode only a bounded thumbnail; never retain full-resolution artwork in a list.
+    static func artworkThumbnail(_ data: Data, maximumPixels: Int) -> CGImage? {
+        guard !data.isEmpty, data.count <= 16 * 1024 * 1024, (1...1024).contains(maximumPixels),
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
+              width.doubleValue > 0, height.doubleValue > 0,
+              width.doubleValue <= 8192, height.doubleValue <= 8192,
+              width.doubleValue * height.doubleValue <= 20_000_000 else { return nil }
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maximumPixels,
+            kCGImageSourceShouldCacheImmediately: true
+        ] as CFDictionary)
+    }
+
     static func load(appID: String, root: URL) throws -> ConnectIQVerifiedPackage {
         guard let uuid = UUID(uuidString: appID) else { throw ConnectIQError.invalidAppID }
         let id = uuid.uuidString.lowercased()
@@ -234,6 +254,7 @@ enum ConnectIQPackageStore {
     @Published private(set) var runtimeAppIDs: [String: String] = [:]
     @Published private(set) var historyHasMore = false
     @Published private(set) var featuredHasMore = false
+    private var installedMetadataAttempts = Set<String>()
     private weak var cloud: (any ConnectIQCloudClient)?
     private var subscription: AnyCancellable?
     private var task: Task<Void, Never>?
@@ -272,6 +293,7 @@ enum ConnectIQPackageStore {
         let cancelledDownload = isDownloading
         task?.cancel(); task = nil; installPreparation?.cancel(); installPreparation = nil; scope = next; generation = UUID()
         history = []; featured = []; apps = [:]; selected = nil
+        installedMetadataAttempts = []
         searchResults = []; searchQuery = ""; searchHasMore = false; searchPage = 0
         busy = false; isDownloading = false
         status = cancelledDownload ? "下载已取消" : ""; savedURL = nil; localPackage = nil
@@ -404,6 +426,23 @@ enum ConnectIQPackageStore {
         for appID in Set(appIDs) {
             if let package = try? ConnectIQPackageStore.load(appID: appID, root: downloadRoot) { cacheRuntimeID(package) }
             else { runtimeAppIDs[appID] = nil }
+        }
+    }
+    /// Enrich the device inventory without loading the user's download history.
+    func refreshInstalledMetadata(appIDs: [String]) {
+        reconcile()
+        guard online, !busy else { return }
+        let missing = Set(appIDs).filter { apps[$0] == nil && !installedMetadataAttempts.contains($0) }.sorted()
+        guard !missing.isEmpty else { return }
+        run { [weak self] cloud, deviceID, token in
+            guard let self else { return }
+            for id in missing {
+                guard self.current(token) else { return }
+                self.installedMetadataAttempts.insert(id)
+                let app = try? await cloud.fetchConnectIQApp(id: id, deviceID: deviceID)
+                guard self.current(token) else { return }
+                if let app { self.apps[id] = app }
+            }
         }
     }
     /// Revalidate disk contents for each SDK action; cached IDs only control presentation.

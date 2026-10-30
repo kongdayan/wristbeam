@@ -36,6 +36,9 @@ final class AppModel: ObservableObject {
     @Published var events: [ActivityLog] = []
     var now = Date()
     @Published var page = AppPage.overview
+    @Published var connectIQScope = 0
+    @Published var connectIQCatalogTab = 0
+    @Published var connectIQSearchText = ""
     @Published var settingsPage = AppPage.settings
     @Published var selectedActivityID: String? {
         didSet { if let id = selectedActivityID, id != oldValue { scrollPositions.offsets.removeValue(forKey: "activity." + id) } }
@@ -115,6 +118,7 @@ final class AppModel: ObservableObject {
         }
     }
     @Published var localDataSummary = LocalDataSummary()
+    @Published var isReadingLocalStorage = false
     @Published var localExportStatus = ""
     @Published var isExportingLocalData = false
     @Published var autoSync = AppPreferences.shared.object(forKey: "autoSync") as? Bool ?? false {
@@ -263,6 +267,7 @@ final class AppModel: ObservableObject {
     }
     var availableMetricKinds: Set<MetricKind> { MetricLayout.available(readings: Set(metrics.keys), registered: bluetooth.registeredMetrics, discovered: bluetooth.availableMetrics) }
     var dashboardVisibleMetrics: [MetricKind] { MetricLayout.ordered(selection: dashboardMetrics.intersection(availableMetricKinds), order: dashboardOrder) }
+    var hasActiveFileOperations: Bool { uploads.isSyncing || bluetooth.isTransferringFiles || activities.busy || activities.managingDownloads || connectIQ.busy || isExportingLocalData }
     var preferredColorScheme: ColorScheme? { appearance == .system ? nil : appearance == .light ? .light : .dark }
     var menuVisibleMetrics: [MetricKind] { MetricKind.allCases.filter { menuMetrics.contains($0) && availableMetricKinds.contains($0) } }
     var floatingColumns: Int { min(floatingSize.columns, max(1, visibleMetrics.count)) }
@@ -356,7 +361,10 @@ final class AppModel: ObservableObject {
     func refreshHealthMetrics(force: Bool = false) async {
         guard !preview, cloud.isAuthenticated, !isRefreshingHealth, force || now.timeIntervalSince(lastHealthRefresh) >= 60 else { return }
         let device = watchUnitID.isEmpty ? cloud.deviceId : watchUnitID
-        guard !device.isEmpty, cloud.devices.contains(where: { $0.id == device }) else { return }
+        guard !device.isEmpty, cloud.devices.contains(where: { $0.id == device }) else {
+            if force { healthStatus = "请在设备账号中选择关联手表，再刷新健康数据。" }
+            return
+        }
         isRefreshingHealth = true; lastHealthRefresh = Date()
         let owner = seriesOwner
         defer {
@@ -423,7 +431,7 @@ final class AppModel: ObservableObject {
     }
     func openSettings(_ page: AppPage = .overview) {
         if page.isSettings { settingsPage = page }
-        else { detailMetric = nil; self.page = page }
+        detailMetric = nil; self.page = page
         onOpenSettings?(page)
     }
     func enablePreview() {

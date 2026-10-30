@@ -2,145 +2,155 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+private struct PulseLayoutBoundsKey: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
+}
+
 struct SettingsRootView: View {
     @ObservedObject var model: AppModel
+    var onLayout: (([String: CGRect]) -> Void)? = nil
+    @State private var columns: NavigationSplitViewVisibility = .all
     var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 18) {
+        NavigationSplitView(columnVisibility: $columns) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 10) {
                     Image(systemName: "waveform.path.ecg").font(PulseTheme.font(size: 25)).foregroundStyle(PulseTheme.mint)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.text("腕映")).font(PulseTheme.font(size: 18, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                        Text(L10n.text("腕映")).font(PulseTheme.font(size: 18, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7).accessibilityIdentifier("app-brand")
+                            .background { if onLayout != nil { recordBounds("app-brand") } }
                         Text(L10n.text("腕上健康，桌面可见。")).font(PulseTheme.font(size: 9, weight: .medium)).foregroundStyle(PulseTheme.secondary)
                     }
-                }.padding(.top, 20)
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 5) {
-                        ForEach(AppPage.navigationPages) { page in
-                            Button { model.detailMetric = nil; model.page = page } label: {
-                                HStack(spacing: 12) { Image(systemName: page.symbol).frame(width: 18); Text(L10n.text(page.title)).fixedSize(horizontal: false, vertical: true); Spacer() }
-                                    .font(PulseTheme.font(size: 12, weight: model.page.navigationPage == page ? .semibold : .regular))
-                                    .padding(.horizontal, 12).padding(.vertical, 12)
-                                    .foregroundStyle(model.page.navigationPage == page ? PulseTheme.mint : Color.primary.opacity(0.55))
-                                    .background(model.page.navigationPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                            }.buttonStyle(PulseRowButtonStyle())
-                                .accessibilityValue(model.page.navigationPage == page ? L10n.text("已选择") : L10n.text("未选择"))
-                        }
-                    }
-                }
-                Spacer()
+                }.padding(.top, 12)
+                sidebarNavigation
                 VStack(spacing: 8) {
-                    Button { model.openSettings(model.settingsPage) } label: {
-                        sidebarAction("设置", symbol: "gearshape")
-                    }.keyboardShortcut(",", modifiers: .command)
                     Button { model.onShowMenu?() } label: {
                         sidebarAction("打开菜单栏", symbol: "menubar.rectangle")
                     }
-                }.buttonStyle(PulseButtonStyle())
+                }.buttonStyle(PulseRowButtonStyle())
                 VStack(alignment: .leading, spacing: 9) {
                     HStack { StatusDot(active: model.bluetooth.isConnected); Text(L10n.text(model.workflow.connectionTitle)) }
                     HStack { StatusDot(active: model.workflow.cloudActive); Text(L10n.text(model.workflow.accountTitle)) }
                 }.font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                HStack {
-                    Spacer()
-                    Button(L10n.text("退出")) { model.onQuit?() }.buttonStyle(PulseButtonStyle(compact: true)).font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
-                }.padding(.bottom, 10)
-            }.padding(.horizontal, 18).frame(width: 210)
+                .padding(.bottom, 14)
+            }.padding(.horizontal, 18).frame(maxWidth: .infinity)
                 .background(Color.primary.opacity(0.025))
-            Rectangle().fill(Color.primary.opacity(0.06)).frame(width: 1)
+                .navigationSplitViewColumnWidth(min: 210 * sidebarScale, ideal: 230 * sidebarScale, max: 320)
+        } detail: {
             ScrollViewReader { scroll in
-            ScrollView(showsIndicators: false) {
+            ScrollView {
                 VStack(alignment: .leading, spacing: PulseTheme.sectionSpacing) {
                     if let kind = model.detailMetric {
                         if kind.isOvernightHRV { HRVDetailView(model: model, kind: kind) } else { MetricDetailView(model: model, kind: kind) }
                     } else {
                     if model.page != .overview && model.page != .activities { pageHeader }
                     switch model.page {
-                    case .overview: OverviewPage(model: model)
+                    case .overview: OverviewPage(model: model, onLayout: onLayout)
                     case .activities: ActivitiesPage(model: model)
                     case .connectIQ: ConnectIQPage(model: model)
                     case .watch, .account: DevicePage(model: model)
                     case .sync: SyncPage(model: model)
                     case .settings, .appearance, .metricSelection, .refresh, .developer, .updates, .about:
-                        Button(L10n.text("设置")) { model.openSettings(model.page) }
+                        PreferencesPage(model: model)
                     }
                     }
-                }.id("settings-top").padding(32).frame(maxWidth: .infinity, alignment: .leading)
+                }.id("settings-top").frame(maxWidth: contentMaximumWidth, alignment: .leading)
+                    .padding(PulseLayout.pageInset)
+                    .frame(maxWidth: .infinity, alignment: model.page.isSettings || model.page == .overview || model.page == .connectIQ ? .center : .leading)
                     .background(ScrollPositionKeeper(positions: model.scrollPositions, key: model.mainScrollKey))
             }.id(model.mainScrollKey)
             .onChange(of: model.activityBrowsing) { _ in
                 if model.page == .activities && model.selectedActivityID == nil { scroll.scrollTo("settings-top", anchor: .top) }
             }
             }
-        }.id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
-            .font(PulseTheme.font(size: 13)).controlSize(.large).buttonStyle(PulseButtonStyle())
+        }.navigationSplitViewStyle(.balanced).id(model.language).background(PulseTheme.background).foregroundStyle(.primary)
+            .onChange(of: model.page) { page in if page.isSettings { columns = .all } }
+            .font(PulseTheme.font(size: 13)).controlSize(.regular).buttonStyle(PulseButtonStyle()).tint(PulseTheme.mint)
             .preferredColorScheme(model.preferredColorScheme)
             .environment(\.locale, L10n.locale)
             .sheet(isPresented: $model.showLogin) { LoginSheet(model: model) }
+            .coordinateSpace(name: "wristbeam-main-content")
+            .onPreferenceChange(PulseLayoutBoundsKey.self) { onLayout?($0) }
     }
+    private var contentMaximumWidth: CGFloat {
+        if model.page.isSettings { return 780 }
+        if model.page == .overview && model.detailMetric == nil { return PulseLayout.dashboardMaximumWidth }
+        if model.page == .connectIQ { return PulseLayout.dashboardMaximumWidth }
+        return .infinity
+    }
+    private var sidebarNavigation: some View {
+        ScrollViewReader { sidebar in
+            List(selection: Binding<AppPage?>(get: { selectedSidebarPage }, set: { if let page = $0 { model.openSettings(page) } })) {
+                Section {
+                    ForEach(AppPage.navigationPages) { page in sidebarPage(page) }
+                }
+                Section {
+                    sidebarPage(.settings)
+                }
+                if model.page.isSettings {
+                    Section(L10n.text("设置")) {
+                        ForEach(AppPage.settingsPages.filter { $0 != .settings }) { page in sidebarPage(page) }
+                    }
+                }
+            }.listStyle(.sidebar).scrollContentBackground(.hidden).tint(Color.accentColor)
+                .environment(\.defaultMinListRowHeight, 36)
+                .background { if onLayout != nil { recordBounds("sidebar-list") } }
+                .task(id: "\(selectedSidebarPage.id):\(model.fontScale)") {
+                    await Task.yield()
+                    guard !Task.isCancelled else { return }
+                    sidebar.scrollTo(selectedSidebarPage.id, anchor: .center)
+                }
+        }
+    }
+    private var selectedSidebarPage: AppPage { model.page == .account ? .watch : model.page }
+    private func sidebarPage(_ page: AppPage) -> some View {
+        let title = page == .settings ? L10n.text("常规设置") : page.title
+        return HStack(spacing: 9) {
+            Image(systemName: page.symbol).frame(width: 18).accessibilityHidden(true)
+            Text(title).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }.font(PulseTheme.font(size: 12)).padding(.vertical, 4).tag(page).id(page.id)
+            .help(title).accessibilityElement(children: .combine)
+            .background { if onLayout != nil && selectedSidebarPage == page { recordBounds("sidebar-selection") } }
+    }
+    private var sidebarScale: CGFloat { CGFloat(max(1, min(1.25, model.fontScale / 1.15))) }
     private func sidebarAction(_ title: String, symbol: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol).frame(width: 18)
             Text(L10n.text(title)).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-        }.frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
+        }.padding(.horizontal, 12).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
     }
     private var pageHeader: some View {
         Text(L10n.text(model.page == .settings ? "常规设置" : model.page.title))
             .font(PulseTheme.font(size: 27, weight: .semibold))
+            .accessibilityIdentifier("page-title")
+            .background { if onLayout != nil { recordBounds("page-title") } }
     }
-}
-
-struct PreferencesRootView: View {
-    @ObservedObject var model: AppModel
-    var body: some View {
-        HStack(spacing: 0) {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 5) {
-                    ForEach(AppPage.settingsPages) { page in
-                        Button { model.settingsPage = page } label: {
-                            Label(page == .settings ? L10n.text("常规设置") : page.title, systemImage: page.symbol)
-                                .font(PulseTheme.font(size: 12))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(12)
-                                .foregroundStyle(model.settingsPage == page ? PulseTheme.mint : Color.primary)
-                                .background(model.settingsPage == page ? PulseTheme.mint.opacity(0.08) : .clear)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                        }.buttonStyle(PulseRowButtonStyle())
-                            .accessibilityValue(model.settingsPage == page ? L10n.text("已选择") : L10n.text("未选择"))
-                    }
-                }.padding(12)
-            }.frame(width: 190).background(Color.primary.opacity(0.025))
-            Divider()
-            ScrollViewReader { scroll in
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 24) {
-                        Text(model.settingsPage == .settings ? L10n.text("常规设置") : model.settingsPage.title)
-                            .font(PulseTheme.font(size: 24, weight: .semibold))
-                        PreferencesPage(model: model)
-                    }.padding(24).frame(maxWidth: .infinity, alignment: .leading).id("preferences-top")
-                }.onChange(of: model.settingsPage) { _ in scroll.scrollTo("preferences-top", anchor: .top) }
-            }
-        }.id(model.language).background(PulseTheme.background)
-            .foregroundStyle(.primary).font(PulseTheme.font(size: 13)).buttonStyle(PulseButtonStyle())
-            .preferredColorScheme(model.preferredColorScheme).environment(\.locale, L10n.locale)
+    private func recordBounds(_ identifier: String) -> some View {
+        GeometryReader { geometry in
+            let frame = geometry.frame(in: .named("wristbeam-main-content"))
+            Color.clear.preference(key: PulseLayoutBoundsKey.self, value: [identifier: frame])
+        }
     }
 }
 
 struct OverviewPage: View {
     @ObservedObject var model: AppModel
+    var onLayout: (([String: CGRect]) -> Void)? = nil
     @State private var showStyle = false
     @State private var shareRequest: DashboardShareRequest?
     @State private var contentWidth: CGFloat = 0
-    private var columns: [GridItem] {
-        let minimum = model.cardSize.minimumWidth * model.fontScale
-        if model.dashboardColumns == 0 { return [GridItem(.adaptive(minimum: minimum), spacing: 14)] }
-        let fitting = max(1, Int((contentWidth + 14) / (minimum + 14)))
-        return Array(repeating: GridItem(.flexible(), spacing: 14), count: min(fitting, min(4, max(1, model.dashboardColumns))))
+    private func columns(for metrics: [MetricKind]) -> [GridItem] {
+        let minimum = model.cardSize.minimumWidth * max(1, model.fontScale / 1.15)
+        let count = MetricLayout.columnCount(width: contentWidth, minimum: minimum, preferred: model.dashboardColumns)
+        return Array(repeating: GridItem(.flexible(), spacing: PulseLayout.groupGap, alignment: .top), count: max(1, min(count, metrics.count)))
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: PulseLayout.sectionGap) {
+            VStack(alignment: .leading, spacing: PulseLayout.groupGap) {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .center) { title; Spacer(minLength: 12); DashboardConnectionStatus(model: model) }
                 VStack(alignment: .leading, spacing: 12) { title; DashboardConnectionStatus(model: model) }
@@ -150,34 +160,25 @@ struct OverviewPage: View {
                     Label(L10n.text("本地保存或读取异常"), systemImage: "exclamationmark.triangle")
                 }.buttonStyle(PulseButtonStyle()).tint(.orange)
             }
-            HStack(spacing: 8) {
-                Text(L10n.text(model.preview ? "演示数据 · 用于功能展示" : model.healthStatus))
-                    .font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary).lineLimit(1)
-                    .help(L10n.text(model.healthStatus))
-                Spacer(minLength: 8)
-                Button { model.refreshMetricsNow() } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(PulseButtonStyle())
-                    .help(L10n.text("刷新同步指标")).accessibilityLabel(L10n.text("刷新同步指标"))
-                    .disabled(model.preview || model.isRefreshingHealth)
-                Button { shareRequest = DashboardShareRequest(kinds: model.dashboardVisibleMetrics) } label: {
-                    Label(L10n.text("分享"), systemImage: "square.and.arrow.up")
-                }.disabled(model.dashboardVisibleMetrics.isEmpty)
-                Button { showStyle.toggle() } label: { Label(L10n.text("显示样式"), systemImage: "slider.horizontal.3") }
-                    .popover(isPresented: $showStyle, arrowEdge: .bottom) { DashboardStylePanel(model: model) }
-            }.buttonStyle(PulseButtonStyle()).controlSize(.regular)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { refreshStatus; Spacer(minLength: 8); dashboardActions }
+                VStack(alignment: .leading, spacing: 12) { refreshStatus; dashboardActions }
+            }
+            }
             if model.preview && model.previewSetup {
                 Button(L10n.text("加载演示数据")) { model.previewSetup = false; model.enablePreview() }.buttonStyle(PulseButtonStyle())
             }
-            if (!model.preview || model.previewSetup) && !model.bluetooth.sessionActivated && !model.bluetooth.isConnected && model.availableMetricKinds.isEmpty { FirstConnectionGuide(model: model) }
+            if (!model.preview || model.previewSetup) && !model.bluetooth.sessionActivated && !model.bluetooth.isConnected && model.availableMetricKinds.isEmpty && !model.cloud.isAuthenticated { FirstConnectionGuide(model: model) }
             if model.dashboardGrouped {
                 ForEach(MetricLayout.dashboardSections(model.dashboardVisibleMetrics)) { section in
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
+                    VStack(alignment: .leading, spacing: PulseLayout.groupGap) {
+                        HStack(spacing: PulseLayout.itemGap) {
                             Text(section.title).font(PulseTheme.font(size: 16, weight: .semibold))
-                            Spacer()
                             Text("\(section.metrics.count)").font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                            Spacer(minLength: 0)
                         }.accessibilityAddTraits(.isHeader)
                         metricGrid(section.metrics, emphasized: section.id == "focus")
-                    }.padding(.top, 8)
+                    }
                 }
             } else {
                 metricGrid(model.dashboardVisibleMetrics)
@@ -197,7 +198,8 @@ struct OverviewPage: View {
         }.sheet(item: $shareRequest) { request in DashboardShareSheet(model: model, request: request) }
     }
     private func metricGrid(_ metrics: [MetricKind], emphasized: Bool = false) -> some View {
-        LazyVGrid(columns: columns, spacing: 12) {
+        let gridColumns = columns(for: metrics)
+        return LazyVGrid(columns: gridColumns, alignment: .leading, spacing: PulseLayout.groupGap) {
             ForEach(metrics) { kind in
                 MetricCard(model: model, kind: kind, emphasized: emphasized)
                     .onDrag { NSItemProvider(object: kind.rawValue as NSString) }
@@ -215,8 +217,36 @@ struct OverviewPage: View {
                         Button(L10n.text("移到最前")) { model.dashboardOrder = [kind.rawValue] + model.dashboardVisibleMetrics.filter { $0 != kind }.map(\.rawValue) }
                         Button(L10n.text("从健康看板隐藏")) { model.dashboardMetrics.remove(kind) }
                     }
+                    .background {
+                        if onLayout != nil {
+                            GeometryReader { proxy in
+                                let frame = proxy.frame(in: .named("wristbeam-main-content"))
+                                Color.clear.preference(key: PulseLayoutBoundsKey.self, value: ["metric-card-\(kind.rawValue)": frame])
+                            }
+                        }
+                    }
             }
+        }.frame(maxWidth: CGFloat(gridColumns.count) * PulseLayout.metricMaximumWidth * max(1, model.fontScale / 1.15)
+            + CGFloat(gridColumns.count - 1) * PulseLayout.groupGap, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private var refreshStatus: some View {
+        HStack(spacing: 8) {
+            if model.isRefreshingHealth { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在刷新健康数据…")) }
+            Text(L10n.text(model.preview ? "演示数据 · 用于功能展示" : model.healthStatus))
+                .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).fixedSize(horizontal: false, vertical: true)
         }
+    }
+    private var dashboardActions: some View {
+        PulseFlowLayout(spacing: 8) {
+            Button { model.refreshMetricsNow() } label: { Label(L10n.text("刷新"), systemImage: "arrow.clockwise") }
+                .help(L10n.text(model.cloud.isAuthenticated ? "刷新同步指标" : "连接设备账号后可刷新云端数据"))
+                .disabled(model.preview || !model.cloud.isAuthenticated || model.isRefreshingHealth)
+            Button { shareRequest = DashboardShareRequest(kinds: model.dashboardVisibleMetrics) } label: { Label(L10n.text("分享"), systemImage: "square.and.arrow.up") }
+                .disabled(model.dashboardVisibleMetrics.isEmpty)
+            Button { showStyle.toggle() } label: { Label(L10n.text("显示样式"), systemImage: "slider.horizontal.3") }
+                .popover(isPresented: $showStyle, arrowEdge: .bottom) { DashboardStylePanel(model: model) }
+        }.buttonStyle(PulseButtonStyle()).controlSize(.regular)
     }
     private var title: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -366,6 +396,7 @@ struct WatchPage: View {
 struct AccountPage: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var cloud: GarminChinaCloud
+    @State private var refreshingAccount = false
     init(model: AppModel) { self.model = model; cloud = model.cloud }
     var body: some View {
         VStack(spacing: 19) {
@@ -401,9 +432,13 @@ struct AccountPage: View {
                     }
                     Text(L10n.text(cloud.status)).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).textSelection(.enabled)
                     if cloud.isAuthenticated {
-                        HStack {
-                            Button(L10n.text("刷新账户")) { Task { await cloud.refreshAccount() } }.buttonStyle(PulseButtonStyle())
-                            Spacer()
+                        PulseFlowLayout {
+                            Button(L10n.text(refreshingAccount ? "正在刷新账户…" : "刷新账户")) {
+                                guard !refreshingAccount else { return }
+                                refreshingAccount = true
+                                Task { defer { refreshingAccount = false }; await cloud.refreshAccount() }
+                            }.buttonStyle(PulseButtonStyle()).disabled(refreshingAccount || model.preview || !model.cloudSyncEnabled)
+                            if refreshingAccount { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在刷新账户…")) }
                             Button(L10n.text("退出账户")) { cloud.logout() }.buttonStyle(PulseButtonStyle(compact: true)).foregroundStyle(PulseTheme.secondary)
                         }
                     } else {
@@ -428,11 +463,12 @@ struct AccountPage: View {
                     VStack(alignment: .leading, spacing: 9) {
                         Text(L10n.text("同步设备")).font(PulseTheme.font(size: 13, weight: .semibold))
                         if !cloud.devices.isEmpty {
-                            Picker(L10n.text("账户关联手表"), selection: $cloud.deviceId) {
-                                ForEach(cloud.devices) { device in Text(L10n.text(device.name)).tag(device.id) }
-                            }.onChange(of: cloud.deviceId) { value in model.watchUnitID = value }
+                            PulseMenuPicker("账户关联手表", selection: $cloud.deviceId, choices: cloud.devices.map { .init(L10n.text($0.name), $0.id) })
+                                .onChange(of: cloud.deviceId) { value in model.watchUnitID = value }
                         }
-                        TextField(L10n.text("设备编号（连接手表后自动识别）"), text: $model.watchUnitID).textFieldStyle(.roundedBorder)
+                        PulseDisclosure(L10n.text("手动指定设备")) {
+                            TextField(L10n.text("设备编号（连接手表后自动识别）"), text: $model.watchUnitID).textFieldStyle(.roundedBorder)
+                        }
                         Text(L10n.text("\(cloud.devices.count) 台设备已关联当前账户。"))
                             .font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                     }
@@ -505,6 +541,7 @@ struct MetricSelectionPage: View {
                                             .frame(width: columnWidth, height: 40).contentShape(Rectangle())
                                     }.buttonStyle(.plain).help(L10n.format("{0}：整组全选 / 全取消", destination.title))
                                     .accessibilityLabel(L10n.format("{0} · {1} · 整组选取", category.title, destination.title))
+                                    .accessibilityValue(L10n.text(selectedCount == 0 ? "未选择" : selectedCount == items.count ? "已选择" : "部分选择"))
                                     .contextMenu {
                                         Button(L10n.text("全选")) { model.select(items, enabled: true, destination: destination) }
                                         Button(L10n.text("全取消")) { model.select(items, enabled: false, destination: destination) }
@@ -532,7 +569,11 @@ struct MetricSelectionPage: View {
                                 Divider().opacity(0.45)
                             }
                             if category == .solar {
-                                Picker(L10n.text("日照估算阈值"), selection: $model.sunlightThreshold) { ForEach([1.0, 10, 20, 50, 100], id: \.self) { value in Text(L10n.text("太阳能强度 ≥ \(Int(value))%")).tag(value) } }.font(PulseTheme.font(size: 11))
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(L10n.text("日照估算阈值")).font(PulseTheme.font(size: 11))
+                                    PulseMenuPicker("日照估算阈值", selection: $model.sunlightThreshold,
+                                        choices: [1.0, 10, 20, 50, 100].map { .init(L10n.text("太阳能强度 ≥ \(Int($0))%"), $0) })
+                                }
                                 Text(L10n.text("日照时长按有效分钟记录估算；光照记录不能区分室内灯光与户外阳光。")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                             }
                         }
@@ -548,38 +589,42 @@ struct LoginSheet: View {
     @ObservedObject var model: AppModel
     @State private var callbackURL = ""
     @State private var callbackError = ""
+    @State private var loginLoading = false
+    @State private var copyStatus = ""
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Label(L10n.text("连接\(model.cloud.region.title)账户"), systemImage: "lock.shield").font(PulseTheme.font(size: 14, weight: .semibold))
                 Spacer()
-                Button(L10n.text("关闭")) { model.showLogin = false }.buttonStyle(PulseButtonStyle())
+                if loginLoading { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在打开官方登录页…")) }
+                Button(L10n.text("关闭")) { model.showLogin = false }.buttonStyle(PulseButtonStyle()).keyboardShortcut(.cancelAction)
             }.padding(17).background(PulseTheme.background)
-            HStack(spacing: 12) {
-                Picker(L10n.text("登录方式"), selection: Binding(get: { model.cloud.loginMode }, set: { model.cloud.prepareLogin(mode: $0) })) {
-                    ForEach(GarminLoginMode.allCases) { mode in Text(L10n.text(mode.label)).tag(mode) }
-                }.labelsHidden().frame(width: 175)
+            PulseFlowLayout(spacing: 12) {
+                PulseMenuPicker("登录方式", selection: Binding(get: { model.cloud.loginMode }, set: { model.cloud.prepareLogin(mode: $0) }),
+                    choices: GarminLoginMode.allCases.map { .init(L10n.text($0.label), $0) }).fixedSize()
                 Button(L10n.text("在浏览器中登录 ↗")) {
                     model.cloud.prepareLogin(mode: .portal)
                     NSWorkspace.shared.open(model.cloud.makeLoginURL())
-                }.buttonStyle(.plain)
+                }.buttonStyle(PulseButtonStyle())
+                Button(L10n.text("重新加载")) { model.cloud.prepareLogin() }.buttonStyle(PulseButtonStyle())
                 Button(L10n.text("复制登录配置链接")) {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(model.cloud.makeLoginURL().absoluteString, forType: .string)
-                }.buttonStyle(.plain)
-                Spacer()
+                    copyStatus = NSPasteboard.general.setString(model.cloud.makeLoginURL().absoluteString, forType: .string) ? "链接已复制" : "复制失败，请重试"
+                }.buttonStyle(PulseButtonStyle())
             }.font(PulseTheme.font(size: 11)).padding(.horizontal, 17).padding(.bottom, 12).background(PulseTheme.background)
-            GarminLoginWebView(cloud: model.cloud)
+            if !copyStatus.isEmpty { Text(L10n.text(copyStatus)).font(PulseTheme.font(size: 11)).padding(.horizontal, 17).padding(.bottom, 8) }
+            GarminLoginWebView(cloud: model.cloud, isLoading: $loginLoading)
             PulseDisclosure(L10n.text("浏览器登录后的连接")) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L10n.text("如内置页面无法登录，可在浏览器完成登录，再将最终的官方回跳地址粘贴到这里。地址只在本机用于完成认证。"))
                         .font(PulseTheme.font(size: 10)).foregroundStyle(PulseTheme.secondary)
                     HStack {
                         SecureField(L10n.text("粘贴官方认证回跳地址"), text: $callbackURL).textFieldStyle(.roundedBorder)
+                            .accessibilityLabel(L10n.text("粘贴官方认证回跳地址"))
                         Button(L10n.text("连接")) {
                             if let url = URL(string: callbackURL), model.cloud.handleNavigation(url) { callbackURL = ""; callbackError = "" }
                             else { callbackError = "此地址未包含当前登录方式的有效官方回跳凭据" }
-                        }
+                        }.buttonStyle(PulseButtonStyle(prominent: true)).disabled(callbackURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                     if !callbackError.isEmpty { Text(L10n.text(callbackError)).font(PulseTheme.font(size: 10)).foregroundStyle(.orange) }
                 }
@@ -608,14 +653,13 @@ struct WatchRequestCaptureCard: View {
                 }.buttonStyle(PulseRowButtonStyle()).accessibilityValue(L10n.text(expanded ? "已展开" : "已收起"))
                 Text(L10n.text(connected ? "打开手表天气页面或切换表盘，查看本连接收到的消息。" : "连接手表后打开天气页面；也可先开始捕获，再连接手表。"))
                     .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
-                HStack {
+                PulseFlowLayout {
                     Button(L10n.text(capture.isCapturing ? "停止捕获" : "捕获 10 分钟")) {
                         if capture.isCapturing { capture.stop() } else { capture.start(); expanded = true }
                     }.buttonStyle(PulseButtonStyle(prominent: true)).disabled(preview)
                     Button(L10n.text("导出请求记录")) {
                         if capture.persist() { NSWorkspace.shared.activateFileViewerSelecting([capture.url]) }
                     }.buttonStyle(PulseButtonStyle()).disabled(capture.log.startedAt == nil || preview)
-                    Spacer()
                     Button(L10n.text("清空记录")) { capture.clear() }.buttonStyle(PulseButtonStyle()).disabled(preview || capture.log.startedAt == nil)
                 }
                 if capture.storageError {

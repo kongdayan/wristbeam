@@ -3,6 +3,79 @@ import XCTest
 @testable import GarminBar
 
 final class ConnectIQProtocolTests: XCTestCase {
+    func testRTSStartupAndQueriesUseUnderscoreLocaleAndBoundedCommunicationMode() throws {
+        let startup = try XCTUnwrap(GFDIConnectIQ.Proto(GFDIConnectIQ.startupQuery()).blob(42))
+        let request = try XCTUnwrap(GFDIConnectIQ.Proto(startup).blob(8))
+        XCTAssertEqual(try GFDIConnectIQ.Proto(request).text(1), "zh_CN")
+        XCTAssertNil(try GFDIConnectIQ.Proto(request).blob(2)) // Do not assert a consent country.
+        for query in [GFDIConnectIQ.compositionQuery(locale: "en_US"), GFDIConnectIQ.settingsQuery(composition: 36361, locale: "en_US")] {
+            let wrapped = try XCTUnwrap(GFDIConnectIQ.Proto(query).blob(42))
+            let body = try GFDIConnectIQ.Proto(wrapped).blob(1) ?? GFDIConnectIQ.Proto(wrapped).blob(3)
+            let decoded = try GFDIConnectIQ.Proto(XCTUnwrap(body))
+            XCTAssertEqual(try decoded.text(query == GFDIConnectIQ.compositionQuery(locale: "en_US") ? 3 : 2), "en_US")
+        }
+        XCTAssertEqual(try GFDIConnectIQ.startupCommunicationMode(service(9, integer(4, 0))), 0)
+        XCTAssertEqual(try GFDIConnectIQ.startupCommunicationMode(service(9, integer(4, 1))), 1)
+        XCTAssertNil(try GFDIConnectIQ.startupCommunicationMode(Data()))
+        XCTAssertThrowsError(try GFDIConnectIQ.startupCommunicationMode(service(9, integer(4, 99))))
+    }
+
+    func testEmptyStartupReplyDoesNotSuppressGridRequest() async throws {
+        try await MainActor.run {
+            let fixture = CIQSessionFixture()
+            defer { fixture.session.disconnected() }
+            try fixture.ready()
+            fixture.session.refreshWatchFaces(expectedUnitID: 1234)
+            try fixture.respond(installedInventory())
+            let startup = try XCTUnwrap(fixture.requests.last)
+            XCTAssertNotNil(try GFDIConnectIQ.Proto(GFDIConnectIQ.Proto(Data(startup.payload.dropFirst(14))).blob(42)!).blob(8))
+            try fixture.respond(Data())
+            try fixture.push(gridComposition(), id: 730)
+            try fixture.push(gridSettings(selected: 0), id: 731)
+            XCTAssertFalse(fixture.busy)
+            XCTAssertEqual(fixture.choices.count, 2)
+        }
+    }
+    func testDirectModeEmptyGridFinishesImmediatelyAndAllowsAnotherRead() async throws {
+        try await MainActor.run {
+            let fixture = CIQSessionFixture()
+            defer { fixture.session.disconnected() }
+            try fixture.ready()
+            var inventory: GFDIInstalledWatchFaceInventory?
+            fixture.session.onInstalledWatchFaces = { inventory = $0 }
+            XCTAssertTrue(fixture.session.refreshWatchFaces(expectedUnitID: 1234))
+            try fixture.respond(installedInventory())
+            try fixture.respond(service(9, integer(4, 0)))
+            XCTAssertTrue(fixture.busy)
+            try fixture.respond(Data())
+            XCTAssertFalse(fixture.busy)
+            XCTAssertEqual(inventory?.apps.count, 1)
+            XCTAssertTrue(fixture.choices.isEmpty)
+            XCTAssertTrue(fixture.session.refreshWatchFaces(expectedUnitID: 1234))
+            try fixture.respond(installedInventory())
+            try fixture.respond(Data())
+            XCTAssertFalse(fixture.busy)
+        }
+    }
+
+    func testStartupTimeoutFinishesCapabilityCheckWithoutStartingAnotherWait() async throws {
+        try await MainActor.run {
+            let fixture = CIQSessionFixture()
+            defer { fixture.session.disconnected() }
+            try fixture.ready()
+            XCTAssertTrue(fixture.session.refreshWatchFaces(expectedUnitID: 1234))
+            try fixture.respond(installedInventory())
+            let count = fixture.requests.count
+            fixture.session.tick(now: Date().addingTimeInterval(30))
+            XCTAssertFalse(fixture.busy)
+            for request in fixture.requests.dropFirst(count) {
+                let smart = try GFDIConnectIQ.Proto(Data(request.payload.dropFirst(14)))
+                XCTAssertNil(try smart.blob(42)) // Unrelated battery polling may run on the same tick.
+            }
+            XCTAssertTrue(fixture.session.refreshWatchFaces(expectedUnitID: 1234))
+        }
+    }
+
     func testSDKOpenCommandsAndResponsesAreBoundToTheExactUUID() throws {
         let id = "00112233-4455-6677-8899-aabbccddeeff"
         let uuid = Data([0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff])
@@ -38,11 +111,99 @@ final class ConnectIQProtocolTests: XCTestCase {
             var inventory: GFDIInstalledWatchFaceInventory?
             fixture.session.onInstalledWatchFaces = { inventory = $0 }
             fixture.session.refreshWatchFaces(expectedUnitID: 1234)
-            try fixture.respond(installedInventory())
+            try fixture.respondInventory()
             XCTAssertEqual(inventory?.apps.count, 1)
             try fixture.respond(Data())
             XCTAssertEqual(inventory?.apps.count, 1)
+            XCTAssertTrue(fixture.busy) // An empty direct response may precede an RTS notification.
+            fixture.session.tick(now: Date().addingTimeInterval(30))
             XCTAssertFalse(fixture.busy)
+        }
+    }
+
+    func testRTSNotificationCompletesEmptyDirectReplyAndIgnoresWrongPhaseOrComposition() async throws {
+        try await MainActor.run {
+            let fixture = CIQSessionFixture()
+            defer { fixture.session.disconnected() }
+            try fixture.ready()
+            fixture.session.refreshWatchFaces(expectedUnitID: 1234)
+            try fixture.respondInventory()
+            try fixture.respond(Data())
+            let count = fixture.requests.count
+            try fixture.push(gridSettings(selected: 1), id: 700) // Wrong response kind.
+            try fixture.push(service(7, Data()), id: 704) // State invalidation is not a query response.
+            XCTAssertEqual(fixture.requests.count, count)
+            try fixture.push(gridComposition(), id: 701, splitAt: 15)
+            XCTAssertEqual(fixture.requests.count, count + 1)
+            try fixture.push(gridComposition(), id: 701) // Retransmit must not advance the next phase.
+            try fixture.push(gridSettings(selected: 1, composition: 17), id: 702)
+            XCTAssertTrue(fixture.busy)
+            try fixture.push(gridSettings(selected: 0), id: 703)
+            XCTAssertFalse(fixture.busy)
+            XCTAssertEqual(fixture.choices.map(\.isSelected), [true, false])
+            XCTAssertFalse(fixture.messages.contains { $0.number == 5044 }) // Notifications need fragment ACKs only.
+        }
+    }
+
+    func testEarlyNotificationAndLateDirectReplyCannotCompleteNewQuery() async throws {
+        try await MainActor.run {
+            let fixture = CIQSessionFixture()
+            defer { fixture.session.disconnected() }
+            try fixture.ready()
+            fixture.session.refreshWatchFaces(expectedUnitID: 1234)
+            try fixture.respondInventory()
+            var reader = GFDIReader(try XCTUnwrap(fixture.requests.last).payload)
+            let oldID = try reader.u16()
+            try fixture.push(gridComposition(), id: 710) // Notification arrives before any direct response.
+            let count = fixture.requests.count
+            try fixture.respond(Data(), id: oldID)
+            try fixture.respond(Data(), id: oldID)
+            XCTAssertEqual(fixture.requests.count, count)
+            XCTAssertTrue(fixture.busy)
+            try fixture.respond(gridSettings(selected: 0)) // Mixed transport is allowed.
+            XCTAssertFalse(fixture.busy)
+            fixture.session.refreshWatchFaces(expectedUnitID: 1234)
+            try fixture.respondInventory()
+            try fixture.push(gridComposition(), id: 710) // Old transport ID must not finish this refresh.
+            XCTAssertTrue(fixture.busy)
+            XCTAssertEqual(fixture.requests.count, count + 2)
+            try fixture.push(gridComposition(), id: 711)
+            try fixture.push(gridSettings(selected: 1), id: 712)
+            XCTAssertFalse(fixture.busy)
+            XCTAssertEqual(fixture.choices.map(\.isSelected), [false, true])
+        }
+    }
+
+    func testNotificationSelectionStillRequiresFreshMappingAndReadback() async throws {
+        try await MainActor.run {
+            let fixture = CIQSessionFixture()
+            defer { fixture.session.disconnected() }
+            try fixture.ready()
+            fixture.session.refreshWatchFaces(expectedUnitID: 1234)
+            try fixture.respondInventory()
+            try fixture.push(gridComposition(), id: 720)
+            try fixture.push(gridSettings(selected: 0), id: 721)
+            let target = try XCTUnwrap(fixture.choices.last)
+            fixture.session.selectWatchFace(target, expectedUnitID: 1234)
+            try fixture.push(gridComposition(), id: 722)
+            try fixture.push(gridSettings(selected: 0), id: 723)
+            XCTAssertEqual(Data(try XCTUnwrap(fixture.requests.last).payload.dropFirst(14)), GFDIConnectIQ.selection(target))
+            try fixture.respond(Data()) // Empty write reply is not success.
+            XCTAssertTrue(fixture.busy)
+            try fixture.push(service(6, integer(1, 0)), id: 724)
+            XCTAssertTrue(fixture.busy)
+            XCTAssertNotEqual(fixture.status, "手表已确认表盘选择")
+            try fixture.push(gridSettings(selected: 0), id: 725) // Device did not apply the target.
+            XCTAssertFalse(fixture.busy)
+            XCTAssertNotEqual(fixture.status, "手表已确认表盘选择")
+            fixture.session.selectWatchFace(target, expectedUnitID: 1234)
+            try fixture.push(gridComposition(), id: 726)
+            try fixture.push(gridSettings(selected: 0), id: 727)
+            try fixture.push(service(6, integer(1, 0)), id: 728)
+            XCTAssertTrue(fixture.busy)
+            try fixture.push(gridSettings(selected: 1), id: 729)
+            XCTAssertFalse(fixture.busy)
+            XCTAssertEqual(fixture.status, "手表已确认表盘选择")
         }
     }
 
@@ -101,7 +262,7 @@ final class ConnectIQProtocolTests: XCTestCase {
             fixture.session.refreshWatchFaces(expectedUnitID: 9876)
             XCTAssertEqual(fixture.requests.count, 0)
             fixture.session.refreshWatchFaces(expectedUnitID: 1234)
-            try fixture.respond(installedInventory())
+            try fixture.respondInventory()
             try fixture.respond(gridComposition())
             try fixture.respond(gridSettings(selected: 0))
             XCTAssertEqual(fixture.choices.count, 2)
@@ -132,7 +293,7 @@ final class ConnectIQProtocolTests: XCTestCase {
             defer { fixture.session.disconnected() }
             try fixture.ready()
             fixture.session.refreshWatchFaces(expectedUnitID: 1234)
-            try fixture.respond(installedInventory())
+            try fixture.respondInventory()
             try fixture.respond(gridComposition())
             try fixture.respond(gridSettings(selected: 0))
             let target = try XCTUnwrap(fixture.choices.last)
@@ -199,10 +360,25 @@ private final class CIQSessionFixture {
         session.receive(try GFDIMessage(number: 5050, payload: Data([1, 8])).framed())
         session.receive(try GFDIMessage(number: 5050).response().framed())
     }
-    func respond(_ data: Data) throws {
+    func respondInventory() throws {
+        try respond(installedInventory())
+        if let request = requests.last, let serviceData = try GFDIConnectIQ.Proto(Data(request.payload.dropFirst(14))).blob(42),
+           try GFDIConnectIQ.Proto(serviceData).blob(8) != nil {
+            try respond(service(9, integer(4, 1)))
+        }
+    }
+    func respond(_ data: Data, id explicitID: UInt16? = nil) throws {
         var reader = GFDIReader(try XCTUnwrap(requests.last).payload)
-        let id = try reader.u16()
+        let id = try explicitID ?? reader.u16()
         session.receive(try GFDIMessage(number: 5044, payload: fragment(id: id, offset: 0, total: UInt32(data.count), data: data)).framed())
+    }
+    func push(_ data: Data, id: UInt16, splitAt: Int? = nil) throws {
+        if let splitAt {
+            session.receive(try GFDIMessage(number: 5043, payload: fragment(id: id, offset: 0, total: UInt32(data.count), data: data.prefix(splitAt))).framed())
+            session.receive(try GFDIMessage(number: 5043, payload: fragment(id: id, offset: UInt32(splitAt), total: UInt32(data.count), data: data.dropFirst(splitAt))).framed())
+        } else {
+            session.receive(try GFDIMessage(number: 5043, payload: fragment(id: id, offset: 0, total: UInt32(data.count), data: data)).framed())
+        }
     }
 }
 
@@ -249,7 +425,7 @@ extension ConnectIQProtocolTests {
                 XCTAssertEqual(received, package)
                 XCTAssertTrue(fixture.session.connectIQInstallBusy)
                 XCTAssertFalse(statuses.contains("手表已确认安装"))
-                try fixture.respond(installedInventory())
+                try fixture.respondInventory()
                 XCTAssertFalse(fixture.session.connectIQInstallBusy)
                 XCTAssertEqual(statuses.last, "手表已确认安装")
             }
@@ -269,7 +445,7 @@ extension ConnectIQProtocolTests {
             fixture.session.installConnectIQPackage(package, appID: "00112233-4455-6677-8899-aabbccddeeff",
                 expectedSHA256: GarminPrivateFile.digest(package), sourceMessageID: 123,
                 expectedUnitID: 1234, expectedAccountGUID: account)
-            try fixture.respond(installedInventory())
+            try fixture.respondInventory()
             let create = try XCTUnwrap(fixture.messages.last(where: { $0.number == 5005 }))
             fixture.session.receive(try create.response(payload: Data([2, 0, 0])).framed())
             XCTAssertFalse(fixture.session.connectIQInstallBusy)
@@ -285,7 +461,7 @@ extension ConnectIQProtocolTests {
             fixture.session.setAccountGUID("00112233445566778899aabbccddeeff")
             try fixture.ready()
             fixture.session.refreshWatchFaces(expectedUnitID: 1234)
-            try fixture.respond(installedInventory()); try fixture.respond(Data())
+            try fixture.respondInventory(); try fixture.respond(service(2, Data()))
             let id = "00112233-4455-6677-8899-aabbccddeeff"
             let uuid = try GFDIConnectIQSDK.uuidBytes(id)
             let current = try GFDIMonkeyCodec.encode(.dictionary(["x": .int32(1)]))
@@ -321,7 +497,7 @@ extension ConnectIQProtocolTests {
             fixture.session.setAccountGUID("00112233445566778899aabbccddeeff")
             try fixture.ready()
             fixture.session.refreshWatchFaces(expectedUnitID: 1234)
-            try fixture.respond(installedInventory()); try fixture.respond(Data())
+            try fixture.respondInventory(); try fixture.respond(service(2, Data()))
             var calls = 0
             fixture.session.startConnectIQSettings(appID: "00112233-4455-6677-8899-aabbccddeeff", settingsData: nil,
                 expectedUnitID: 1234, operationID: UUID()) { result in

@@ -3,6 +3,35 @@ import Combine
 import SwiftUI
 import WebKit
 
+/// Opt-in, local debug metadata only; never records configuration values or credentials.
+private enum SettingsEditorDiagnostics {
+    static var enabled: Bool {
+        #if DEBUG
+        FileManager.default.fileExists(atPath: AppPaths.root.appendingPathComponent("settings-editor-capture.enabled").path)
+        #else
+        false
+        #endif
+    }
+    static func record(_ stage: String, _ details: [String: Any] = [:]) {
+        #if DEBUG
+        let root = AppPaths.root
+        guard enabled else { return }
+        var entry = details
+        entry["stage"] = stage; entry["time"] = Date().timeIntervalSince1970
+        guard var line = try? JSONSerialization.data(withJSONObject: entry, options: [.sortedKeys]) else { return }
+        line.append(10)
+        let url = root.appendingPathComponent("settings-editor-diagnostic.jsonl")
+        if !FileManager.default.fileExists(atPath: url.path) {
+            FileManager.default.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        }
+        guard let handle = try? FileHandle(forWritingTo: url) else { return }
+        defer { try? handle.close() }
+        if let size = try? handle.seekToEnd(), size > 512 * 1024 { try? handle.truncate(atOffset: 0); try? handle.seek(toOffset: 0) }
+        try? handle.write(contentsOf: line)
+        #endif
+    }
+}
+
 struct ConnectIQSettingsEditorContext {
     let identity: String
     let request: URLRequest
@@ -53,6 +82,7 @@ struct ConnectIQSettingsSheet: View {
             }
         }
         .buttonStyle(PulseButtonStyle())
+        .font(PulseTheme.font(size: 13)).controlSize(.regular)
         .padding(20).frame(width: 700, height: 680)
         .background(PulseTheme.background)
         .interactiveDismissDisabled()
@@ -83,7 +113,7 @@ struct ConnectIQSettingsView: View {
                 Button { back() } label: {
                     Label(L10n.text(commands.nested ? "返回" : "关闭"), systemImage: commands.nested ? "chevron.left" : "xmark")
                 }.disabled(saving)
-                Text(context.appName).font(PulseTheme.font(size: 17, weight: .semibold)).lineLimit(1)
+                Text(context.appName).font(PulseTheme.font(size: 17, weight: .semibold)).lineLimit(1).help(context.appName)
                 Spacer()
                 if !commands.nested {
                     Button(L10n.text(saving ? "正在保存…" : "保存到手表")) { submit() }
@@ -216,18 +246,14 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
             self.parent = parent; policy = parent.request.url.flatMap(NavigationPolicy.init)
         }
         func start(_ view: WKWebView) {
+            SettingsEditorDiagnostics.record("start", ["host": parent.request.url?.host ?? "", "bodyBytes": parent.request.httpBody?.count ?? 0])
             guard let policy else { fail(); return }
-            let rules: [[String: Any]] = [
-                ["trigger": ["url-filter": ".*"], "action": ["type": "block"]],
-                ["trigger": ["url-filter": "^https://" + NSRegularExpression.escapedPattern(for: policy.host) + "/([^/]+/)?appSettings2/"], "action": ["type": "ignore-previous-rules"]],
-                ["trigger": ["url-filter": "^https://cdn\\.jsdelivr\\.net/npm/bootstrap@5\\.0\\.1/dist/css/bootstrap\\.min\\.css$", "resource-type": ["style-sheet"]], "action": ["type": "ignore-previous-rules"]],
-                ["trigger": ["url-filter": "^data:image/", "resource-type": ["image"]], "action": ["type": "ignore-previous-rules"]],
-                ["trigger": ["url-filter": "^data:application/x-font-(woff|ttf);", "resource-type": ["font"]], "action": ["type": "ignore-previous-rules"]]
-            ]
-            guard let data = try? JSONSerialization.data(withJSONObject: rules), let json = String(data: data, encoding: .utf8) else { fail(); return }
-            WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "WristBeam.ConnectIQ.Settings." + policy.host, encodedContentRuleList: json) { [weak self, weak view] list, _ in
+            guard let json = try? ConnectIQSettingsResourceRules.encoded(host: policy.host) else { fail(); return }
+            WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "WristBeam.ConnectIQ.Settings." + policy.host, encodedContentRuleList: json) { [weak self, weak view] list, error in
                 Task { @MainActor in
                     guard let self, self.active, let view else { return }
+                    SettingsEditorDiagnostics.record("contentRules", ["compiled": list != nil, "error": error?.localizedDescription ?? "",
+                        "reason": (error as NSError?)?.userInfo[NSHelpAnchorErrorKey] as? String ?? ""])
                     guard let list else { self.fail(); return }
                     view.configuration.userContentController.add(list)
                     view.load(self.parent.request)
@@ -250,6 +276,9 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
             decisionHandler(.cancel)
         }
         func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+            SettingsEditorDiagnostics.record("response", ["status": (response.response as? HTTPURLResponse)?.statusCode ?? 0,
+                "mime": response.response.mimeType ?? "", "mainFrame": response.isForMainFrame,
+                "allowed": response.response.url.map { policy?.allowsPage($0) == true } ?? false])
             guard response.isForMainFrame, let http = response.response as? HTTPURLResponse,
                   let url = http.url, policy?.allowsPage(url) == true,
                   (200..<300).contains(http.statusCode), response.canShowMIMEType else { fail(); decisionHandler(.cancel); return }
@@ -263,6 +292,23 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
             guard let url = webView.url, policy?.allowsPage(url) == true else { fail(); return }
             parent.commands.nested = url.lastPathComponent != "edit"
             let revision = navigationRevision
+            if SettingsEditorDiagnostics.enabled {
+                let metadata = """
+                (() => {
+                    const publicURL = value => {
+                        if (!value) return 'inline';
+                        const u = new URL(value);
+                        return u.protocol === 'https:' ? u.origin + u.pathname : u.protocol;
+                    };
+                    return {submit:typeof handleFormSubmit,back:typeof handleBack,jquery:typeof jQuery,
+                        forms:document.forms.length,scripts:Array.from(document.scripts).map(s=>publicURL(s.src)),
+                        resources:performance.getEntriesByType('resource').map(r=>({url:publicURL(r.name),type:r.initiatorType,bytes:r.transferSize}))};
+                })()
+                """
+                webView.evaluateJavaScript(metadata) { value, error in
+                    SettingsEditorDiagnostics.record("pageState", ["value": value ?? NSNull(), "error": error?.localizedDescription ?? ""])
+                }
+            }
             let readiness = parent.commands.nested
                 ? "typeof handleBack === 'function' && typeof jQuery === 'function'"
                 : "typeof handleFormSubmit === 'function' && typeof handleBack === 'function' && typeof jQuery === 'function'"
@@ -273,8 +319,11 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
                 self.parent.commands.error = nil; self.parent.onReady()
             }
         }
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { fail() }
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            SettingsEditorDiagnostics.record("navigationFailed", ["domain": (error as NSError).domain, "code": (error as NSError).code]); fail()
+        }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            SettingsEditorDiagnostics.record("provisionalFailed", ["domain": (error as NSError).domain, "code": (error as NSError).code])
             if (error as NSError).code != NSURLErrorCancelled { fail() }
         }
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
@@ -315,6 +364,7 @@ struct ConnectIQSettingsWebEditor: NSViewRepresentable {
             alert.addButton(withTitle: L10n.text("确定"))
             alert.addButton(withTitle: L10n.text("取消"))
             let input = NSTextField(string: defaultText ?? "")
+            input.setAccessibilityLabel(prompt)
             input.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
             alert.accessoryView = input
             alert.beginSheetModal(for: window) { [weak self] response in

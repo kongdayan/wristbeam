@@ -5,10 +5,11 @@ struct DeveloperClientsView: View {
     @State private var name = ""
     @State private var scopes: Set<DeveloperScope> = [.status, .summary]
     @State private var revealed: UUID?
+    @State private var pendingRevocation: UUID?
     var body: some View {
         PreferenceBlock(title: "客户端与权限") {
             VStack(alignment: .leading, spacing: 12) {
-                TextField(L10n.text("客户端名称"), text: $name).textFieldStyle(.roundedBorder)
+                TextField(L10n.text("客户端名称"), text: $name).textFieldStyle(.roundedBorder).accessibilityLabel(L10n.text("客户端名称"))
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), alignment: .leading)], alignment: .leading) {
                     ForEach(DeveloperScope.allCases) { scope in
                         Toggle(L10n.text(scope.title), isOn: Binding(get: { scopes.contains(scope) }, set: {
@@ -37,7 +38,7 @@ struct DeveloperClientsView: View {
                                 Button(L10n.text("复制密钥")) { access.copyClientKey(client.id) }
                                 Button(L10n.text("导出密钥…")) { access.exportClientKey(client.id) }
                                 Divider()
-                                Button(L10n.text("撤销访问"), role: .destructive) { revealed = nil; access.revokeClient(client.id) }
+                                Button(L10n.text("撤销访问"), role: .destructive) { pendingRevocation = client.id }
                             }.disabled(access.isManagingKey || access.isApplying)
                         } else {
                             Text(L10n.text("已撤销"))
@@ -49,5 +50,12 @@ struct DeveloperClientsView: View {
                 if !access.clientStatus.isEmpty { Text(L10n.text(access.clientStatus)).font(PulseTheme.font(size: 11)) }
             }.padding(14)
         }.onDisappear { revealed = nil }
+            .confirmationDialog(L10n.text("撤销此客户端的访问？"), isPresented: Binding(get: { pendingRevocation != nil }, set: { if !$0 { pendingRevocation = nil } }), titleVisibility: .visible) {
+                Button(L10n.text("撤销访问"), role: .destructive) {
+                    if let id = pendingRevocation { revealed = nil; access.revokeClient(id) }
+                    pendingRevocation = nil
+                }
+                Button(L10n.text("取消"), role: .cancel) { pendingRevocation = nil }
+            } message: { Text(L10n.text("使用此密钥的客户端将无法继续访问。")) }
     }
 }

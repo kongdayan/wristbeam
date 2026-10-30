@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.3.11 — 2026-10-30
+
+- Bring the validated macOS beta interface to stable: integrated settings, native controls, keyboard navigation and compact/large-text layouts.
+- Align mixed dashboard cards across four-column rows and adapt them to narrow windows.
+- Automatically read installed watch faces and simplify Connect IQ navigation, search and settings actions.
+- Fix valid watch-face settings rejected because of trailing padding, and repair WebKit resource rules that prevented settings forms from loading.
+- End empty direct-mode capability checks promptly and release settings actions after timeouts. Saving watch-face settings was confirmed on a physical device; switching the active face remains dependent on device-provided controls.
+- Compress README showcase images and keep image references consistent across all five languages.
+
+## 0.3.11-beta.5 — 2026-10-28
+
+- Improve native popup controls, sidebar selection visibility, keyboard focus and large-text layouts across the integrated settings flow.
+- Keep Settings in the main sidebar, with its categories revealed when opened. Use the system accent color for sidebar selection.
+- Fit the main window at 760×600 and let content reflow at larger text sizes. Show the current page or metric in the window title.
+- Check the compact layout with synthetic Chinese/English, light/dark and enlarged-text native renders.
+- Beta 4 stopped during macOS 14 window fixture validation and was not published.
+
+## 0.3.11-beta.3 — 2026-10-27
+
+- Keep settings inside the main application window. Settings and Command–comma open the remembered category in the existing sidebar/content layout; appearance, metrics, refresh, developer options, updates and About share that navigation.
+- Preserve activity search, pagination and scroll position when returning from settings. Attach update confirmations to the main window and keep sheet/modal navigation guards.
+- Remove the separate preferences window and validate normal/large-text integrated settings with native synthetic screenshots. Numeric version remains 0.3.11, build 20. The beta 2 validation was cancelled before publication to update an obsolete routing assertion.
+
+## 0.3.11-beta.1 — 2026-10-27
+
+- Adapt dashboard cards, actions and connection status to narrow windows and larger text; keep battery percentages on one line. Preserve Connect IQ, independent preferences and browsing/scroll restoration.
+- Offer independent live-watch and cloud-history onboarding. Clarify data origins, timestamps, loading, cancellation and local export results.
+- Add account-scoped download management with sizes, Finder reveal and reversible Trash. Keep original watch files and account data.
+- Bound Connect IQ artwork decoding/cache use, reuse encoded share images, and improve native share preview feedback and screenshot resource cleanup.
+- Publish this preview as a GitHub prerelease, excluded from the stable updater. The app's numeric bundle version is 0.3.11 (build 18); About and Software updates show the beta tag.
+
 ## 0.3.10 — 2026-10-23
 
 - Expand Sync settings, Files and uploads, and other sections by clicking anywhere on their header. Keep controls inside expanded sections independent, with consistent borders and hover/focus feedback.

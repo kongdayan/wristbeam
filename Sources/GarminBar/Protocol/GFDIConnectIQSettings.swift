@@ -36,11 +36,13 @@ struct GFDIConnectIQSettingsSnapshot {
     let revision = UUID()
 }
 
-enum GFDIConnectIQSettingsError: LocalizedError {
-    case malformed, unsupported, notInstalled, saveRejected, unconfirmed, stale
+enum GFDIConnectIQSettingsError: LocalizedError, Equatable {
+    case malformed, malformedResponse, malformedProperties, unsupported, notInstalled, saveRejected, unconfirmed, stale
     var errorDescription: String? {
         switch self {
         case .malformed: return "表盘设置数据无效"
+        case .malformedResponse: return "手表的表盘设置响应无法识别"
+        case .malformedProperties: return "手表返回的表盘设置内容无法解析"
         case .unsupported: return "此表盘设置包含暂不支持的数据类型"
         case .notInstalled: return "手表未找到所选表盘，请重新读取已安装列表"
         case .saveRejected: return "手表未接受表盘设置"
@@ -92,7 +94,10 @@ enum GFDIMonkeyCodec {
         }
         guard tag == 0xda7ada7a else { throw GFDIConnectIQSettingsError.malformed }
         let objectSize = Int(try reader.number(4))
-        guard objectSize == reader.remaining else { throw GFDIConnectIQSettingsError.malformed }
+        // d55.h slices the declared object area; real watch payloads can include trailing padding.
+        // Bound all node reads to that area so a truncated object cannot consume the trailer.
+        guard objectSize <= reader.remaining else { throw GFDIConnectIQSettingsError.malformed }
+        reader = Reader(data: Array(try reader.take(objectSize)))
         if objectSize == 0 { return .dictionary([:]) } // ahc.m also accepts an empty object list.
         var nodes: [Node] = []
         while reader.remaining > 0 {
@@ -106,7 +111,8 @@ enum GFDIMonkeyCodec {
                 guard let text = strings[UInt32(try reader.number(4))] else { throw GFDIConnectIQSettingsError.malformed }
                 node.value = .string(text)
             case 5: node.count = Int(try reader.number(4))
-            case 9: let value = try reader.byte(); guard value <= 1 else { throw GFDIConnectIQSettingsError.malformed }; node.value = .bool(value != 0)
+            // Android ByteBuffer.get() returns a signed byte; d55.h tests it > 0.
+            case 9: node.value = .bool(Int8(bitPattern: try reader.byte()) > 0)
             case 11: node.count = Int(try reader.number(4)); node.dictionary = true
             case 14: node.value = .int64(Int64(bitPattern: try reader.number(8)))
             case 15: node.value = .double(Double(bitPattern: try reader.number(8)))
@@ -133,7 +139,8 @@ enum GFDIMonkeyCodec {
             if !node.dictionary { return .array(try node.children.map { try materialize($0, depth: depth + 1) }) }
             var dictionary: [String: GFDIMonkeyValue] = [:]
             for index in stride(from: 0, to: node.children.count, by: 2) {
-                guard case let .string(key) = try materialize(node.children[index], depth: depth + 1), dictionary[key] == nil else { throw GFDIConnectIQSettingsError.malformed }
+                // Connect IQ's sh2.n inserts into a map, so the last duplicate key wins.
+                guard case let .string(key) = try materialize(node.children[index], depth: depth + 1) else { throw GFDIConnectIQSettingsError.malformed }
                 dictionary[key] = try materialize(node.children[index + 1], depth: depth + 1)
             }
             return .dictionary(dictionary)
@@ -192,12 +199,24 @@ enum GFDIConnectIQSettings {
     }
     static func checkResponse(_ data: Data, appID: String, saving: Bool) throws {
         let root = try Proto(data)
-        guard let serviceData = try root.blob(4), let responseData = try Proto(serviceData).blob(saving ? 4 : 2) else { throw GFDIConnectIQSettingsError.malformed }
+        // Store b70/a70 ignores the Get reply and completes only when z60 receives
+        // SendAppSettingsRequest. Some firmware returns an empty Smart envelope.
+        // A transport reply alone never supplies settings or completes our read.
+        if !saving {
+            guard let serviceData = try root.blob(4), let responseData = try Proto(serviceData).blob(2) else { return }
+            let response = try Proto(responseData)
+            if let identity = try response.blob(1), identity != (try GFDIConnectIQSDK.uuidBytes(appID)) {
+                throw GFDIConnectIQSettingsError.stale
+            }
+            if try response.number(2) == 2 { throw GFDIConnectIQSettingsError.notInstalled }
+            return
+        }
+        guard let serviceData = try root.blob(4), let responseData = try Proto(serviceData).blob(saving ? 4 : 2) else { throw GFDIConnectIQSettingsError.malformedResponse }
         let response = try Proto(responseData)
         guard try response.blob(1) == GFDIConnectIQSDK.uuidBytes(appID) else { throw GFDIConnectIQSettingsError.stale }
-        guard let status = try response.number(2) else { throw GFDIConnectIQSettingsError.malformed }
+        guard let status = try response.number(2) else { throw GFDIConnectIQSettingsError.malformedResponse }
         if status == 2 { throw saving ? GFDIConnectIQSettingsError.saveRejected : GFDIConnectIQSettingsError.notInstalled }
-        guard status == 1 else { throw GFDIConnectIQSettingsError.malformed }
+        guard status == 1 else { throw GFDIConnectIQSettingsError.malformedResponse }
     }
     static func push(_ data: Data) throws -> (appID: String, data: Data)? {
         guard let serviceData = try Proto(data).blob(4), let requestData = try Proto(serviceData).blob(5) else { return nil }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FloatingPulseView: View {
     @ObservedObject var model: AppModel
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var selected: MetricKind?
     private var kind: MetricKind? { selected.flatMap { model.visibleMetrics.contains($0) ? $0 : nil } ?? model.visibleMetrics.first }
     var body: some View {
@@ -26,7 +27,7 @@ struct FloatingPulseView: View {
                                 .foregroundStyle(kind == metric ? PulseTheme.color(metric) : PulseTheme.secondary)
                                 .background(kind == metric ? PulseTheme.color(metric).opacity(0.13) : Color.primary.opacity(0.04))
                                 .clipShape(Capsule())
-                        }.buttonStyle(.plain).accessibilityLabel(L10n.text(metric.title)).help(L10n.text(metric.title))
+                        }.buttonStyle(.plain).accessibilityLabel(L10n.text(metric.title)).accessibilityValue(L10n.text(model.display(metric)) + " " + L10n.text(metric.unit)).accessibilityAddTraits(kind == metric ? [.isSelected] : []).help(L10n.text(metric.title))
                     }
                 }
             }.fixedSize(horizontal:false,vertical:true)
@@ -47,7 +48,7 @@ struct FloatingPulseView: View {
                 }.buttonStyle(PulseButtonStyle(compact: true))
             }.font(PulseTheme.font(size:10)).foregroundStyle(PulseTheme.secondary)
         }.padding(18).frame(width:model.floatingWidth,height:model.floatingHeight)
-            .background(PulseTheme.background.opacity(0.98))
+            .background(PulseTheme.background.opacity(reduceTransparency ? 1 : 0.98))
             .clipShape(RoundedRectangle(cornerRadius:24))
             .overlay(RoundedRectangle(cornerRadius:24).strokeBorder(.primary.opacity(0.12)).allowsHitTesting(false))
             .preferredColorScheme(model.preferredColorScheme).environment(\.locale,L10n.locale)

@@ -87,6 +87,13 @@ struct DashboardMetricSection: Identifiable {
 }
 
 enum MetricLayout {
+    /// A preferred number of columns must never force cards below their readable width.
+    static func columnCount(width: Double, minimum: Double, preferred: Int, spacing: Double = 14) -> Int {
+        guard width.isFinite, minimum.isFinite, spacing.isFinite, width > 0, minimum > 0, spacing >= 0 else { return 1 }
+        let fitting = max(1, Int(min(4, (width + spacing) / (minimum + spacing))))
+        return min(fitting, preferred > 0 ? min(4, preferred) : 4)
+    }
+
     /// Availability is evidence based. Missing or invalid readings alone cannot
     /// advertise a capability, and temporary disconnects do not erase choices.
     static func available(readings: Set<MetricKind>, registered: Set<MetricKind>, discovered: Set<MetricKind>) -> Set<MetricKind> {

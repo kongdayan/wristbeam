@@ -59,12 +59,14 @@ jobs:
       - name: Native settings and floating render smoke checks
         if: inputs.render-ui && matrix.arch == 'arm64'
         run: python3 scripts/test-interface-render.py dist/interface-renders
-      - name: Preserve native interaction failure screenshot
+      - name: Preserve native failure screenshots
         if: failure() && inputs.render-ui && matrix.arch == 'arm64'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-interaction-failure-${{ matrix.runner }}
-          path: dist/interface-renders/interaction-failure.png
+          path: |
+            dist/interface-renders/*.png
+            dist/interface-renders/*-layout.json
           if-no-files-found: ignore
           retention-days: 3
       - name: Render showcase images
@@ -97,17 +99,20 @@ jobs:
           if-no-files-found: error
           retention-days: 3
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: inputs.showcase && matrix.runner == 'macos-15'
+        if: inputs.showcase && matrix.arch == 'arm64'
         with:
-          name: native-interface-macos15
+          name: native-interface-${{ matrix.runner == 'macos-15' && 'macos15' || matrix.runner }}
           path: |
             dist/interface-renders/*.png
             dist/interface-renders/*-timing.json
+            dist/interface-renders/*-layout.json
           if-no-files-found: error
           retention-days: 3
       - name: Native XCTest suite
         run: swift test
       - name: Build and sign application
+        env:
+          PULSE_RELEASE_TAG: ${{ inputs.release-tag }}
         run: zsh scripts/build.sh
       - name: Installed application language and update lifecycle regression
         run: |

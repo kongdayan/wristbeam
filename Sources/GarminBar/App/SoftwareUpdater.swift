@@ -15,6 +15,12 @@ final class PulseUpdater: ObservableObject {
     @Published private(set) var release: PulseRelease?
     @Published private(set) var isChecking = false
     @Published private(set) var isInstalling = false
+    @Published private(set) var downloadProgress: Double?
+    @Published private(set) var downloadedBytes: Int64 = 0
+    @Published private(set) var totalDownloadBytes: Int64 = 0
+    private var downloadSession: URLSession?
+    private var downloadCancelled = false
+    private var downloadID = UUID()
     @Published private(set) var status = "准备检查 GitHub Releases"
     @Published private(set) var lastChecked = AppPreferences.shared.object(forKey: "lastUpdateCheck") as? Date
     var onConfirmation: (() -> Void)?
@@ -24,7 +30,8 @@ final class PulseUpdater: ObservableObject {
             AppPreferences.shared.set(repository, forKey: "updateRepository")
         }
     }
-    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.10" }
+    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.11" }
+    var displayVersion: String { (Bundle.main.object(forInfoDictionaryKey: "WristBeamReleaseTag") as? String)?.replacingOccurrences(of: "^v", with: "", options: .regularExpression) ?? currentVersion }
     var parsedRepository: PulseRepository? { PulseRepository(repository) }
     // Local package tests exercise the production validation/install path. This
     // entry point is absent from Release builds and never changes the server.
@@ -82,18 +89,33 @@ final class PulseUpdater: ObservableObject {
     }
     func requestUpgrade() { if installable && !isInstalling { onConfirmation?() } }
     func skipVersion() { if let release, let repo = parsedRepository { AppPreferences.shared.set(release.tagName, forKey: "skippedUpdateVersion.\(repo.slug)") } }
+    func cancelDownload() {
+        guard isInstalling, downloadProgress != nil else { return }
+        downloadCancelled = true; downloadSession?.invalidateAndCancel()
+    }
     func installConfirmed() async {
         guard installable, !isInstalling, canInstall?() != false, let release, let repo = parsedRepository,
               let asset = release.asset(repository: repo, architecture: architecture) else { status = "请等待文件同步结束后再升级"; return }
-        isInstalling = true; status = "正在下载更新；你的账户和数据会保留"
-        defer { isInstalling = false }
+        let requestID = UUID(); downloadID = requestID
+        isInstalling = true; downloadCancelled = false; downloadedBytes = 0; totalDownloadBytes = Int64(asset.size); downloadProgress = 0
+        status = "正在下载更新；你的账户和数据会保留"
+        defer { isInstalling = false; downloadProgress = nil; downloadSession = nil }
+        var handedOff = false
         let directory = AppPaths.directory("Updates").appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { if !handedOff { try? FileManager.default.removeItem(at: directory) } }
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             var request = URLRequest(url: asset.browserDownloadURL); request.timeoutInterval = 120
             request.setValue("WristBeam/\(currentVersion)", forHTTPHeaderField: "User-Agent")
-            let delegate = ReleaseDownloadDelegate(repository: repo, maximumBytes: asset.size)
+            let delegate = ReleaseDownloadDelegate(repository: repo, maximumBytes: asset.size) { [weak self] bytes in
+                Task { @MainActor [weak self] in
+                    guard let self, self.isInstalling, self.downloadID == requestID, self.downloadProgress != nil, !self.downloadCancelled else { return }
+                    self.downloadedBytes = bytes
+                    self.downloadProgress = min(1, Double(bytes) / Double(max(1, asset.size)))
+                }
+            }
             let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+            downloadSession = session
             defer { session.invalidateAndCancel() }
             let temporary: URL
             let response: URLResponse
@@ -104,12 +126,14 @@ final class PulseUpdater: ObservableObject {
             } else {
                 (temporary, response) = try await session.download(for: request)
             }
+            guard !downloadCancelled else { throw CancellationError() }
             guard let http = response as? HTTPURLResponse, http.statusCode == 200,
                   let finalURL = http.url, PulseUpdatePolicy.permitsRedirect(finalURL, repository: repo) else { throw UpdateError.invalidResponse }
             let archive = directory.appendingPathComponent("release.zip")
             try FileManager.default.moveItem(at: temporary, to: archive)
             let size = (try FileManager.default.attributesOfItem(atPath: archive.path)[.size] as? NSNumber)?.intValue
             guard size == asset.size else { throw UpdateError.invalidArchive }
+            downloadProgress = nil; downloadedBytes = Int64(asset.size)
             status = "校验安装包与应用签名"
             let target = Bundle.main.bundleURL
             let prepared = try await Task.detached(priority: .utility) {
@@ -123,9 +147,12 @@ final class PulseUpdater: ObservableObject {
             process.arguments = [helper.path, String(ProcessInfo.processInfo.processIdentifier), prepared.path, target.path, directory.path, result.path]
             process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
             try process.run()
+            handedOff = true
             status = "更新已校验，即将重新启动"
             NSApplication.shared.terminate(nil)
-        } catch { status = "升级未完成：\(error.localizedDescription)" }
+        } catch {
+            status = downloadCancelled || error is CancellationError ? "下载已取消，可稍后重试" : "升级未完成：\(error.localizedDescription)"
+        }
     }
 }
 
@@ -140,12 +167,18 @@ private func selfArchitecture() -> String {
 private final class ReleaseDownloadDelegate: NSObject, URLSessionDownloadDelegate {
     let repository: PulseRepository
     let maximumBytes: Int
-    init(repository: PulseRepository, maximumBytes: Int) { self.repository = repository; self.maximumBytes = maximumBytes }
+    private let progress: (Int64) -> Void
+    private var lastPercent = -1
+    init(repository: PulseRepository, maximumBytes: Int, progress: @escaping (Int64) -> Void) {
+        self.repository = repository; self.maximumBytes = maximumBytes; self.progress = progress
+    }
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
         completionHandler(request.url.map { PulseUpdatePolicy.permitsRedirect($0, repository: repository) } == true ? request : nil)
     }
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        if totalBytesWritten > maximumBytes || totalBytesExpectedToWrite > maximumBytes { downloadTask.cancel() }
+        if totalBytesWritten > maximumBytes || totalBytesExpectedToWrite > maximumBytes { downloadTask.cancel(); return }
+        let percent = Int(Double(totalBytesWritten) / Double(max(1, maximumBytes)) * 100)
+        if percent != lastPercent { lastPercent = percent; progress(totalBytesWritten) }
     }
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {}
 }

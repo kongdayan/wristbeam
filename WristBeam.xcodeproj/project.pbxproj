@@ -46,6 +46,7 @@
 		5B77E1271D8A790748ABD031 /* PulseWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0FC650CC8C2AF7F6EC236D /* PulseWidgetSnapshot.swift */; };
 		5D5E19C223BCFF477CF40F06 /* ActivityDetailContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A9B5D83E9076E506A2A398 /* ActivityDetailContent.swift */; };
 		5ED588FAF4A399DE56EE9B40 /* GarminPulseWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 055778CAE682D8980585183D /* GarminPulseWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5F6A76556E4A50532CAB214B /* ActivityDownloadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE2F61CEF876400090EFE9A9 /* ActivityDownloadsView.swift */; };
 		6315B38EF81821F9C427A0BA /* DeveloperSettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 404AC4A545215804EEBBE174 /* DeveloperSettingsPage.swift */; };
 		63C3EBB52DD66A838B6523BC /* DeveloperClients.swift in Sources */ = {isa = PBXBuildFile; fileRef = 051C6D91FE68C84749B767A7 /* DeveloperClients.swift */; };
 		69C718B73D2568DA04669202 /* DeveloperQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2AE568744CD4884E10F89ED /* DeveloperQueries.swift */; };
@@ -83,11 +84,13 @@
 		AAF7A41CC6D725FEF693906C /* update-helper.sh in Resources */ = {isa = PBXBuildFile; fileRef = F68A64487C0CBEC01E89E79B /* update-helper.sh */; };
 		B1945007D8447A2B375A47AB /* GarminUploadQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA30E959D448E857D4B0A3F7 /* GarminUploadQueue.swift */; };
 		B9068A2624B67419A98CD46D /* HealthAccountScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = E25BF5C33DBC96A6FBC28BA0 /* HealthAccountScope.swift */; };
+		BD5344291DFE4FBEAC012356 /* ConnectIQSettingsResourceRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40BB07C29A2AF58736EFB5EF /* ConnectIQSettingsResourceRules.swift */; };
 		BE4826C9B4287F361064E6A8 /* GarminPulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5AD3F98B9CF89CDBB8F376A /* GarminPulseApp.swift */; };
 		C0F2A0415CF1DDC515F1B58C /* GarminFITFileClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EEEF67C42548DE6F1DE453C /* GarminFITFileClassifier.swift */; };
 		C36C389AD6EA9249E02E946B /* GFDIBattery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0193F1CF371FA9A6AD9E958 /* GFDIBattery.swift */; };
 		C386BE743A167A7CBFF6A24B /* DeveloperClientManagement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0F3337238FF313BD6BEF78 /* DeveloperClientManagement.swift */; };
 		C876CC4BB8647540AA16B8C1 /* DeveloperSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33C0B77581375AAA6E6F01B /* DeveloperSelfTest.swift */; };
+		C911A8AEBA5EA7145B341F5F /* PulseMenuPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B5F9D0C1F3E5A2C0EBB7AF7 /* PulseMenuPicker.swift */; };
 		C9243E901943838EEEEB972F /* HRVViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 728CD6B4F3DE5B50A5C1AE82 /* HRVViews.swift */; };
 		CBF63CB506E05630BC83544C /* MetricFreshness.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64A3D7F5D6E513479A2C067 /* MetricFreshness.swift */; };
 		CD4E0D69D2B3BA664857E9B0 /* WatchBluetooth.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6E1802A80614116E71B085 /* WatchBluetooth.swift */; };
@@ -105,6 +108,7 @@
 		F6AD8671E9FFF628F362041B /* GFDIWeather.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9B889967E3E8F978BC767AD /* GFDIWeather.swift */; };
 		F9201C2AA0CE65661510F496 /* PreferencesPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6285CE132F9FAEEE941A0ED7 /* PreferencesPage.swift */; };
 		FAED21529EC3115329CBC514 /* GarminActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E1242B21577E33CFD1F9259 /* GarminActivities.swift */; };
+		FB6CE543BB6CB03928DBEA19 /* MainWindowShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BAA025AA9138F3A3670F496 /* MainWindowShell.swift */; };
 		FC4F542392017F18028AE288 /* GFDIConnectIQInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41CDB003F32852B1A06B1E6D /* GFDIConnectIQInstaller.swift */; };
 		FFBD14A96EBE64AE027D1955 /* MetricCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F28C1570B0E554EADD2E8D /* MetricCharts.swift */; };
 /* End PBXBuildFile section */
@@ -156,6 +160,7 @@
 		3770ADAA04F0460987B8E321 /* ConnectIQSettingsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQSettingsController.swift; sourceTree = "<group>"; };
 		3878BA8A3430F7EB71271C3F /* GFDIRequestCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIRequestCapture.swift; sourceTree = "<group>"; };
 		404AC4A545215804EEBBE174 /* DeveloperSettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsPage.swift; sourceTree = "<group>"; };
+		40BB07C29A2AF58736EFB5EF /* ConnectIQSettingsResourceRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQSettingsResourceRules.swift; sourceTree = "<group>"; };
 		41CDB003F32852B1A06B1E6D /* GFDIConnectIQInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIConnectIQInstaller.swift; sourceTree = "<group>"; };
 		438299E8402BF4ECD3FF7D91 /* Metrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Metrics.swift; sourceTree = "<group>"; };
 		4390F1708BDA4216CCC29F07 /* AppStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorage.swift; sourceTree = "<group>"; };
@@ -170,7 +175,9 @@
 		584E7B35A78233956CCA290E /* GFDIConnectIQPackageIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIConnectIQPackageIdentity.swift; sourceTree = "<group>"; };
 		59F28C1570B0E554EADD2E8D /* MetricCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCharts.swift; sourceTree = "<group>"; };
 		5B239BE2900F5FF25136C71E /* GFDIFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIFiles.swift; sourceTree = "<group>"; };
+		5B5F9D0C1F3E5A2C0EBB7AF7 /* PulseMenuPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseMenuPicker.swift; sourceTree = "<group>"; };
 		5BA73B6BAB314DCF8967A88C /* ActivityLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityLibrary.swift; sourceTree = "<group>"; };
+		5BAA025AA9138F3A3670F496 /* MainWindowShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowShell.swift; sourceTree = "<group>"; };
 		5DE05FF35D55A6F2096C55AB /* DisplaySettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaySettings.swift; sourceTree = "<group>"; };
 		6285CE132F9FAEEE941A0ED7 /* PreferencesPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesPage.swift; sourceTree = "<group>"; };
 		6C3C2F67697A2E6ADF8B9424 /* WorkflowPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowPresentation.swift; sourceTree = "<group>"; };
@@ -219,6 +226,7 @@
 		DBABD4A2BC15D29B37B80899 /* MetricTimeSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricTimeSeries.swift; sourceTree = "<group>"; };
 		DC7CF07EAF3965FB9F7985C8 /* ActivityQueries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityQueries.swift; sourceTree = "<group>"; };
 		DE01E6AB8976EA216209957D /* ConnectIQSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectIQSettingsView.swift; sourceTree = "<group>"; };
+		DE2F61CEF876400090EFE9A9 /* ActivityDownloadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityDownloadsView.swift; sourceTree = "<group>"; };
 		DEAC91237198046C71548B0A /* GFDICoreIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDICoreIdentity.swift; sourceTree = "<group>"; };
 		E187BE3DED6BA0AFD0F55EB7 /* SetupGuides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupGuides.swift; sourceTree = "<group>"; };
 		E25BF5C33DBC96A6FBC28BA0 /* HealthAccountScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthAccountScope.swift; sourceTree = "<group>"; };
@@ -264,9 +272,11 @@
 			isa = PBXGroup;
 			children = (
 				35A9B5D83E9076E506A2A398 /* ActivityDetailContent.swift */,
+				DE2F61CEF876400090EFE9A9 /* ActivityDownloadsView.swift */,
 				B0D75950D46871A1DA436094 /* ActivityLibraryCard.swift */,
 				1C9F9D43C690A9CF38B09F93 /* CompactViews.swift */,
 				511A0EC7DE4B9FCD59025EC3 /* ConnectIQPage.swift */,
+				40BB07C29A2AF58736EFB5EF /* ConnectIQSettingsResourceRules.swift */,
 				DE01E6AB8976EA216209957D /* ConnectIQSettingsView.swift */,
 				902F062C408780F9338F7CC8 /* ConnectIQStyle.swift */,
 				A80EBF2544A3A34D572EBA75 /* DashboardControls.swift */,
@@ -275,12 +285,14 @@
 				404AC4A545215804EEBBE174 /* DeveloperSettingsPage.swift */,
 				2149999B03F9F7757980DBDC /* FloatingPulseView.swift */,
 				728CD6B4F3DE5B50A5C1AE82 /* HRVViews.swift */,
+				5BAA025AA9138F3A3670F496 /* MainWindowShell.swift */,
 				59F28C1570B0E554EADD2E8D /* MetricCharts.swift */,
 				F55221495574C8ACC34CC95D /* MetricIcon.swift */,
 				81E45833E3BD8D4BABC0F278 /* NavigationWindowPolicy.swift */,
 				4977C1B5D0130EAD38610ED0 /* PairingGuide.swift */,
 				7AC2417D79A5A516EFCD4843 /* PreferenceComponents.swift */,
 				6285CE132F9FAEEE941A0ED7 /* PreferencesPage.swift */,
+				5B5F9D0C1F3E5A2C0EBB7AF7 /* PulseMenuPicker.swift */,
 				449ADBEE7F7CE9461B62607B /* ScrollPositionKeeper.swift */,
 				7EE6D8089EAC5A0865596248 /* SettingsViews.swift */,
 				E187BE3DED6BA0AFD0F55EB7 /* SetupGuides.swift */,
@@ -539,6 +551,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5D5E19C223BCFF477CF40F06 /* ActivityDetailContent.swift in Sources */,
+				5F6A76556E4A50532CAB214B /* ActivityDownloadsView.swift in Sources */,
 				3391BE56C998B00E130AD0FB /* ActivityLibrary.swift in Sources */,
 				74AF3A0F95B135F70617B98E /* ActivityLibraryCard.swift in Sources */,
 				07061B42392CB78D18ED9E73 /* ActivityMetricCatalog.swift in Sources */,
@@ -557,6 +570,7 @@
 				44F2812CEF9C83F6B1576238 /* ConnectIQPage.swift in Sources */,
 				6F2B997663322FE94F260E7F /* ConnectIQSettingsCloud.swift in Sources */,
 				A11BAB3193C8E2816F05540B /* ConnectIQSettingsController.swift in Sources */,
+				BD5344291DFE4FBEAC012356 /* ConnectIQSettingsResourceRules.swift in Sources */,
 				082EDCFFB2D8AD8F6AA658B9 /* ConnectIQSettingsView.swift in Sources */,
 				7D90EE2F5EA090B89E4E21E6 /* ConnectIQStyle.swift in Sources */,
 				8EB5F786E5C95EB9C0B38322 /* ConnectionPolicy.swift in Sources */,
@@ -605,6 +619,7 @@
 				E7359704651A7F26CDEB5CB7 /* HealthSummary.swift in Sources */,
 				119ABB411E0600C1D8DEF160 /* LocalDataArchive.swift in Sources */,
 				14D3EFCEC953C8734BCED50C /* Localization.swift in Sources */,
+				FB6CE543BB6CB03928DBEA19 /* MainWindowShell.swift in Sources */,
 				FFBD14A96EBE64AE027D1955 /* MetricCharts.swift in Sources */,
 				CBF63CB506E05630BC83544C /* MetricFreshness.swift in Sources */,
 				7FF618F5CFF87BB85E5867D2 /* MetricIcon.swift in Sources */,
@@ -615,6 +630,7 @@
 				251DE8250A9F1E39CCAAA7FD /* PairingGuide.swift in Sources */,
 				0CD36135FC3AABFC2EBBEBAD /* PreferenceComponents.swift in Sources */,
 				F9201C2AA0CE65661510F496 /* PreferencesPage.swift in Sources */,
+				C911A8AEBA5EA7145B341F5F /* PulseMenuPicker.swift in Sources */,
 				5B77E1271D8A790748ABD031 /* PulseWidgetSnapshot.swift in Sources */,
 				35EF52C3DFBF49A16831378F /* ScrollPositionKeeper.swift in Sources */,
 				3A49FFBCE9CCCDA169D2DF76 /* SettingsViews.swift in Sources */,
@@ -681,7 +697,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 17;
+				CURRENT_PROJECT_VERSION = 23;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -695,7 +711,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.10;
+				MARKETING_VERSION = 0.3.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -821,7 +837,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 17;
+				CURRENT_PROJECT_VERSION = 23;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -841,7 +857,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.10;
+				MARKETING_VERSION = 0.3.11;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

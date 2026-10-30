@@ -61,16 +61,32 @@ struct FirstConnectionGuide: View {
     @ObservedObject var model: AppModel
     var body: some View {
         PulseCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(L10n.text("从设备连接开始")).font(PulseTheme.font(size: 18, weight: .semibold))
-                Text(L10n.text("打开软件不会自动申请蓝牙或连接手表。按下面的顺序设置，完成后即可在菜单栏和浮窗查看数据。"))
-                    .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).lineSpacing(4)
-                Button { model.openSettings(.watch) } label: { Label(L10n.text("连接手表"), systemImage: "applewatch") }
-                    .buttonStyle(PulseButtonStyle(prominent: true)).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
-                Text(L10n.text("接收手表数据不需要云账号。"))
-                    .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+            VStack(alignment: .leading, spacing: 16) {
+                Text(L10n.text("从你想看的数据开始")).font(PulseTheme.font(size: 18, weight: .semibold))
+                Text(L10n.text("连接手表看实时读数，连接设备账号看历史记录。任选一种，也可以一起使用。"))
+                    .font(PulseTheme.font(size: 13)).foregroundStyle(PulseTheme.secondary).fixedSize(horizontal: false, vertical: true)
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 16) { watchPath; cloudPath }
+                    VStack(alignment: .leading, spacing: 16) { watchPath; cloudPath }
+                }
             }
         }
+    }
+    private var watchPath: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L10n.text("实时读数"), systemImage: "applewatch").font(PulseTheme.font(size: 14, weight: .semibold))
+            Text(L10n.text("通过蓝牙接收数据，无需云账号。"))
+                .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).fixedSize(horizontal: false, vertical: true)
+            Button(L10n.text("连接手表")) { model.openSettings(.watch) }.buttonStyle(PulseButtonStyle(prominent: true)).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private var cloudPath: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L10n.text("历史与运动"), systemImage: "cloud").font(PulseTheme.font(size: 14, weight: .semibold))
+            Text(L10n.text("读取云端健康和运动，下载后可离线查看。"))
+                .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary).fixedSize(horizontal: false, vertical: true)
+            Button(L10n.text("连接设备账号")) { model.openSettings(.account) }.buttonStyle(PulseButtonStyle())
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -91,9 +107,9 @@ struct SyncSetupGuide: View {
                     }
                 }
                 PreferenceLine(title: "检查新文件的间隔") {
-                    Picker("", selection: $model.syncInterval) {
-                        Text(L10n.text("5 分钟")).tag(5); Text(L10n.text("15 分钟")).tag(15); Text(L10n.text("30 分钟")).tag(30)
-                    }.labelsHidden().disabled(!model.autoSync)
+                    PulseMenuPicker("检查新文件的间隔", selection: $model.syncInterval,
+                        choices: [.init(L10n.text("5 分钟"), 5), .init(L10n.text("15 分钟"), 15), .init(L10n.text("30 分钟"), 30)])
+                        .disabled(!model.autoSync)
                 }
             }
             Text(L10n.text("自动接收只负责下载到 Mac。云上传单独控制，也可以稍后手动上传暂存文件。"))

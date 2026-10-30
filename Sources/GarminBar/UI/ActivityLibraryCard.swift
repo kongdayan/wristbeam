@@ -3,16 +3,23 @@ import AppKit
 
 struct ActivitiesPage: View {
     @ObservedObject var model: AppModel
+    @State private var showDownloads = false
     var body: some View {
         VStack(alignment: .leading, spacing: PulseTheme.sectionSpacing) {
             if let id = model.selectedActivityID {
                 PulseBackButton(title: "返回运动记录") { model.goBack() }
                 ActivityDetailPage(library: model.activities, id: id).id(id)
             } else {
-                Text(L10n.text("运动记录")).font(PulseTheme.font(size: 27, weight: .semibold))
+                ViewThatFits(in: .horizontal) {
+                    HStack { Text(L10n.text("运动记录")).font(PulseTheme.font(size: 27, weight: .semibold)); Spacer(); downloadsButton }
+                    VStack(alignment: .leading, spacing: 12) { Text(L10n.text("运动记录")).font(PulseTheme.font(size: 27, weight: .semibold)); downloadsButton }
+                }
                 ActivityLibraryCard(model: model)
             }
-        }
+        }.sheet(isPresented: $showDownloads) { ActivityDownloadsView(library: model.activities) }
+    }
+    private var downloadsButton: some View {
+        Button { showDownloads = true } label: { Label(L10n.text("下载管理"), systemImage: "arrow.down.circle") }.buttonStyle(PulseButtonStyle())
     }
 }
 
@@ -25,7 +32,7 @@ struct ActivityLibraryCard: View {
     private var page: Int { model.activityBrowsing.validPage(count: matching.count) }
     private var state: ActivityListState {
         .resolve(total: library.index.activities.count, matches: matching.count, busy: library.busy,
-            failed: !library.status.isEmpty, cloudEnabled: model.cloudSyncEnabled, online: library.online)
+            failed: library.statusIsError, cloudEnabled: model.cloudSyncEnabled, online: library.online)
     }
     var body: some View {
         PulseCard {
@@ -47,23 +54,29 @@ struct ActivityLibraryCard: View {
                 }.font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                 if !library.status.isEmpty && !library.index.activities.isEmpty {
                     HStack {
-                        Label(L10n.text(library.status), systemImage: "exclamationmark.triangle").foregroundStyle(PulseTheme.warning)
+                        PulseNotice(text: library.status, symbol: library.statusIsError ? "exclamationmark.triangle" : "info.circle", warning: library.statusIsError)
                         Spacer()
-                        Button(L10n.text("重试")) { reload() }.disabled(!library.online || library.busy)
+                        if library.statusIsError { Button(L10n.text("重试")) { reload() }.disabled(!library.online || library.busy) }
                     }.font(PulseTheme.font(size: 12))
+                }
+                if library.busy {
+                    PulseFlowLayout {
+                        Text(L10n.text(library.operation)).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                        Button(L10n.text("取消")) { library.cancelRequest() }
+                    }
                 }
                 if state == .content {
                     ForEach(model.activityBrowsing.visible(library.index.activities)) { activity in
                         Button { model.selectActivity(activity.id) } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: "figure.run").font(.title3).foregroundStyle(PulseTheme.mint).frame(width: 28)
+                                Image(systemName: activity.displaySymbol).font(.title3).foregroundStyle(PulseTheme.mint).frame(width: 28)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(activity.name.isEmpty ? activity.type : activity.name).font(PulseTheme.font(size: 14, weight: .medium)).lineLimit(2)
-                                    Text((activity.startTimeLocal ?? "—") + " · " + activity.type).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
+                                    Text(activity.name.isEmpty ? activity.displayType : activity.name).font(PulseTheme.font(size: 14, weight: .medium)).lineLimit(2)
+                                    Text(activity.displayStartTime + " · " + activity.displayType).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary)
                                 }
                                 Spacer()
                                 if let duration = activity.statistics["duration"] { Text(ActivityMetricCatalog.duration(duration)).monospacedDigit() }
-                                if library.hasDetail(activity.id) { Image(systemName: "arrow.down.circle.fill").foregroundStyle(PulseTheme.mint).help(L10n.text("详情已下载")) }
+                                if library.hasDetail(activity.id) { Label(L10n.text("已下载"), systemImage: "checkmark.circle").font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.mint) }
                                 Image(systemName: "chevron.right").foregroundStyle(PulseTheme.secondary)
                             }.padding(.vertical, 8).padding(.horizontal, 6)
                         }.buttonStyle(PulseRowButtonStyle()).accessibilityIdentifier("activity-" + activity.id)
@@ -77,15 +90,16 @@ struct ActivityLibraryCard: View {
                     }.font(PulseTheme.font(size: 12))
                 } else { emptyState }
                 if !library.index.activities.isEmpty && !library.index.reachedEnd {
-                    Button(L10n.text("加载更早的摘要")) { Task { await library.loadPage(older: true) } }.disabled(!library.online || library.busy)
+                    Button(L10n.text("加载更早的摘要")) { library.requestPage(older: true) }.disabled(!library.online || library.busy)
                 }
                 PulseDisclosure(L10n.text("自动刷新摘要")) {
-                    Picker(L10n.text("自动刷新摘要"), selection: $library.refreshMinutes) {
-                        Text(L10n.text("关闭")).tag(0)
-                        ForEach([15, 30, 60, 180, 360, 1440], id: \.self) { Text(L10n.format("每 {0} 分钟", String($0))).tag($0) }
-                    }.frame(maxWidth: 310).padding(.top, 8)
+                    PulseMenuPicker("自动刷新摘要", selection: $library.refreshMinutes,
+                        choices: [.init(L10n.text("关闭"), 0)] + [15, 30, 60, 180, 360, 1440].map { .init(L10n.format("每 {0} 分钟", String($0)), $0) })
+                        .frame(maxWidth: 310).padding(.top, 8)
                 }.font(PulseTheme.font(size: 12))
             }.buttonStyle(PulseButtonStyle())
+        }.task(id: library.online) {
+            if library.online, library.index.refreshedAt == nil { library.requestPage(older: false) }
         }.onChange(of: model.activitySearchRequest) { _ in searchFocused = true }
     }
     private var heading: some View { Label(L10n.text("运动库"), systemImage: "figure.run").font(PulseTheme.font(size: 18, weight: .semibold)) }
@@ -95,7 +109,7 @@ struct ActivityLibraryCard: View {
             Button { reload() } label: { Label(L10n.text("刷新运动摘要"), systemImage: "arrow.clockwise") }.disabled(!library.online || library.busy)
         }
     }
-    private func reload() { Task { await library.loadPage(older: false) } }
+    private func reload() { library.requestPage(older: false) }
     @ViewBuilder private var emptyState: some View {
         switch state {
         case .noMatches:
@@ -133,9 +147,13 @@ struct ActivityDetailPage: View {
     @State private var exportStatus = ""
     @State private var exporting = false
     @State private var loading = false
+    @State private var exportTask: Task<Void, Never>?
+    @State private var exportFailed = false
     @State private var window: NSWindow?
     private var summary: GarminActivity? { library.index.activities.first { $0.id == id } }
-    private var detail: GarminActivityDetail? { library.detail(id) }
+    @State private var cached: GarminActivityDetail?
+    @State private var cachedRevision = -1
+    private var detail: GarminActivityDetail? { cachedRevision == library.cacheRevision ? cached : nil }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             if let summary {
@@ -143,12 +161,17 @@ struct ActivityDetailPage: View {
                     HStack(alignment: .top) { title(summary); Spacer(); actions }
                     VStack(alignment: .leading, spacing: 12) { title(summary); actions }
                 }
-                if loading || library.busy {
-                    HStack { ProgressView().controlSize(.small); Text(L10n.text(exporting ? "正在准备导出文件…" : "正在加载运动数据…")) }
+                if loading || library.busy || exporting {
+                    HStack {
+                        ProgressView().controlSize(.small)
+                        Text(L10n.text(exporting ? "正在准备导出文件…" : "正在加载运动数据…"))
+                        Spacer()
+                        if exporting { Button(L10n.text("取消")) { exportTask?.cancel(); library.cancelRequest() } }
+                    }
                         .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
                 }
-                if !library.status.isEmpty { Text(L10n.text(library.status)).foregroundStyle(.orange) }
-                if !exportStatus.isEmpty { Text(L10n.text(exportStatus)).foregroundStyle(PulseTheme.secondary) }
+                if !library.status.isEmpty { PulseNotice(text: library.status, symbol: library.statusIsError ? "exclamationmark.triangle" : "checkmark.circle", warning: library.statusIsError) }
+                if !exportStatus.isEmpty { PulseNotice(text: exportStatus, symbol: exportFailed ? "exclamationmark.triangle" : "checkmark.circle", warning: exportFailed) }
                 if detail == nil && !loading && !library.busy && !library.online {
                     Text(L10n.text("已保存运动摘要；连接云账号后自动加载详情。"))
                         .foregroundStyle(PulseTheme.secondary)
@@ -157,22 +180,32 @@ struct ActivityDetailPage: View {
             } else { Text(L10n.text("尚未下载这条运动的数据")) }
         }
         .background(ActivityWindowReader { window = $0 }.frame(width: 0, height: 0))
+        .task(id: library.cacheRevision) { await readCachedDetail() }
         .task(id: library.online) {
             loading = true
+            await readCachedDetail()
             await library.openDetail(id)
+            await readCachedDetail()
             loading = false
         }
+        .onDisappear { exportTask?.cancel() }
+    }
+    @MainActor private func readCachedDetail() async {
+        let revision = library.cacheRevision
+        let value = await library.cachedDetail(id)
+        guard !Task.isCancelled, revision == library.cacheRevision else { return }
+        cached = value; cachedRevision = revision
     }
     private func title(_ summary: GarminActivity) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(summary.name.isEmpty ? summary.type : summary.name)
+            Text(summary.name.isEmpty ? summary.displayType : summary.name)
                 .font(PulseTheme.font(size: 24, weight: .semibold)).textSelection(.enabled)
-            Text((summary.startTimeLocal ?? "—") + " · " + summary.type)
+            Text(summary.displayStartTime + " · " + summary.displayType)
                 .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
         }
     }
     private var actions: some View {
-        HStack {
+        PulseFlowLayout {
             Button { Task { await library.downloadDetail(id) } } label: {
                 Label(L10n.text("刷新详情"), systemImage: "arrow.clockwise")
             }.disabled(!library.online || library.busy || loading || exporting)
@@ -184,27 +217,31 @@ struct ActivityDetailPage: View {
                 }
             } label: { Label(L10n.text("导出运动"), systemImage: "square.and.arrow.up") }
                 .disabled(library.busy || loading || exporting)
-        }.buttonStyle(PulseButtonStyle()).fixedSize(horizontal: true, vertical: false)
+        }.buttonStyle(PulseButtonStyle())
     }
     private func export(_ format: GarminActivityFormat?) {
-        exporting = true; exportStatus = ""
-        Task { @MainActor in
+        guard let window, window.isVisible else { return }
+        exporting = true; exportStatus = ""; exportFailed = false
+        exportTask = Task { @MainActor in
             defer { exporting = false }
+            let panel = ActivityExportPanel.make(id: id, format: format)
+            let response = await withCheckedContinuation { continuation in
+                panel.beginSheetModal(for: window) { continuation.resume(returning: $0) }
+            }
+            guard response == .OK, let destination = panel.url, !Task.isCancelled else { return }
             do {
                 let data: Data
                 if let format {
-                    guard let url = await library.exportFile(id, format: format) else { return }
-                    data = try Data(contentsOf: url)
+                    guard let url = await library.exportFile(id, format: format), !Task.isCancelled else { return }
+                    data = try await Task.detached(priority: .utility) { try Data(contentsOf: url) }.value
                 } else { data = try library.exportJSON(id) }
-                guard let window, window.isVisible else { return }
-                let panel = ActivityExportPanel.make(id: id, format: format)
-                let response = await withCheckedContinuation { continuation in
-                    panel.beginSheetModal(for: window) { continuation.resume(returning: $0) }
-                }
-                guard response == .OK, let url = panel.url else { return }
-                try data.write(to: url, options: [.atomic])
+                guard !Task.isCancelled else { return }
+                try await Task.detached(priority: .utility) { try data.write(to: destination, options: [.atomic]) }.value
                 exportStatus = "已导出运动数据"
-            } catch { exportStatus = "无法保存运动数据，请检查可用空间" }
+            } catch {
+                guard !Task.isCancelled else { return }
+                exportFailed = true; exportStatus = "无法保存运动数据，请检查可用空间"
+            }
         }
     }
 }

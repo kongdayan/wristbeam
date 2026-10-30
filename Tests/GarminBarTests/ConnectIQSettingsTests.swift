@@ -20,7 +20,7 @@ final class ConnectIQSettingsTests: XCTestCase {
     func testMonkeyBoundsUnknownTagsAndBadStringReferencesFailClosed() throws {
         let bytes = try GFDIMonkeyCodec.encode(.dictionary(["a": .int32(3)]))
         XCTAssertThrowsError(try GFDIMonkeyCodec.decode(bytes.dropLast()))
-        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(bytes + Data([0])))
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(bytes + Data([0])), .dictionary(["a": .int32(3)]))
         XCTAssertThrowsError(try GFDIMonkeyCodec.decode(Data([0xda,0x7a,0xda,0x7a,0,0,0,1,0xff])))
         XCTAssertThrowsError(try GFDIMonkeyCodec.decode(Data([0xda,0x7a,0xda,0x7a,0,0,0,5,3,0,0,0,0])))
         XCTAssertThrowsError(try GFDIMonkeyCodec.encode(.dictionary(["bad": .double(.nan)])))
@@ -28,15 +28,61 @@ final class ConnectIQSettingsTests: XCTestCase {
         for _ in 0..<34 { nested = .array([nested]) }
         XCTAssertThrowsError(try GFDIMonkeyCodec.encode(nested))
     }
+    func testDeclaredObjectAreaIgnoresTrailerButNeverConsumesItAsNodeData() throws {
+        // Independent wire vector: array of one int32, followed by device padding.
+        let vector = Data([0xda, 0x7a, 0xda, 0x7a, 0, 0, 0, 10,
+                           5, 0, 0, 0, 1, 1, 0, 0, 0, 7])
+        let expected = GFDIMonkeyValue.array([.int32(7)])
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(vector + Data([0])), expected)
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(vector + Data([0xff, 0x11, 0x22])), expected)
+        var truncatedArea = vector
+        truncatedArea[7] = 9 // Last byte of the integer now lies outside the declared object area.
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(truncatedArea + Data([0])))
+        var oversizedArea = vector
+        oversizedArea[7] = 11
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(oversizedArea))
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(Data([0xda, 0x7a, 0xda, 0x7a, 0, 0, 0, 0, 0])), .dictionary([:]))
+    }
+    func testConnectIQWireBooleanUsesSignedPositiveTrueAndDuplicateKeysUseLastValue() throws {
+        // Independent wire vectors: these are not produced by our encoder.
+        let boolean = Data([0xda, 0x7a, 0xda, 0x7a, 0, 0, 0, 7,
+                            5, 0, 0, 0, 1, 9, 2])
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(boolean), .array([.bool(true)]))
+        for byte in [UInt8(0), 128, 255] {
+            var vector = boolean
+            vector[vector.count - 1] = byte
+            XCTAssertEqual(try GFDIMonkeyCodec.decode(vector), .array([.bool(false)]))
+        }
+
+        let duplicateKeys = Data([
+            0xab, 0xcd, 0xab, 0xcd, 0, 0, 0, 4, 0, 2, 97, 0,
+            0xda, 0x7a, 0xda, 0x7a, 0, 0, 0, 25,
+            11, 0, 0, 0, 2,
+            3, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+            3, 0, 0, 0, 0, 1, 0, 0, 0, 2
+        ])
+        XCTAssertEqual(try GFDIMonkeyCodec.decode(duplicateKeys), .dictionary(["a": .int32(2)]))
+        XCTAssertThrowsError(try GFDIMonkeyCodec.decode(duplicateKeys.dropLast()))
+    }
     func testSettingsServiceUsesStoreUUIDAndCorrelatedSuccess() throws {
         let id = "00112233-4455-6677-8899-aabbccddeeff"
         let uuid = try GFDIConnectIQSDK.uuidBytes(id)
         let p = GFDIConnectIQ.Proto.self
+        // A Get transport reply can be empty; only the separately correlated
+        // Send push supplies values. Save still requires explicit SUCCESS.
+        XCTAssertNoThrow(try GFDIConnectIQSettings.checkResponse(Data(), appID: id, saving: false))
+        XCTAssertNoThrow(try GFDIConnectIQSettings.checkResponse(p.bytes(4, Data()), appID: id, saving: false))
+        XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(Data(), appID: id, saving: true))
+        XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(p.bytes(4, p.bytes(2, p.bytes(1, uuid) + p.integer(2, 2))), appID: id, saving: false)) { error in
+            XCTAssertEqual(error as? GFDIConnectIQSettingsError, .notInstalled)
+        }
         XCTAssertEqual(try GFDIConnectIQSettings.request(appID: id), Data([0x22,20,0x0a,18,0x0a,16]) + uuid)
         let response = p.bytes(4, p.bytes(4, p.bytes(1, uuid) + p.integer(2, 1)))
         XCTAssertNoThrow(try GFDIConnectIQSettings.checkResponse(response, appID: id, saving: true))
         XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(response, appID: "11112233-4455-6677-8899-aabbccddeeff", saving: true))
-        XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(p.bytes(4, p.bytes(4, p.bytes(1, uuid))), appID: id, saving: true))
+        XCTAssertThrowsError(try GFDIConnectIQSettings.checkResponse(p.bytes(4, p.bytes(4, p.bytes(1, uuid))), appID: id, saving: true)) { error in
+            XCTAssertEqual(error as? GFDIConnectIQSettingsError, .malformedResponse)
+        }
         let binary = try GFDIMonkeyCodec.encode(.dictionary(["key": .int32(7)]))
         let push = p.bytes(4, p.bytes(5, p.bytes(1, uuid) + p.bytes(2, binary)))
         XCTAssertEqual(try GFDIConnectIQSettings.push(push)?.appID, id)

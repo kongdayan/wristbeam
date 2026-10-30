@@ -27,7 +27,7 @@ Mac 앞에 앉아 있고 손목에는 시계가 있는데, 동기화하려면 �
 
 [AI 연결하기](docs/developer/API.md) · [지원 기기](docs/DEVICES.md) · [사용 가능한 지표](docs/METRICS.md)
 
-![WristBeam](docs/images/showcase-hero.png)
+![WristBeam](docs/images/showcase-hero.webp)
 
 [다운로드](https://github.com/kongdayan/wristbeam/releases/latest) · [문제 및 기기 보고](https://github.com/kongdayan/wristbeam/issues) · [기여](CONTRIBUTING.md) · [변경 기록](CHANGELOG.md)
 
@@ -35,19 +35,19 @@ Mac 앞에 앉아 있고 손목에는 시계가 있는데, 동기화하려면 �
 
 ## 화면
 
-![메뉴 막대와 클릭 후 패널](docs/images/showcase-menu.png)
+![메뉴 막대와 클릭 후 패널](docs/images/showcase-menu.webp)
 
-![테마와 대시보드](docs/images/showcase-themes.png)
+![테마와 대시보드](docs/images/showcase-themes.webp)
 
-![표시 설정](docs/images/showcase-settings.png)
+![표시 설정](docs/images/showcase-settings.webp)
 
-![Compact and Detailed floating panels](docs/images/showcase-floating.png)
+![Compact and Detailed floating panels](docs/images/showcase-floating.webp)
 
 실제 앱 UI에 분리된 데모 데이터를 표시합니다. [원본 화면과 제작 설명](docs/SHOWCASE.md).
 
 ## 기능
 
-- **설정을 한곳에.** 별도 설정 창에서 외관, 지표 선택, 새로 고침, 개발자 연동, 소프트웨어 업데이트를 관리합니다. 제목 행 전체를 눌러 섹션을 펼치고, 스크롤 막대 없이도 정상적으로 스크롤할 수 있습니다.
+- **설정을 한곳에.** 메인 창의 사이드바에서 외관, 지표 선택, 새로 고침, 개발자 연동, 소프트웨어 업데이트를 관리합니다. 제목 행 전체를 눌러 섹션을 펼치고, 스크롤 막대 없이도 정상적으로 스크롤할 수 있습니다.
 - **클라우드는 선택 사항.** 계정 없이 시계 데이터를 받고 Garmin 클라우드 접근을 모두 끌 수 있습니다. 로컬 FIT＋CSV를 내보내거나 나중에 업로드하세요. [로컬 모드](docs/SETUP.md).
 - **운동 기록도 AI와 함께.** 운동 목록에서 통계와 차트를 열고 JSON／TCX／GPX／원본 파일을 내보낼 수 있습니다. MCP로 캐시된 운동 기록을 조회하고 요약 자동 갱신 주기를 설정하세요. [API](docs/developer/API.md#activity-library).
 - 입체감 있는 작은 카드에 업데이트 시간을 표시합니다. 한 패널에서 배치와 기본 지표를 선택하고, 전체 보드·선택 카드·단일 값을 밝거나 어두운 프레임 이미지로 복사, 저장, 공유할 수 있습니다.

@@ -19,7 +19,7 @@ if args.directory:
             print('PASS package identity, MIT license, deployment target, architecture and signature:', architecture)
     if args.write_manifest:
         commit = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
-        write_manifest(args.directory, version, commit)
+        write_manifest(args.directory, version, commit, args.tag)
         print('PASS three-architecture manifest and SHA256SUMS')
 elif args.write_manifest:
     parser.error('--write-manifest requires --directory')

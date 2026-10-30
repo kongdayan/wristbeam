@@ -122,9 +122,11 @@ import UniformTypeIdentifiers
     }
 
     func refreshLocalDataSummary() {
-        guard !preview else { return }
+        guard !preview, !isReadingLocalStorage else { return }
+        isReadingLocalStorage = true
         let root = AppPaths.root
         Task {
+            defer { isReadingLocalStorage = false }
             let summary = await Task.detached(priority: .utility) { LocalDataArchive.summary(root: root) }.value
             self.localDataSummary = summary
         }

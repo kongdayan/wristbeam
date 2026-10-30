@@ -84,11 +84,20 @@ enum GFDIConnectIQ {
         return GFDIInstalledWatchFaceInventory(availableSpace: space, availableSlots: slots, apps: apps)
     }
 
-    static func compositionQuery(id: UInt32 = watchFaceComposition) -> Data {
-        wrap(1, Proto.integer(1, UInt64(id)) + Proto.integer(2, 2) + Proto.bytes(3, Data("zh-CN".utf8)))
+    static func compositionQuery(id: UInt32 = watchFaceComposition, locale: String = "zh_CN") -> Data {
+        wrap(1, Proto.integer(1, UInt64(id)) + Proto.integer(2, 2) + Proto.bytes(3, Data(locale.utf8)))
     }
-    static func settingsQuery(composition: UInt32) -> Data {
-        wrap(3, Proto.integer(1, UInt64(composition)) + Proto.bytes(2, Data("zh-CN".utf8)))
+    /// Official RTS initialization asks for locale resources and the communication mode.
+    /// No consent country is asserted on behalf of the user.
+    static func startupQuery(locale: String = "zh_CN") -> Data { wrap(8, Proto.bytes(1, Data(locale.utf8))) }
+    static func startupCommunicationMode(_ data: Data) throws -> UInt64? {
+        guard let service = try Proto(data).blob(42), let response = try Proto(service).blob(9) else { return nil }
+        let mode = try Proto(response).number(4) ?? 0
+        guard mode <= 1 else { throw GFDIConnectIQError.malformed }
+        return mode
+    }
+    static func settingsQuery(composition: UInt32, locale: String = "zh_CN") -> Data {
+        wrap(3, Proto.integer(1, UInt64(composition)) + Proto.bytes(2, Data(locale.utf8)))
     }
     static func selection(_ choice: GFDIWatchFaceOption) -> Data {
         wrap(5, Proto.integer(1, UInt64(choice.compositionID)) + Proto.integer(2, UInt64(choice.rowID))
@@ -252,7 +261,50 @@ enum GFDIConnectIQ {
     }
 }
 
-/// Correlated 5044 fragments. Same jr2/d envelope as other GDI protobuf services.
+/// RTS notifications carry their own transport IDs, not the initiating query ID.
+/// Correlate the response kind and device-returned composition instead (APK ru2/c, nu2/i1).
+struct GFDIRealtimeSettingsQuery {
+    let responseField: UInt64
+    let compositionID: UInt32
+
+    init?(_ data: Data) throws {
+        typealias P = GFDIConnectIQ.Proto
+        guard let bytes = try P(data).blob(42) else { return nil }
+        let service = try P(bytes)
+        let requests = try [UInt64(1), 3, 5].compactMap { field -> (UInt64, Data)? in
+            try service.blob(field).map { (field, $0) }
+        }
+        // Startup itself uses request/response before the official client knows the mode.
+        if try service.blob(8) != nil, requests.isEmpty { return nil }
+        guard requests.count == 1, let request = requests.first else { throw GFDIConnectIQError.malformed }
+        responseField = request.0 + 1
+        compositionID = try P(request.1).requiredUInt32(1)
+    }
+
+    func accepts(_ data: Data) throws -> Bool {
+        typealias P = GFDIConnectIQ.Proto
+        guard let bytes = try P(data).blob(42) else { return false }
+        let service = try P(bytes)
+        let responses = try [UInt64(2), 4, 6].compactMap { field -> (UInt64, Data)? in
+            try service.blob(field).map { (field, $0) }
+        }
+        guard responses.count == 1, let response = responses.first, response.0 == responseField else { return false }
+        let body = try P(response.1)
+        let settings = responseField == 6 ? try body.blob(3).map { [$0] } ?? [] : body.blobs(2)
+        // Empty/error responses still reach the operation's strict decoder; never invent choices.
+        guard !settings.isEmpty else { return true }
+        return try settings.contains { try P($0).requiredUInt32(1) == compositionID }
+    }
+
+    static func isNotification(_ data: Data) throws -> Bool {
+        typealias P = GFDIConnectIQ.Proto
+        guard let bytes = try P(data).blob(42) else { return false }
+        let service = try P(bytes)
+        return try [UInt64(2), 4, 6, 7, 9, 11, 13].contains { try service.blob($0) != nil }
+    }
+}
+
+/// Correlated protobuf fragments. Same jr2/d envelope for responses and notifications.
 struct GFDIConnectIQTransfer {
     let requestID: UInt16
     private(set) var data = Data()

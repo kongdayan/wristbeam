@@ -27,7 +27,7 @@ Mac の前に座り、腕には時計がある。それなのに同期のたび�
 
 [AI と接続](docs/developer/API.md) · [対応デバイス](docs/DEVICES.md) · [利用できる指標](docs/METRICS.md)
 
-![WristBeam](docs/images/showcase-hero.png)
+![WristBeam](docs/images/showcase-hero.webp)
 
 [ダウンロード](https://github.com/kongdayan/wristbeam/releases/latest) · [不具合・デバイス報告](https://github.com/kongdayan/wristbeam/issues) · [貢献](CONTRIBUTING.md) · [更新履歴](CHANGELOG.md)
 
@@ -35,19 +35,19 @@ Mac の前に座り、腕には時計がある。それなのに同期のたび�
 
 ## 画面
 
-![メニューバーとクリック後のパネル](docs/images/showcase-menu.png)
+![メニューバーとクリック後のパネル](docs/images/showcase-menu.webp)
 
-![テーマとダッシュボード](docs/images/showcase-themes.png)
+![テーマとダッシュボード](docs/images/showcase-themes.webp)
 
-![表示設定](docs/images/showcase-settings.png)
+![表示設定](docs/images/showcase-settings.webp)
 
-![Compact and Detailed floating panels](docs/images/showcase-floating.png)
+![Compact and Detailed floating panels](docs/images/showcase-floating.webp)
 
 実際のアプリ UI に、独立したデモデータを表示しています。[元の画像と制作方法](docs/SHOWCASE.md)。
 
 ## 機能
 
-- **設定をひとつのウィンドウに。** 外観、指標の選択、更新間隔、開発者連携、ソフトウェア更新を分類。セクションの見出しは行全体で開閉でき、スクロールバーを隠しても通常どおりスクロールできます。
+- **設定をひとつのウィンドウに。** メインウィンドウのサイドバーで外観、指標の選択、更新間隔、開発者連携、ソフトウェア更新を分類。セクションの見出しは行全体で開閉でき、スクロールバーを隠しても通常どおりスクロールできます。
 - **クラウドは任意。** アカウントなしで時計のデータを受信し、Garmin クラウドへのアクセスを停止できます。ローカルの FIT＋CSV を書き出したり、後からアップロードしたりできます。[ローカルモード](docs/SETUP.md)。
 - **ワークアウトを AI にも。** アクティビティ一覧から統計とグラフを開き、JSON／TCX／GPX／元ファイルを書き出せます。MCP でキャッシュ済みの運動履歴を照会でき、概要の定期更新も設定できます。[API](docs/developer/API.md#activity-library)。
 - コンパクトな立体カードに更新時刻を表示。レイアウトと基本指標を一か所で設定し、看板全体・選択カード・単一値を明暗のフレーム付き画像としてコピー、保存、共有できます。

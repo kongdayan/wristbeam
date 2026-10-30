@@ -10,6 +10,8 @@ root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', nargs='?', type=Path)
 parser.add_argument('--compile-only', action='store_true', help='Compile native views without invoking the GPU renderer')
+parser.add_argument('--dashboard-layout-only', action='store_true', help='Render and verify mixed four-column dashboard rows and narrow reflow only')
+parser.add_argument('--connectiq-layout-only', action='store_true', help='Render installed, discovery, loading, empty and disconnected Connect IQ states')
 args = parser.parse_args()
 output = args.output or Path(tempfile.mkdtemp(prefix='wristbeam-native-renders-'))
 output.mkdir(parents=True, exist_ok=True)
@@ -31,6 +33,22 @@ import SwiftUI
         let output = URL(fileURLWithPath:CommandLine.arguments[1],isDirectory:true)
         let model = AppModel()
         model.enablePreview()
+        if CommandLine.arguments.contains("--connectiq-layout-only") {
+            Task { @MainActor in
+                do { try await renderConnectIQCases(model:model,output:output); exit(0) }
+                catch { fputs("Connect IQ layout failed: \(error)\n",stderr); exit(1) }
+            }
+            RunLoop.main.run()
+            return
+        }
+        if CommandLine.arguments.contains("--dashboard-layout-only") {
+            Task { @MainActor in
+                do { try await renderDashboardLayoutCases(model:model,output:output); exit(0) }
+                catch { fputs("Dashboard layout failed: \(error)\n",stderr); exit(1) }
+            }
+            RunLoop.main.run()
+            return
+        }
         verifyDisclosureHitTargets(output: output)
         model.receive(MetricSample(kind:.watchBattery,value:77,source:"fixture"))
         precondition(model.metrics[.watchBattery]?.value == 77)
@@ -45,11 +63,11 @@ import SwiftUI
         model.page = .activities
         model.detailMetric = .heartRate
         model.openSettings(.appearance)
-        precondition(model.page == .activities && model.detailMetric == .heartRate && model.settingsPage == .appearance)
+        precondition(model.page == .appearance && model.detailMetric == nil && model.settingsPage == .appearance)
         model.openSettings(.account)
         precondition(model.page == .account && model.detailMetric == nil && model.settingsPage == .appearance)
         precondition(AppPage.navigationPages.allSatisfy { !$0.isSettings })
-        print("PASS preferences routing preserves main content and device links return to the main window")
+        print("PASS settings and device links share main-window routing and retain the selected settings category")
         model.autoSync = true; model.cloudSyncEnabled = true; model.autoUpload = true
         model.cloudSyncEnabled = false
         precondition(model.autoSync && !model.autoUpload && !model.cloud.networkEnabled)
@@ -151,8 +169,11 @@ import SwiftUI
         precondition(model.activityBrowsing.search == "Synthetic" && model.activityBrowsing.page == 1)
         trace("Returned list y=\(contentScroll().contentView.bounds.origin.y), expected=\(listY)")
         precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Return restores actual list scroll offset")
-        model.openSettings(.appearance); settle()
-        precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Preferences preserve list position")
+        model.openSettings(.appearance); readyForRoute()
+        precondition(model.page == .appearance && model.settingsPage == .appearance,"Settings route uses the main content")
+        precondition(contentScroll().contentView.bounds.origin.y < 2,"New settings category starts at top")
+        model.openSettings(.activities); readyForRoute(scrollable:true)
+        precondition(abs(contentScroll().contentView.bounds.origin.y-listY) < 3,"Return from inline settings restores list position")
         model.page = .overview
         let dashboardY = moveDown()
         model.openMetric(.heartRate); readyForRoute()
@@ -182,13 +203,83 @@ import SwiftUI
         AppPreferences.shared.set(GarminPrivateFile.digest(Data(browsingScope.utf8)),forKey:"activities.scope.china")
         model.activities.reconcile()
         model.scrollPositions.offsets = [:]; model.activityBrowsing = ActivityBrowsingState()
-        print("PASS native list/detail and dashboard/detail scroll restoration, search/page retention and independent preferences")
+        print("PASS native list/detail and dashboard/detail scroll restoration, search/page retention and inline settings return")
+        Task { @MainActor in
+            do { try await renderScenarios(model:model,output:output); exit(0) }
+            catch { fputs("Native interface render failed: \(error)\n", stderr); exit(1) }
+        }
+        RunLoop.main.run()
+    }
+    @MainActor static func renderConnectIQCases(model:AppModel,output:URL) async throws {
+        model.openSettings(.connectIQ); model.watchUnitID = "424242"
+        for english in [false,true] {
+            model.language = english ? .en : .zhHans
+            let language = english ? "en" : "zh"
+            let names = english ? ["Analog Classic", "Retro", "Field Notes — High Contrast Edition", "Minimal", "Orbit", "Trail"]
+                : ["经典指针", "复古数字", "户外记录 · 高对比度长名称版", "极简", "轨道", "山径"]
+            let faces = names.enumerated().map { index, name in
+                GFDIInstalledWatchFace(unitID:424242,id:String(format:"00000000-0000-0000-0000-%012d",index+1),name:name,
+                    version:1,filename:nil,fileSize:UInt64((index+1)*16000),disabled:false,favorite:nil,nativeAppID:nil)
+            }
+            let inventory = GFDIInstalledWatchFaceInventory(availableSpace:280000,availableSlots:8,apps:faces)
+            for dark in [false,true] {
+                model.appearance = dark ? .dark : .light
+                let theme = dark ? "dark" : "light"
+                model.bluetooth.previewWatchFaceInventory(inventory)
+                for scope in [0,1] {
+                    model.connectIQScope = scope
+                    model.fontScale = 1.15
+                    try await renderMainPage(model:model,width:1020,height:760,name:"connectiq-\(scope)-\(language)-\(theme)",dark:dark,output:output)
+                    model.fontScale = 1.6
+                    try await renderMainPage(model:model,width:760,height:600,name:"connectiq-narrow-\(scope)-\(language)-\(theme)",dark:dark,output:output)
+                }
+                model.connectIQScope = 0; model.fontScale = 1.15
+                model.bluetooth.previewWatchFaceInventory(nil,busy:true)
+                try await renderMainPage(model:model,width:1020,height:760,name:"connectiq-loading-\(language)-\(theme)",dark:dark,output:output)
+                model.bluetooth.previewWatchFaceInventory(.init(availableSpace:280000,availableSlots:8,apps:[]))
+                try await renderMainPage(model:model,width:1020,height:760,name:"connectiq-empty-\(language)-\(theme)",dark:dark,output:output)
+                model.bluetooth.isConnected = false
+                try await renderMainPage(model:model,width:1020,height:760,name:"connectiq-disconnected-\(language)-\(theme)",dark:dark,output:output)
+            }
+        }
+        precondition(model.cloud.requestCount == 0 && !model.bluetooth.sessionActivated)
+        print("PASS Connect IQ states render without cloud requests or a Bluetooth session")
+    }
+    @MainActor static func renderDashboardLayoutCases(model:AppModel,output:URL) async throws {
+        model.dashboardGrouped = false
+        let metrics: [MetricKind] = [.heartRate,.bodyBattery,.stress,.steps,.hrvNight,.hrvStatus,MetricKind(rawValue:"daily.restingHeartRate")!,.solarIntensity]
+        model.dashboardMetrics = Set(metrics)
+        model.dashboardOrder = metrics.map(\.rawValue)
+        model.dashboardColumns = 4
+        for kind in [MetricKind.heartRate,.stress,.hrvNight,.hrvStatus] { model.metricNotes[kind] = "读数已过期" }
         for english in [false,true] {
             model.language = english ? .en : .zhHans
             let language = english ? "en" : "zh"
             for dark in [false,true] {
                 model.appearance = dark ? .dark : .light
                 let theme = dark ? "dark" : "light"
+                for size in [PulseCardSize.compact,.regular,.spacious] {
+                    model.fontScale = 1.15; model.cardSize = size
+                    try await renderMainPage(model:model,width:1512,height:800,name:"dashboard-four-columns-\(size.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                }
+                model.fontScale = 1.6; model.cardSize = .regular
+                try await renderMainPage(model:model,width:760,height:600,name:"dashboard-four-reflow-\(language)-\(theme)",dark:dark,output:output)
+            }
+        }
+    }
+    @MainActor static func renderScenarios(model:AppModel,output:URL) async throws {
+        for english in [false,true] {
+            model.language = english ? .en : .zhHans
+            let language = english ? "en" : "zh"
+            for dark in [false,true] {
+                model.appearance = dark ? .dark : .light
+                let theme = dark ? "dark" : "light"
+                for scale in [1.0,1.6] {
+                    model.fontScale = scale
+                    try await render(ControlShowcase().frame(width:600).padding(24).background(PulseTheme.background),
+                        name:"controls-\(Int(scale*100))-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(DashboardStylePanel(model:model),name:"dashboard-style-\(Int(scale*100))-\(language)-\(theme)",dark:dark,output:output)
+                }
                 for detailed in [false,true] {
                     model.floatingDetailed = detailed
                     for scale in [1.0,1.6] {
@@ -196,7 +287,7 @@ import SwiftUI
                         model.floatingSize = .small
                         model.floatingMetrics = [.bodyBattery,.hrvNight,.heartRate]
                         let name = "floating-\(language)-\(theme)-\(detailed ? "detailed" : "compact")-\(Int(scale*100))"
-                        try render(FloatingPulseView(model:model),name:name,dark:dark,output:output)
+                        try await render(FloatingPulseView(model:model),name:name,dark:dark,output:output)
                     }
                 }
                 model.fontScale = 1.6
@@ -205,54 +296,98 @@ import SwiftUI
                     model.bluetooth.isConnecting = step == .confirm
                     model.bluetooth.isConnected = step == .sync
                     model.bluetooth.canSyncFiles = step == .sync
-                    try render(PairingGuide(model:model).padding(24).frame(width:640),name:"pairing-\(step.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(PairingGuide(model:model).padding(24).frame(width:640),name:"pairing-\(step.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
                 model.bluetooth.isScanning = false; model.bluetooth.isConnecting = false
                 model.bluetooth.isConnected = false; model.bluetooth.canSyncFiles = false
                 model.fontScale = 1.15
                 for page in [AppPage.overview,.activities,.watch,.account,.connectIQ,.sync,.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
                     model.openSettings(page)
-                    if page.isSettings {
-                        try render(PreferencesRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
-                    } else {
-                        try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
-                    }
+                    model.scrollPositions.offsets[model.mainScrollKey] = 0
+                    try await renderMainPage(model:model,width:1020,height:768,name:"page-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
-                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760).background(PulseTheme.background),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
+                try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:760).background(PulseTheme.background),name:"sync-expanded-\(language)-\(theme)",dark:dark,output:output)
                 model.openSettings(.overview)
+                let savedDashboardMetrics = model.dashboardMetrics
+                let savedDashboardColumns = model.dashboardColumns
+                model.dashboardMetrics = [.heartRate,.bodyBattery,.stress]
+                model.dashboardColumns = 0
+                try await renderMainPage(model:model,width:1512,height:850,name:"dashboard-wide-three-\(language)-\(theme)",dark:dark,output:output)
+                model.dashboardMetrics = []
+                try await renderMainPage(model:model,width:760,height:600,name:"dashboard-empty-\(language)-\(theme)",dark:dark,output:output)
+                model.dashboardMetrics = savedDashboardMetrics
+                model.dashboardColumns = savedDashboardColumns
                 model.dashboardGrouped = false
-                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:1020,height:768,name:"dashboard-flat-\(language)-\(theme)",dark:dark,output:output)
+                let savedNotes = model.metricNotes
+                let savedOrder = model.dashboardOrder
+                let fourColumnMetrics: [MetricKind] = [.heartRate,.bodyBattery,.stress,.steps,.hrvNight,.hrvStatus,MetricKind(rawValue:"daily.restingHeartRate")!,.solarIntensity]
+                model.dashboardMetrics = Set(fourColumnMetrics)
+                model.dashboardOrder = fourColumnMetrics.map(\.rawValue)
+                model.dashboardColumns = 4
+                for kind in [MetricKind.heartRate,.stress,.hrvNight,.hrvStatus] { model.metricNotes[kind] = "读数已过期" }
+                try await renderMainPage(model:model,width:1512,height:800,name:"dashboard-four-columns-\(language)-\(theme)",dark:dark,output:output)
+                model.metricNotes = savedNotes
+                model.dashboardOrder = savedOrder
+                model.dashboardMetrics = savedDashboardMetrics
+                model.dashboardColumns = savedDashboardColumns
                 model.dashboardGrouped = true
                 model.fontScale = 1.6
-                try render(SettingsRootView(model:model).frame(width:880,height:640),name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
-                for page in [AppPage.settings,.appearance,.metricSelection,.developer,.updates] {
-                    model.settingsPage = page
-                    try render(PreferencesRootView(model:model).frame(width:820,height:600),name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
+                precondition(!model.cloud.networkEnabled)
+                try await render(LoginSheet(model:model),name:"login-controls-\(language)-\(theme)",dark:dark,output:output)
+                try await render(MenuPopover(model:model),name:"menu-large-\(language)-\(theme)",dark:dark,output:output)
+                try await render(ActivityDownloadsView(library:model.activities),name:"downloads-large-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:760,height:600,name:"dashboard-narrow-\(language)-\(theme)",dark:dark,output:output)
+                for page in [AppPage.settings,.appearance,.metricSelection,.refresh,.developer,.updates,.about] {
+                    model.openSettings(page)
+                    model.scrollPositions.offsets[model.mainScrollKey] = 0
+                    try await renderMainPage(model:model,width:760,height:600,name:"preferences-narrow-\(page.rawValue)-\(language)-\(theme)",dark:dark,output:output)
                 }
-                try render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600).background(PulseTheme.background),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
+                try await render(SyncPage(model:model,initiallyExpanded:true).padding(24).frame(width:600).background(PulseTheme.background),name:"sync-expanded-narrow-\(language)-\(theme)",dark:dark,output:output)
                 model.fontScale = 1.15
                 model.activityBrowsing.search = "no-such-fixture"
                 model.page = .activities
-                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activities-no-results-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:1020,height:768,name:"activities-no-results-\(language)-\(theme)",dark:dark,output:output)
                 model.activityBrowsing.search = ""
+                try await render(FirstConnectionGuide(model:model).padding(24).frame(width:600).background(PulseTheme.background),name:"onboarding-\(language)-\(theme)",dark:dark,output:output)
+                try await render(ActivityDownloadsView(library:model.activities),name:"downloads-\(language)-\(theme)",dark:dark,output:output)
+                for scale in [1.15,1.6] {
+                    model.fontScale = scale
+                    var shareReady = false
+                    let shareSheet = DashboardShareSheet(model:model,request:DashboardShareRequest(kinds:[.heartRate,.bodyBattery,.stress]),onRendered:{ shareReady = true })
+                    let prefix = scale > 1.15 ? "share-sheet-large" : "share-sheet"
+                    try await render(shareSheet,name:"\(prefix)-\(language)-\(theme)",dark:dark,output:output,ready:{ shareReady })
+                }
+                model.fontScale = 1.15
                 model.lastLocalSavedAt = Date()
                 precondition(model.workflow.transferTitle == "已保存到本机")
-                try render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
+                try await render(MenuPopover(model:model),name:"menu-\(language)-\(theme)",dark:dark,output:output)
                 model.page = .overview; model.detailMetric = .hrvNight
-                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"hrv-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:1020,height:768,name:"hrv-\(language)-\(theme)",dark:dark,output:output)
                 model.detailMetric = nil
                 model.page = .activities; model.selectedActivityID = "1001"
-                try render(SettingsRootView(model:model).frame(width:1020,height:768),name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
+                try await renderMainPage(model:model,width:1020,height:768,name:"activity-detail-\(language)-\(theme)",dark:dark,output:output)
                 model.selectedActivityID = nil
                 if let detail = model.activities.detail("1001") {
-                    try render(ActivityChartsSection(detail:detail).padding(24).frame(width:820),name:"activity-charts-\(language)-\(theme)",dark:dark,output:output)
-                    try render(ActivityZonesSection(detail:detail).padding(24).frame(width:820),name:"activity-zones-\(language)-\(theme)",dark:dark,output:output)
-                    try render(ActivityLapsSection(detail:detail).padding(24).frame(width:820),name:"activity-laps-\(language)-\(theme)",dark:dark,output:output)
-                    try render(ActivityStatisticsSection(statistics:detail.summary.statistics,initiallyExpanded:true).padding(24).frame(width:820),name:"activity-statistics-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(ActivityChartsSection(detail:detail).padding(24).frame(width:820),name:"activity-charts-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(ActivityZonesSection(detail:detail).padding(24).frame(width:820),name:"activity-zones-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(ActivityLapsSection(detail:detail).padding(24).frame(width:820),name:"activity-laps-\(language)-\(theme)",dark:dark,output:output)
+                    try await render(ActivityStatisticsSection(statistics:detail.summary.statistics,initiallyExpanded:true).padding(24).frame(width:820),name:"activity-statistics-\(language)-\(theme)",dark:dark,output:output)
                 }
             }
         }
         precondition(model.cloud.requestCount == 0)
+        // Window management must not mutate the render model's scroll/layout state.
+        for english in [false,true] {
+            for dark in [false,true] {
+                let windowModel = AppModel(); windowModel.enablePreview()
+                windowModel.language = english ? .en : .zhHans
+                windowModel.appearance = dark ? .dark : .light
+                windowModel.openSettings(.settings)
+                try await verifyWindowChrome(model:windowModel,dark:dark,output:output,
+                    name:"window-chrome-\(english ? "en" : "zh")-\(dark ? "dark" : "light")")
+            }
+        }
         print("PASS: production-view renders including cached activity detail and Connect IQ; Chinese/English, light/dark, compact/detailed, device battery, HRV, 100%/160% font; no cloud requests")
     }
     @MainActor static func verifyDisclosureHitTargets(output: URL) {
@@ -304,25 +439,203 @@ import SwiftUI
         window.orderOut(nil)
         print("PASS native mouse events: disclosure label, whitespace, chevron, independent content, selection cell and disabled state")
     }
-    @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL) throws {
+    @MainActor static func verifyWindowChrome(model:AppModel,dark:Bool,output:URL,name:String) async throws {
+        let window = PulseSettingsWindow.make(model:model)
+        defer { window.contentView = nil; window.close() }
+        precondition(window.title == PulseSettingsWindow.title(for:model))
+        model.openSettings(.appearance)
+        precondition(PulseSettingsWindow.title(for:model) == model.page.title)
+        model.openSettings(.settings)
+        window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
+        window.center(); window.presentMainWindow()
+        precondition(NSApp.activationPolicy() == .regular)
+        try await Task.sleep(nanoseconds:150_000_000)
+        for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            guard let button = window.standardWindowButton(type) else { fatalError("Missing native window button") }
+            precondition(!button.isHiddenOrHasHiddenAncestor && button.isEnabled && button.window === window)
+            let rect = button.convert(button.bounds,to:nil)
+            precondition(rect.width > 0 && rect.height > 0 && rect.minX >= 0 && rect.maxX <= window.frame.width)
+        }
+        precondition(window.collectionBehavior.contains(.fullScreenPrimary))
+        // Capture NSThemeFrame, including native title bar, instead of only NSHostingView.
+        guard let frame = window.contentView?.superview else { fatalError("Missing window frame") }
+        frame.layoutSubtreeIfNeeded(); frame.displayIfNeeded()
+        guard let bitmap = frame.bitmapImageRepForCachingDisplay(in:frame.bounds) else { fatalError("Missing window bitmap") }
+        frame.cacheDisplay(in:frame.bounds,to:bitmap)
+        guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("Window PNG failed") }
+        try data.write(to:output.appendingPathComponent(name + ".png"))
+        try await writeWindowCapture(window,name:name,output:output)
+        let original = window.frame
+        let previousScale = model.fontScale
+        model.fontScale = 1.6
+        window.setFrame(NSRect(origin:original.origin,size:NSSize(width:760,height:600)),display:true)
+        precondition(window.frame.width >= 760 && window.frame.width <= 800 &&
+                     window.frame.height >= 600 && window.frame.height <= 650,
+                     "Native window must remain usable near its compact size")
+        print("PASS native compact window frame: \(window.frame.size)")
+        try await writeWindowCapture(window,name:name + "-narrow",output:output)
+        model.fontScale = previousScale
+        window.setFrame(original,display:true)
+        window.performZoom(nil)
+        try await Task.sleep(nanoseconds:100_000_000)
+        precondition(window.frame != original, "Native zoom did not resize the window")
+        window.setFrame(original,display:true)
+        window.performMiniaturize(nil)
+        for _ in 0..<30 {
+            if window.isMiniaturized { break }
+            try await Task.sleep(nanoseconds:100_000_000)
+        }
+        precondition(window.isMiniaturized, "Native minimize did not minimize")
+        window.deminiaturize(nil)
+        for _ in 0..<30 {
+            if !window.isMiniaturized { break }
+            try await Task.sleep(nanoseconds:100_000_000)
+        }
+        precondition(!window.isMiniaturized)
+        if name == "window-chrome-zh-light" {
+            let transition = FullScreenTransitionProbe()
+            window.delegate = transition
+            window.toggleFullScreen(nil)
+            for _ in 0..<100 {
+                if transition.entered { break }
+                try await Task.sleep(nanoseconds:100_000_000)
+            }
+            precondition(transition.entered && window.styleMask.contains(.fullScreen), "Native full-screen entry failed")
+            window.toggleFullScreen(nil)
+            for _ in 0..<100 {
+                if transition.exited { break }
+                try await Task.sleep(nanoseconds:100_000_000)
+            }
+            precondition(transition.exited && !window.styleMask.contains(.fullScreen), "Native full-screen exit failed")
+            window.delegate = window
+            print("PASS native full-screen entry and exit completed")
+        }
+        window.restoresAccessoryOnClose = true
+        window.performClose(nil)
+        precondition(!window.isVisible)
+        precondition(NSApp.activationPolicy() == .accessory)
+        window.presentMainWindow()
+        precondition(NSApp.activationPolicy() == .regular)
+        precondition(window.isVisible, "Closing must allow the same window to reopen")
+        print("PASS \(name): native close, minimize, zoom, reopen, fullscreen capability and complete window capture")
+    }
+    @MainActor static func render<V:View>(_ view:V,name:String,dark:Bool,output:URL,ready:(() -> Bool)? = nil,captureWindowFrame:Bool = false) async throws {
         let host = NSHostingView(rootView:view.environment(\.colorScheme,dark ? .dark : .light).environment(\.locale,L10n.locale))
         let size = host.fittingSize
         host.frame = NSRect(origin:.zero,size:size)
         let window = NSWindow(contentRect:host.frame,styleMask:.borderless,backing:.buffered,defer:false)
+        window.isReleasedWhenClosed = false
+        defer { window.contentView = nil; window.close() }
         window.appearance = NSAppearance(named:dark ? .darkAqua : .aqua)
         window.contentView = host
+        window.makeKeyAndOrderFront(nil)
+        // NavigationSplitView can install a toolbar when attached. Re-establish
+        // the requested content dimensions after that AppKit layout has settled.
         host.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until:Date().addingTimeInterval(0.05))
-        guard let bitmap = host.bitmapImageRepForCachingDisplay(in:host.bounds) else { fatalError("Render failed: \(name)") }
-        host.cacheDisplay(in:host.bounds,to:bitmap)
-        guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("PNG failed") }
-        precondition(bitmap.pixelsWide >= 300 && bitmap.pixelsHigh >= 225 && data.count > 5000)
-        try data.write(to:output.appendingPathComponent(name + ".png"))
-        print("PASS \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh)")
+        window.displayIfNeeded()
+        // Yield the main actor so view tasks and background PNG encoding can finish.
+        try await Task.sleep(nanoseconds:50_000_000)
+        window.setContentSize(size)
+        host.layoutSubtreeIfNeeded()
+        if let ready {
+            let deadline = Date().addingTimeInterval(10)
+            while !ready() && Date() < deadline { try await Task.sleep(nanoseconds:50_000_000) }
+            if !ready() {
+                if captureWindowFrame { try await writeWindowCapture(window,name:name + "-not-ready",output:output) }
+                throw NSError(domain:"NativePreview",code:1,userInfo:[NSLocalizedDescriptionKey:"Native preview did not become ready: \(name)"])
+            }
+            try await Task.sleep(nanoseconds:50_000_000)
+        }
+        host.layoutSubtreeIfNeeded()
+        if name.hasPrefix("page-") || name.hasPrefix("preferences-narrow-") {
+            print("LAYOUT \(name) host=\(host.frame) bounds=\(host.bounds) window=\(window.frame) fitting=\(host.fittingSize)")
+        }
+        if captureWindowFrame {
+            try await writeWindowCapture(window,name:name,output:output)
+            print("PASS \(name): visible native window capture")
+            return
+        }
+        try autoreleasepool {
+            let captureView: NSView = host
+            guard let bitmap = captureView.bitmapImageRepForCachingDisplay(in:captureView.bounds) else { fatalError("Render failed: \(name)") }
+            captureView.cacheDisplay(in:captureView.bounds,to:bitmap)
+            guard let data = bitmap.representation(using:.png,properties:[:]) else { fatalError("PNG failed") }
+            if name.hasPrefix("share-sheet-") {
+                precondition((bitmap.colorAt(x: 5, y: 5)?.alphaComponent ?? 0) > 0.99, "Share sheet must have an opaque readable surface")
+            }
+            precondition(bitmap.pixelsWide >= 300 && bitmap.pixelsHigh >= 225 && data.count > 5000)
+            try data.write(to:output.appendingPathComponent(name + ".png"))
+            print("PASS \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh)")
+        }
+    }
+    @MainActor static func renderMainPage(model:AppModel,width:CGFloat,height:CGFloat,name:String,dark:Bool,output:URL) async throws {
+        var frames: [String:CGRect] = [:]
+        defer {
+            let geometry = frames.mapValues { ["x":Double($0.minX),"y":Double($0.minY),"width":Double($0.width),"height":Double($0.height)] }
+            if let data = try? JSONSerialization.data(withJSONObject:geometry,options:[.prettyPrinted,.sortedKeys]) {
+                try? data.write(to:output.appendingPathComponent(name + "-layout.json"))
+            }
+        }
+        let view = SettingsRootView(model:model,onLayout:{ frames.merge($0,uniquingKeysWith:{ _, latest in latest }) }).frame(width:width,height:height)
+        try await render(view,name:name,dark:dark,output:output,ready:{
+            guard frames["app-brand"] != nil, let list = frames["sidebar-list"], let row = frames["sidebar-selection"] else { return false }
+            return list.insetBy(dx:-1,dy:-1).contains(row)
+        },captureWindowFrame:true)
+        let viewport = CGRect(x:0,y:0,width:width,height:height).insetBy(dx:-1,dy:-1)
+        let identifiers = model.page.isSettings ? ["app-brand","page-title"] : ["app-brand"]
+        for identifier in identifiers {
+            guard let frame = frames[identifier] else { fatalError("Missing layout marker \(identifier) in \(name)") }
+            precondition(frame.width > 0 && frame.height > 0 && viewport.contains(frame), "Clipped \(identifier) in \(name): \(frame)")
+        }
+        precondition(frames["sidebar-list"]!.insetBy(dx:-1,dy:-1).contains(frames["sidebar-selection"]!), "Selected sidebar row is clipped in \(name)")
+        if name.hasPrefix("dashboard-four-columns-") {
+            var cards: [CGRect] = []
+            for (key, frame) in frames where key.hasPrefix("metric-card-") { cards.append(frame) }
+            cards.sort { lhs, rhs in
+                if abs(lhs.minY - rhs.minY) > 1 { return lhs.minY < rhs.minY }
+                return lhs.minX < rhs.minX
+            }
+            precondition(cards.count == 8, "Four-column fixture must lay out eight mixed cards")
+            for start in stride(from:0,to:8,by:4) {
+                let row = Array(cards[start..<start+4])
+                precondition(row.allSatisfy { abs($0.minY-row[0].minY) < 1 && abs($0.maxY-row[0].maxY) < 1 }, "Four-column card edges differ: \(row)")
+            }
+            print("PASS \(name): both rows have four cards with aligned top and bottom edges")
+        }
+    }
+    @MainActor static func writeWindowCapture(_ window:NSWindow,name:String,output:URL) async throws {
+        precondition(PulseRuntime.isPreview && window.isVisible)
+        window.displayIfNeeded()
+        try await Task.sleep(nanoseconds:100_000_000)
+        let file = output.appendingPathComponent(name + ".png")
+        let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("wristbeam-window-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at:scratch) }
+        let capture = Process()
+        capture.executableURL = URL(fileURLWithPath:"/usr/sbin/screencapture")
+        capture.arguments = ["-x","-o","-l",String(window.windowNumber),scratch.path]
+        capture.standardOutput = FileHandle.nullDevice
+        capture.standardError = FileHandle.nullDevice
+        try capture.run()
+        for _ in 0..<100 {
+            if !capture.isRunning { break }
+            try await Task.sleep(nanoseconds:50_000_000)
+        }
+        if capture.isRunning { capture.terminate(); throw NSError(domain:"NativeWindowCapture",code:1,userInfo:[NSLocalizedDescriptionKey:"Window capture timed out: \(name)"]) }
+        guard capture.terminationStatus == 0, let data = try? Data(contentsOf:scratch),
+              data.count > 5000, NSBitmapImageRep(data:data) != nil else {
+            throw NSError(domain:"NativeWindowCapture",code:2,userInfo:[NSLocalizedDescriptionKey:"WindowServer could not capture the synthetic window: \(name)"])
+        }
+        try data.write(to:file,options:.atomic)
     }
 }
 @MainActor final class InteractionHostingView: NSHostingView<DisclosureInteractionFixture> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+@MainActor final class FullScreenTransitionProbe: NSObject, NSWindowDelegate {
+    var entered = false
+    var exited = false
+    func windowDidEnterFullScreen(_ notification:Notification) { entered = true }
+    func windowDidExitFullScreen(_ notification:Notification) { exited = true }
 }
 @MainActor final class DisclosureInteractionState: ObservableObject {
     @Published var expanded = false
@@ -343,6 +656,34 @@ struct DisclosureInteractionFixture: View {
         }.disabled(state.disabled).frame(width:600,height:400,alignment:.topLeading)
     }
 }
+struct ControlShowcase: View {
+    @State private var enabled = true
+    @State private var selection = 0
+    @State private var text = ""
+    var body: some View {
+        VStack(alignment:.leading,spacing:20) {
+            PreferenceBlock(title:"外观与阅读") {
+                PreferenceLine(title:"颜色模式") {
+                    PulseMenuPicker("颜色模式",selection:$selection,choices:[
+                        .init(L10n.text("跟随系统"),0), .init(L10n.text("浅色"),1), .init(L10n.text("深色"),2)])
+                }
+                PreferenceLine(title:"自动检查新版本") { Toggle("",isOn:$enabled).toggleStyle(.switch).labelsHidden() }
+                PreferenceLine(title:"客户端名称") { TextField(L10n.text("客户端名称"),text:$text).textFieldStyle(.roundedBorder) }
+            }
+            PulseFlowLayout {
+                Button(L10n.text("接收手表数据")) {}.buttonStyle(PulseButtonStyle(prominent:true))
+                Button(L10n.text("导出暂存数据")) {}
+                Button(L10n.text("撤销访问"),role:.destructive) {}
+                Button(L10n.text("下载并升级")) {}.disabled(true)
+            }
+            PulseDisclosure(L10n.text("连接详情"),initiallyExpanded:true) {
+                Toggle(L10n.text("按类别分组"),isOn:$enabled).toggleStyle(.checkbox)
+                ProgressView(value:0.65).accessibilityLabel(L10n.text("下载更新"))
+                PulseNotice(text:"文件同步结束后即可升级。",symbol:"info.circle")
+            }
+        }.font(PulseTheme.font(size:13)).controlSize(.regular).buttonStyle(PulseButtonStyle()).tint(PulseTheme.mint)
+    }
+}
 ''')
     binary = stage / 'render-interface'
     command = ['swiftc', '-swift-version', '5', '-o', str(binary), *map(str, sources), str(runner)]
@@ -352,4 +693,6 @@ struct DisclosureInteractionFixture: View {
         print('PASS: native views compiled; GPU rendering explicitly not executed')
     else:
         subprocess.run([sys.executable, str(root / 'scripts/ci-metrics.py'), 'measure', '--name', 'interface-render',
-                        '--output', str(output / 'interface-render-timing.json'), '--', str(binary), str(output), '--preview'], check=True, cwd=root)
+                        '--output', str(output / 'interface-render-timing.json'), '--', str(binary), str(output), '--preview',
+                        *(['--dashboard-layout-only'] if args.dashboard_layout_only else []),
+                        *(['--connectiq-layout-only'] if args.connectiq_layout_only else [])], check=True, cwd=root)

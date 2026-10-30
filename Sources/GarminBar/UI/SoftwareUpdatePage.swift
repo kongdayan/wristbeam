@@ -9,20 +9,31 @@ struct SoftwareUpdatePage: View {
             if updater.validationFixture != nil { Label(L10n.text("本地升级验证 · 未发布测试包"), systemImage: "testtube.2").foregroundStyle(.orange) }
             PulseCard {
                 VStack(alignment: .leading, spacing: 16) {
-                    HStack {
+                    PulseFlowLayout(spacing: 12) {
                         Label(L10n.text("腕映"), systemImage: "waveform.path.ecg").font(PulseTheme.font(size: 18, weight: .semibold))
-                        Spacer()
-                        Text(L10n.text("v\(updater.currentVersion)")).font(PulseTheme.font(size: 15, design: .monospaced))
+                        Text("v\(updater.displayVersion)").font(PulseTheme.font(size: 15, design: .monospaced))
                     }
                     Text(L10n.text(updater.status)).font(PulseTheme.font(size: 13)).textSelection(.enabled)
                     if let date = updater.lastChecked { Text(L10n.text("上次检查：\(date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(L10n.locale)))")).font(PulseTheme.font(size: 11)).foregroundStyle(PulseTheme.secondary) }
-                    HStack {
+                    PulseFlowLayout {
                         Button { Task { await updater.check() } } label: { Label(L10n.text(updater.isChecking ? "正在检查…" : "检查更新"), systemImage: "arrow.triangle.2.circlepath") }
-                            .buttonStyle(PulseButtonStyle(prominent: true)).tint(PulseTheme.mint).foregroundStyle(PulseTheme.onAccent).disabled(updater.isChecking || updater.isInstalling || model.preview)
-                        if updater.installable { Button(L10n.text("下载并升级")) { updater.requestUpgrade() }.buttonStyle(PulseButtonStyle()).disabled(updater.isInstalling || model.uploads.isSyncing || model.bluetooth.isTransferringFiles) }
+                            .buttonStyle(PulseButtonStyle()).disabled(updater.isChecking || updater.isInstalling || model.preview)
+                        if updater.installable { Button(L10n.text("下载并升级")) { updater.requestUpgrade() }.buttonStyle(PulseButtonStyle(prominent: true)).disabled(updater.isInstalling || model.hasActiveFileOperations) }
                         if let repo = updater.parsedRepository { Link(L10n.text("GitHub Releases ↗"), destination: repo.url.appendingPathComponent("releases")) }
                     }
-                    if updater.isInstalling { ProgressView().controlSize(.small) }
+                    if let progress = updater.downloadProgress {
+                        ProgressView(value: progress, total: 1).tint(PulseTheme.mint)
+                            .accessibilityLabel(L10n.text("下载更新"))
+                        HStack {
+                            Text(ByteCountFormatter.string(fromByteCount: updater.downloadedBytes, countStyle: .file) + " / " + ByteCountFormatter.string(fromByteCount: updater.totalDownloadBytes, countStyle: .file))
+                                .font(PulseTheme.font(size: 12)).monospacedDigit()
+                            Spacer()
+                            Button(L10n.text("取消下载")) { updater.cancelDownload() }
+                        }
+                    } else if updater.isInstalling { ProgressView().controlSize(.small) }
+                    if model.hasActiveFileOperations {
+                        Text(L10n.text("文件同步结束后即可升级。")).font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
+                    }
                 }
             }
             if updater.available, let release = updater.release {
@@ -40,7 +51,7 @@ struct SoftwareUpdatePage: View {
                     Toggle("", isOn: $updater.automaticChecks).labelsHidden().toggleStyle(.switch)
                 }
                 PreferenceLine(title: "GitHub 仓库，例如 owner/repo") {
-                    TextField("owner/repo", text: $updater.repository).textFieldStyle(.roundedBorder)
+                    TextField("owner/repo", text: $updater.repository).textFieldStyle(.roundedBorder).disabled(updater.isChecking || updater.isInstalling)
                 }
             }
             if updater.parsedRepository == nil { Text(L10n.text("请输入有效的 GitHub owner/repo 或仓库链接")).foregroundStyle(.orange) }

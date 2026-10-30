@@ -35,7 +35,7 @@ struct DeveloperSettingsPage: View {
                         .font(PulseTheme.font(size:12)).foregroundStyle(.orange).padding(15)
                 }
                 PreferenceLine(title:"监听范围") {
-                    Picker("",selection:$access.configuration.host) { Text(L10n.text("仅本机")).tag("127.0.0.1"); Text(L10n.text("局域网（要求 HTTPS）")).tag("0.0.0.0") }.labelsHidden()
+                    PulseMenuPicker("监听范围", selection: $access.configuration.host, choices: [.init(L10n.text("仅本机"), "127.0.0.1"), .init(L10n.text("局域网（要求 HTTPS）"), "0.0.0.0")])
                 }
                 PreferenceLine(title:"端口") { TextField("17890",value:$access.configuration.port,format:.number.grouping(.never)).frame(width:95).textFieldStyle(.roundedBorder) }
                 PreferenceLine(title:"使用 HTTPS") { Toggle("",isOn:$access.configuration.https).labelsHidden().toggleStyle(.switch) }
@@ -67,7 +67,7 @@ struct DeveloperSettingsPage: View {
             PreferenceBlock(title:"Webhook") {
                 PreferenceLine(title:"启用数据更新 Webhook",note:"开启后，将所选健康指标与同步状态发送到下方地址。目标服务会获得这些数据，请只填写你信任的接收端。") { Toggle("",isOn:$access.configuration.webhookEnabled).labelsHidden().toggleStyle(.switch) }
                 PreferenceLine(title:"接收地址") { TextField("https://your-service.example/hook",text:$access.configuration.webhookURL).textFieldStyle(.roundedBorder) }
-                PreferenceLine(title:"合并投递间隔") { Picker("",selection:$access.configuration.webhookInterval) { Text(L10n.text("10 秒")).tag(10); Text(L10n.text("1 分钟")).tag(60); Text(L10n.text("5 分钟")).tag(300) }.labelsHidden() }
+                PreferenceLine(title:"合并投递间隔") { PulseMenuPicker("合并投递间隔", selection: $access.configuration.webhookInterval, choices: [.init(L10n.text("10 秒"), 10), .init(L10n.text("1 分钟"), 60), .init(L10n.text("5 分钟"), 300)]) }
                 PulseDisclosure(L10n.text("选择发送的指标")) {
                     LazyVGrid(columns:[GridItem(.adaptive(minimum:180))],alignment:.leading) {
                         ForEach(kinds) { kind in
@@ -90,7 +90,7 @@ struct DeveloperSettingsPage: View {
         HStack { StatusDot(active: access.running); Text(L10n.text(access.status)) }
     }
     private var serverActions: some View {
-        HStack {
+        PulseFlowLayout {
             Button(L10n.text("应用接口配置")) { access.apply() }
                 .buttonStyle(PulseButtonStyle(prominent: true)).disabled(access.isApplying || access.isManagingKey)
             Button(L10n.text("立即停止全部接口")) { access.stopAll() }
@@ -107,6 +107,7 @@ private struct DeveloperKeyControls: View {
     @State private var importing = false
     @State private var draft = ""
     @State private var importError = ""
+    @State private var confirmRotation = false
     var body: some View {
         VStack(alignment:.leading, spacing:10) {
             ViewThatFits(in: .horizontal) {
@@ -120,6 +121,10 @@ private struct DeveloperKeyControls: View {
             if !status.isEmpty { Text(L10n.text(status)).font(PulseTheme.font(size:11)).foregroundStyle(PulseTheme.secondary) }
         }.padding(15)
         .onDisappear { access.hideKey(name) }
+        .confirmationDialog(L10n.text("重新生成密钥？"), isPresented: $confirmRotation, titleVisibility: .visible) {
+            Button(L10n.text("重新生成密钥"), role: .destructive) { access.rotate(name) }
+            Button(L10n.text("取消"), role: .cancel) {}
+        } message: { Text(L10n.text("使用当前密钥的客户端需要重新配置。")) }
         .sheet(isPresented:$importing,onDismiss:{ draft = "" }) {
             VStack(alignment:.leading,spacing:16) {
                 Text(L10n.text("导入密钥")).font(.headline)
@@ -137,14 +142,15 @@ private struct DeveloperKeyControls: View {
                             let value = try DeveloperSecrets.validated(draft)
                             access.manageKey(name,action:.importValue(value)); importing = false; draft = ""
                         } catch { importError = error.localizedDescription }
-                    }.keyboardShortcut(.defaultAction)
+                    }.buttonStyle(PulseButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
+                        .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }.padding(24).frame(width:470)
         }
     }
     private var keyTitle: some View { Text(L10n.text(title)).font(PulseTheme.font(size: 13, weight: .medium)) }
     private var keyActions: some View {
-        HStack {
+        PulseFlowLayout {
             Button(L10n.text(access.revealedKeys[name] == nil ? "显示密钥" : "隐藏密钥")) {
                 if access.revealedKeys[name] == nil { access.manageKey(name,action:.reveal) } else { access.hideKey(name) }
             }
@@ -152,7 +158,7 @@ private struct DeveloperKeyControls: View {
             Menu(L10n.text("管理密钥")) {
                 Button(L10n.text("导入密钥…")) { draft = ""; importError = ""; importing = true }
                 Button(L10n.text("导出密钥…")) { access.manageKey(name,action:.export) }
-                Button(L10n.text("重新生成密钥")) { access.rotate(name) }
+                Button(L10n.text("重新生成密钥"), role: .destructive) { confirmRotation = true }
                 Divider()
                 Button(L10n.text("从旧版钥匙串导入")) { access.manageKey(name,action:.legacy) }
             }.fixedSize()

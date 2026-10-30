@@ -36,6 +36,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       release-tag: ${{ github.ref_name }}
+      showcase: ${{ contains(github.ref_name, '-beta.') }}
     permissions:
       contents: read
       actions: read
