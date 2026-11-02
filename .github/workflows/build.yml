@@ -113,6 +113,7 @@ jobs:
       - name: Build and sign application
         env:
           PULSE_RELEASE_TAG: ${{ inputs.release-tag }}
+          PULSE_BUILD_ARCHITECTURE: ${{ matrix.arch }}
         run: zsh scripts/build.sh
       - name: Installed application language and update lifecycle regression
         run: |

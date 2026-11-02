@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		005FEEA90D8F984D5064B51B /* LocalStorageMaintenance.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D99CFA19A865D85E662D00 /* LocalStorageMaintenance.swift */; };
 		0616225225510375405D30D6 /* GFDIRequestCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3878BA8A3430F7EB71271C3F /* GFDIRequestCapture.swift */; };
 		07061B42392CB78D18ED9E73 /* ActivityMetricCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70E1D16A26FD3B1ED2672B5D /* ActivityMetricCatalog.swift */; };
 		082EDCFFB2D8AD8F6AA658B9 /* ConnectIQSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE01E6AB8976EA216209957D /* ConnectIQSettingsView.swift */; };
@@ -62,6 +63,7 @@
 		7D90EE2F5EA090B89E4E21E6 /* ConnectIQStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 902F062C408780F9338F7CC8 /* ConnectIQStyle.swift */; };
 		7FF618F5CFF87BB85E5867D2 /* MetricIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55221495574C8ACC34CC95D /* MetricIcon.swift */; };
 		80A6846EB49C8493429F1958 /* AppWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9558BF817C4F730A253D6C47 /* AppWorkflow.swift */; };
+		80EF593B26CFDDE4B6068289 /* LocalStorageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EEA4C9416AC26EDAB918E20 /* LocalStorageSheet.swift */; };
 		815552B09810CFE777D4436C /* HealthHistoryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9E2CC7D960FA2AAC338319 /* HealthHistoryReader.swift */; };
 		83565FF02767CBF01D65F9DF /* DashboardControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = A80EBF2544A3A34D572EBA75 /* DashboardControls.swift */; };
 		85B01A490C10CF22909F9FDB /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 051E6225A85174601A16F8F0 /* Theme.swift */; };
@@ -193,6 +195,7 @@
 		7A2730CD2DB9BCB05F900DB1 /* AppHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHistory.swift; sourceTree = "<group>"; };
 		7AC2417D79A5A516EFCD4843 /* PreferenceComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferenceComponents.swift; sourceTree = "<group>"; };
 		7EE6D8089EAC5A0865596248 /* SettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViews.swift; sourceTree = "<group>"; };
+		7EEA4C9416AC26EDAB918E20 /* LocalStorageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStorageSheet.swift; sourceTree = "<group>"; };
 		7EEEF67C42548DE6F1DE453C /* GarminFITFileClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminFITFileClassifier.swift; sourceTree = "<group>"; };
 		81E45833E3BD8D4BABC0F278 /* NavigationWindowPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationWindowPolicy.swift; sourceTree = "<group>"; };
 		87AF7893C4D9145A57063C78 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
@@ -203,6 +206,7 @@
 		9558BF817C4F730A253D6C47 /* AppWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppWorkflow.swift; sourceTree = "<group>"; };
 		95B09C189CA5D7FC57A98968 /* DeveloperClientsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperClientsView.swift; sourceTree = "<group>"; };
 		A0CA653FBDE6CE33E4229619 /* GarminCloudModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarminCloudModels.swift; sourceTree = "<group>"; };
+		A1D99CFA19A865D85E662D00 /* LocalStorageMaintenance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStorageMaintenance.swift; sourceTree = "<group>"; };
 		A33C0B77581375AAA6E6F01B /* DeveloperSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSelfTest.swift; sourceTree = "<group>"; };
 		A4F4074157D37AAA55840884 /* GFDICodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDICodec.swift; sourceTree = "<group>"; };
 		A4FA003899B28687672228A2 /* GFDIConnectIQ.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GFDIConnectIQ.swift; sourceTree = "<group>"; };
@@ -285,6 +289,7 @@
 				404AC4A545215804EEBBE174 /* DeveloperSettingsPage.swift */,
 				2149999B03F9F7757980DBDC /* FloatingPulseView.swift */,
 				728CD6B4F3DE5B50A5C1AE82 /* HRVViews.swift */,
+				7EEA4C9416AC26EDAB918E20 /* LocalStorageSheet.swift */,
 				5BAA025AA9138F3A3670F496 /* MainWindowShell.swift */,
 				59F28C1570B0E554EADD2E8D /* MetricCharts.swift */,
 				F55221495574C8ACC34CC95D /* MetricIcon.swift */,
@@ -381,6 +386,7 @@
 				6C9E2CC7D960FA2AAC338319 /* HealthHistoryReader.swift */,
 				43E28B2C6FCFAD6349E6CBD1 /* LocalDataArchive.swift */,
 				87AF7893C4D9145A57063C78 /* Localization.swift */,
+				A1D99CFA19A865D85E662D00 /* LocalStorageMaintenance.swift */,
 				B64A3D7F5D6E513479A2C067 /* MetricFreshness.swift */,
 				438299E8402BF4ECD3FF7D91 /* Metrics.swift */,
 				DBABD4A2BC15D29B37B80899 /* MetricTimeSeries.swift */,
@@ -618,6 +624,8 @@
 				815552B09810CFE777D4436C /* HealthHistoryReader.swift in Sources */,
 				E7359704651A7F26CDEB5CB7 /* HealthSummary.swift in Sources */,
 				119ABB411E0600C1D8DEF160 /* LocalDataArchive.swift in Sources */,
+				005FEEA90D8F984D5064B51B /* LocalStorageMaintenance.swift in Sources */,
+				80EF593B26CFDDE4B6068289 /* LocalStorageSheet.swift in Sources */,
 				14D3EFCEC953C8734BCED50C /* Localization.swift in Sources */,
 				FB6CE543BB6CB03928DBEA19 /* MainWindowShell.swift in Sources */,
 				FFBD14A96EBE64AE027D1955 /* MetricCharts.swift in Sources */,

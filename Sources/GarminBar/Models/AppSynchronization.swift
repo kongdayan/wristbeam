@@ -14,6 +14,7 @@ import UniformTypeIdentifiers
         developer.tick()
         if !preview { activities.tick(now: date) }
         if date.timeIntervalSince(lastStatusWrite) >= 5 { writeRuntimeState() }
+        guard !isMaintainingLocalStorage else { return }
         if autoRefreshMetrics && date.timeIntervalSince(lastHealthRefresh) >= Double(max(1, metricRefreshInterval)) * 60 { Task { await refreshHealthMetrics() } }
         if autoSync && !preview && date.timeIntervalSince(lastAutoSync) >= Double(max(1, syncInterval)) * 60 {
             lastAutoSync = date
@@ -30,7 +31,7 @@ import UniformTypeIdentifiers
         activities.tick(now: Date())
     }
     func syncNow() {
-        guard !preview else { return }
+        guard !preview, !isMaintainingLocalStorage else { return }
         if bluetooth.canSyncFiles {
             manualFileSync = true; bluetooth.requestFileSync()
         } else {
@@ -40,7 +41,7 @@ import UniformTypeIdentifiers
         }
     }
     func syncRecentActivity() {
-        guard !preview else { return }
+        guard !preview, !isMaintainingLocalStorage else { return }
         if bluetooth.canSyncFiles {
             manualFileSync = true; bluetooth.requestRecentActivity()
         } else {

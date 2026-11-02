@@ -47,6 +47,7 @@ final class GarminUploadQueue: ObservableObject {
     private var knownWatchFailures: Set<String> = []
     private var ledgerReadable = true
     private var manualResyncRequested = false
+    var storageMaintenanceActive = false
 
     init(cloud: GarminChinaCloud, directory: URL) {
         self.cloud = cloud
@@ -87,6 +88,7 @@ final class GarminUploadQueue: ObservableObject {
     /// Copy and persist the original before reporting an enqueue success to the device layer.
     @discardableResult
     func enqueue(fileURL: URL, deviceID: String, dataType: GarminDataType? = nil) throws -> GarminUploadJob {
+        guard !storageMaintenanceActive else { throw LocalStorageMaintenance.Failure.busy }
         guard ledgerReadable else { throw GarminCloudError.invalidResponse("原上传队列无法读取，已阻止覆盖以保留历史") }
         guard UInt64(deviceID) != nil else { throw GarminCloudError.invalidResponse("请先选择账户关联的手表，或填写其数字 Unit ID") }
         let bytes = try Data(contentsOf: fileURL, options: .mappedIfSafe)
@@ -123,6 +125,7 @@ final class GarminUploadQueue: ObservableObject {
     }
 
     func syncNow(force: Bool = true) async {
+        guard !storageMaintenanceActive else { return }
         guard cloud.networkEnabled else { status = "仅本地，文件已暂存"; return }
         guard force || automaticSyncEnabled else { status = "自动上传已暂停，原 FIT 保留在本地"; return }
         guard !isSyncing else { if force { manualResyncRequested = true }; return }
@@ -228,6 +231,7 @@ final class GarminUploadQueue: ObservableObject {
     }
 
     private func scanWatchedDirectory() {
+        guard !storageMaintenanceActive else { return }
         guard let watchedDirectory else { return }
         let deviceID = localDeviceID.isEmpty ? cloud.deviceId : localDeviceID
         guard !deviceID.isEmpty else { status = "请先连接手表，再监测 FIT 文件夹"; return }

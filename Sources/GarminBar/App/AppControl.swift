@@ -9,7 +9,7 @@ enum PulseLocalControl {
 
     static func handleCommandLine() -> Bool {
         let arguments = CommandLine.arguments
-        let controls = ["--status", "--sync", "--sync-recent", "--scan", "--connect", "--reconnect", "--retry-protocol", "--forget-watch", "--refresh-metrics", "--capture-watch-requests", "--stop-watch-capture", "--refresh-weather"]
+        let controls = ["--status", "--show-menu", "--review-storage", "--sync", "--sync-recent", "--scan", "--connect", "--reconnect", "--retry-protocol", "--forget-watch", "--refresh-metrics", "--capture-watch-requests", "--stop-watch-capture", "--refresh-weather"]
         guard controls.contains(where: arguments.contains) else { return false }
         guard let data = try? Data(contentsOf: statusURL),
               var state = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
@@ -36,7 +36,9 @@ enum PulseLocalControl {
         if let index = arguments.firstIndex(of: "--connect") {
             guard arguments.indices.contains(index + 1), let id = UUID(uuidString: arguments[index + 1]) else { print("Use --connect <discovered peripheral UUID>."); return true }
             command = "connect"; payload["watchID"] = id.uuidString
-        } else if arguments.contains("--scan") { command = "scan" }
+        } else if arguments.contains("--show-menu") { command = "show-menu" }
+        else if arguments.contains("--review-storage") { command = "review-storage" }
+        else if arguments.contains("--scan") { command = "scan" }
         else if arguments.contains("--reconnect") { command = "reconnect" }
         else if arguments.contains("--retry-protocol") { command = "retry-protocol" }
         else if arguments.contains("--forget-watch") { command = "forget-watch" }

@@ -12,6 +12,8 @@ parser.add_argument('output', nargs='?', type=Path)
 parser.add_argument('--compile-only', action='store_true', help='Compile native views without invoking the GPU renderer')
 parser.add_argument('--dashboard-layout-only', action='store_true', help='Render and verify mixed four-column dashboard rows and narrow reflow only')
 parser.add_argument('--connectiq-layout-only', action='store_true', help='Render installed, discovery, loading, empty and disconnected Connect IQ states')
+parser.add_argument('--menu-popover-only', action='store_true', help='Validate compact menu content, states, layout and native actions')
+parser.add_argument('--storage-only', action='store_true', help='Render storage review with synthetic receipts and compactable journals')
 args = parser.parse_args()
 output = args.output or Path(tempfile.mkdtemp(prefix='wristbeam-native-renders-'))
 output.mkdir(parents=True, exist_ok=True)
@@ -33,6 +35,22 @@ import SwiftUI
         let output = URL(fileURLWithPath:CommandLine.arguments[1],isDirectory:true)
         let model = AppModel()
         model.enablePreview()
+        if CommandLine.arguments.contains("--storage-only") {
+            Task { @MainActor in
+                do { try await renderStorageCases(model:model,output:output); exit(0) }
+                catch { fputs("Storage layout failed: \(error)\n",stderr); exit(1) }
+            }
+            RunLoop.main.run()
+            return
+        }
+        if CommandLine.arguments.contains("--menu-popover-only") {
+            Task { @MainActor in
+                do { try await renderMenuCases(model:model,output:output); exit(0) }
+                catch { fputs("Menu layout failed: \(error)\n",stderr); exit(1) }
+            }
+            RunLoop.main.run()
+            return
+        }
         if CommandLine.arguments.contains("--connectiq-layout-only") {
             Task { @MainActor in
                 do { try await renderConnectIQCases(model:model,output:output); exit(0) }
@@ -209,6 +227,175 @@ import SwiftUI
             catch { fputs("Native interface render failed: \(error)\n", stderr); exit(1) }
         }
         RunLoop.main.run()
+    }
+    @MainActor static func verifyStorageFailureRecovery(model:AppModel) async throws {
+        precondition(model.preview && PulseRuntime.isPreview)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("storage-state-"+UUID().uuidString)
+        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
+        defer { try? FileManager.default.removeItem(at:root) }
+        let blocked = root.appendingPathComponent("blocked")
+        try Data("synthetic write blocker".utf8).write(to:blocked)
+        let store = MetricSeriesStore(directory:blocked), day = GarminHRV.date("2019-01-02")!
+        let key = GarminHealthMetrics.calendarDate(day)
+        let reading = MetricSample(kind:.heartRate,value:72,source:"fixture",timestamp:day,origin:.watch)
+        let series = MetricDaySeries(kind:.heartRate,day:day,points:[.init(timestamp:day,value:72,origin:.watch)],source:"fixture",refreshedAt:day)
+        let collection: [MetricKind:MetricDaySeries] = [.heartRate:series]
+        model.seriesOwner = "storage-state-fixture"; model.seriesStore = store
+        model.history[.heartRate] = [reading]; model.seriesDays[key] = collection
+        model.loadedHistoryDays.insert(key); model.historyReadIssues[key] = ["fixtureIssue"]
+        let latest = model.metrics[.heartRate]
+        await model.saveSeries(collection,day:day)
+        precondition(model.pendingChartSaves[key] != nil && model.storageIssues.contains("chartWriteFailed"))
+        let revision = model.chartSaveRevisions[key]
+        do {
+            _ = try await model.performLocalReadingHistoryClear { _ in throw CocoaError(.fileWriteUnknown) }
+            preconditionFailure("Expected maintenance failure")
+        } catch { }
+        precondition(model.seriesStore === store && model.pendingChartSaves[key] != nil)
+        precondition(model.chartSaveRevisions[key] == revision && model.history[.heartRate]?.first?.value == 72)
+        precondition(model.seriesDays[key]?[.heartRate]?.points.first?.value == 72 && model.loadedHistoryDays.contains(key))
+        precondition(model.historyReadIssues[key] == ["fixtureIssue"])
+        precondition(model.metrics[.heartRate]?.id == latest?.id)
+        precondition(!model.isClearingReadingHistory && !model.isMaintainingLocalStorage && !model.uploads.storageMaintenanceActive)
+        // Repair the synthetic disk failure, then verify the retained retry payload really saves.
+        try FileManager.default.removeItem(at:blocked)
+        await model.saveSeries(model.pendingChartSaves[key]!,day:day)
+        precondition(model.pendingChartSaves[key] == nil && !model.storageIssues.contains("chartWriteFailed"))
+        let restored = try store.loadChecked(day:day)
+        precondition(restored[.heartRate]?.points.first?.value == 72)
+        model.pendingChartSaves[key] = collection
+        let bytes = try await model.performLocalReadingHistoryClear { _ in 123 }
+        precondition(bytes == 123 && model.seriesDays[key] == nil && model.pendingChartSaves[key] == nil)
+        precondition(model.chartSaveRevisions[key] == nil && !model.loadedHistoryDays.contains(key))
+        precondition(model.metrics[.heartRate]?.id == latest?.id)
+        precondition(!model.isMaintainingLocalStorage && !model.uploads.storageMaintenanceActive)
+        model.seriesOwner = ""; model.seriesStore = nil
+        print("PASS history clear transaction: failed disk write retained across failed cleanup, retry saved; successful cleanup resets history and preserves latest metrics")
+    }
+    @MainActor static func renderStorageCases(model:AppModel,output:URL) async throws {
+        try await verifyStorageFailureRecovery(model:model)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("storage-preview")
+        let file = LocalStoragePlan.File(url:root.appendingPathComponent("fixture.fit"),digest:"synthetic",bytes:400000)
+        let journal = LocalStoragePlan.Journal(file:.init(url:root.appendingPathComponent("fixture.jsonl"),digest:"synthetic",bytes:450000000),outputDigest:"synthetic",outputBytes:30000000,discarded:2000000)
+        let plan = LocalStoragePlan(root:root,ledgerDigest:nil,confirmedJobs:410,protectedJobs:3,fitFiles:[file],journals:[journal],telemetryBytes:455000000,protectedFiles:1)
+        for english in [false,true] {
+            model.language = english ? .en : .zhHans
+            for dark in [false,true] {
+                model.appearance = dark ? .dark : .light
+                for scale in [1.0,1.6] {
+                    model.fontScale = scale
+                    let name = "storage-\(english ? "en" : "zh")-\(dark ? "dark" : "light")-\(scale)"
+                    var footerSize = CGSize.zero
+                    try await render(LocalStorageSheet(model:model,previewPlan:plan,onFooterLayout:{ footerSize = $0 }),name:name,dark:dark,output:output,ready:{ footerSize.height > 0 })
+                    precondition(footerSize.height < 120 && footerSize.width <= 513,"Storage footer expanded into scroll content: \(footerSize)")
+                    let empty = LocalStoragePlan(root:root,ledgerDigest:nil,confirmedJobs:0,protectedJobs:0,fitFiles:[],journals:[],telemetryBytes:0,protectedFiles:0)
+                    try await render(LocalStorageSheet(model:model,previewPlan:empty),name:name+"-empty",dark:dark,output:output)
+                    try await render(LocalStorageSheet(model:model,previewPlan:plan,previewMessage:L10n.text("清理未完成，原数据已保留或恢复，请重新检查。")),name:name+"-failed",dark:dark,output:output)
+                    try await render(LocalStorageSheet(model:model,previewPlan:plan,previewMessage:L10n.format("已清空本地读数历史，应用目录减少 {0}。新读数继续记录；原文件保留在废纸篓。","42 MB"),previewFinished:true),name:name+"-finished",dark:dark,output:output)
+                    model.page = .sync
+                    try await renderMainPage(model:model,width:scale > 1 ? 760 : 1020,height:scale > 1 ? 600 : 760,
+                                             name:"storage-page-"+name,dark:dark,output:output)
+                }
+            }
+        }
+        precondition(model.cloud.requestCount == 0 && !model.bluetooth.sessionActivated)
+        print("PASS storage review: ready/empty/failed/finished, normal/large text, both themes and languages; synthetic data only")
+    }
+    @MainActor static func renderMenuCases(model:AppModel,output:URL) async throws {
+        let savedMetrics = model.metrics
+        let favorites: Set<MetricKind> = [.bodyBattery,.heartRate,.stress,.steps]
+        model.menuMetrics = favorites
+        model.bluetooth.isConnected = true
+        model.developer.configuration.enabled = false
+        for english in [false,true] {
+            model.language = english ? .en : .zhHans
+            for dark in [false,true] {
+                model.appearance = dark ? .dark : .light
+                let suffix = "\(english ? "en" : "zh")-\(dark ? "dark" : "light")"
+                for state in ["normal","large","large-services","disconnected","missing","empty","overflow","mcp-stopped","storage-error","long-values"] {
+                    model.menuMetrics = favorites; model.metrics = savedMetrics
+                    model.bluetooth.isConnected = state != "disconnected"
+                    model.fontScale = state.hasPrefix("large") ? 1.6 : 1.0
+                    model.cloudSyncEnabled = state == "large-services"
+                    model.storageIssues = state == "storage-error" ? ["fixture"] : []
+                    model.developer.configuration.enabled = ["mcp-stopped","large-services"].contains(state)
+                    if state == "missing" { model.metrics.removeAll() }
+                    if state == "empty" { model.menuMetrics = [] }
+                    if state == "overflow" { model.menuMetrics = Set(MetricKind.allCases.filter { !$0.isDeviceStatus }) }
+                    if state == "disconnected" {
+                        model.metrics[.heartRate] = MetricSample(kind:.heartRate,value:72,source:"fixture",timestamp:Date().addingTimeInterval(-7200))
+                    }
+                    if state == "long-values" {
+                        model.metrics[.steps] = MetricSample(kind:.steps,value:999999,source:"fixture")
+                    }
+                    var frames: [String:CGRect] = [:]
+                    let name = "menu-\(state)-\(suffix)"
+                    try await render(MenuPopover(model:model,onLayout:{ frames = $0 }),name:name,dark:dark,output:output,
+                                     ready:{ frames["content"] != nil && frames["dashboard"] != nil })
+                    let viewport = frames["content"]!.insetBy(dx:-1,dy:-1)
+                    precondition(viewport.width >= 399 && viewport.width <= 482 && viewport.height < 650, "Unbounded menu size: \(viewport)")
+                    for (key,frame) in frames {
+                        precondition(viewport.contains(frame), "Menu clipped \(key) in \(name): \(frame)")
+                    }
+                    let metrics = frames.filter { $0.key.hasPrefix("metric-") }.map(\.value)
+                    precondition(metrics.count == (state == "empty" ? 0 : 4), "Expected four glance metrics")
+                    for row in Dictionary(grouping:metrics,by:{ Int($0.minY.rounded()) }).values {
+                        precondition(row.count == 2, "Menu must keep two aligned columns")
+                        precondition(abs(row[0].height-row[1].height)<1, "Menu metric heights differ")
+                    }
+                    let geometry = frames.mapValues { ["x":$0.minX,"y":$0.minY,"width":$0.width,"height":$0.height] }
+                    try JSONSerialization.data(withJSONObject:geometry,options:[.prettyPrinted,.sortedKeys]).write(to:output.appendingPathComponent(name+"-layout.json"))
+                    print("PASS \(name): all controls contained, aligned columns, no scroll")
+                }
+            }
+        }
+        model.fontScale = 1; model.menuMetrics = favorites; model.metrics = savedMetrics
+        model.bluetooth.isConnected = true; model.developer.configuration.enabled = false
+        try await verifyMenuActions(model:model)
+        precondition(model.cloud.requestCount == 0 && !model.bluetooth.sessionActivated && !model.developer.running)
+        print("PASS menu states: zero cloud requests, no Bluetooth session, no MCP listener")
+    }
+    @MainActor static func verifyMenuActions(model:AppModel) async throws {
+        var frames: [String:CGRect] = [:], escaped = false
+        var opened: AppPage?
+        model.onOpenSettings = { opened = $0 }
+        let controller = PulseMenuHostingController(rootView:MenuPopover(model:model,onLayout:{ frames = $0 },onDismiss:{ escaped = true }))
+        controller.dismissMenu = { escaped = true }
+        let host = controller.view
+        host.frame = NSRect(origin:.zero,size:host.fittingSize)
+        let window = NSWindow(contentRect:host.frame,styleMask:[.titled],backing:.buffered,defer:false)
+        window.isReleasedWhenClosed = false; window.contentViewController = controller; window.makeKeyAndOrderFront(nil)
+        defer { window.contentView = nil; window.close(); model.onOpenSettings = nil }
+        for _ in 0..<20 {
+            if frames["dashboard"] != nil { break }
+            try await Task.sleep(nanoseconds:50_000_000)
+        }
+        func click(_ key:String) throws {
+            guard let frame = frames[key] else { throw NSError(domain:"MenuActions",code:1,userInfo:[NSLocalizedDescriptionKey:key]) }
+            let local = NSPoint(x:frame.midX,y:host.isFlipped ? frame.midY : host.bounds.height-frame.midY)
+            let point = host.convert(local,to:nil)
+            for type in [NSEvent.EventType.leftMouseDown,.leftMouseUp] {
+                let event = NSEvent.mouseEvent(with:type,location:point,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,
+                    windowNumber:window.windowNumber,context:nil,eventNumber:0,clickCount:1,pressure:type == .leftMouseDown ? 1 : 0)!
+                NSApp.postEvent(event,atStart:false)
+            }
+            while let event = NSApp.nextEvent(matching:.any,until:Date().addingTimeInterval(0.1),inMode:.default,dequeue:true) {
+                if event.windowNumber == window.windowNumber { window.sendEvent(event) }
+                else { NSApp.sendEvent(event) }
+            }
+        }
+        try click("metric-bodyBattery")
+        precondition(opened == .overview && model.detailMetric == .bodyBattery, "Metric button must open its detail")
+        let before = model.floatingEnabled
+        try click("floating"); precondition(model.floatingEnabled != before, "Floating toggle failed")
+        try click("floating"); precondition(model.floatingEnabled == before, "Floating toggle did not restore")
+        try click("dashboard"); precondition(opened == .overview && model.detailMetric == nil, "Dashboard route failed")
+        let escape = NSEvent.keyEvent(with:.keyDown,location:.zero,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,
+            windowNumber:window.windowNumber,context:nil,characters:"\u{1b}",charactersIgnoringModifiers:"\u{1b}",isARepeat:false,keyCode:53)!
+        window.makeFirstResponder(host)
+        window.sendEvent(escape)
+        precondition(escaped, "Escape must dismiss the menu")
+        print("PASS native menu actions: metric detail, dashboard, floating toggle and Escape")
     }
     @MainActor static func renderConnectIQCases(model:AppModel,output:URL) async throws {
         model.openSettings(.connectIQ); model.watchUnitID = "424242"
@@ -695,4 +882,6 @@ struct ControlShowcase: View {
         subprocess.run([sys.executable, str(root / 'scripts/ci-metrics.py'), 'measure', '--name', 'interface-render',
                         '--output', str(output / 'interface-render-timing.json'), '--', str(binary), str(output), '--preview',
                         *(['--dashboard-layout-only'] if args.dashboard_layout_only else []),
-                        *(['--connectiq-layout-only'] if args.connectiq_layout_only else [])], check=True, cwd=root)
+                        *(['--connectiq-layout-only'] if args.connectiq_layout_only else []),
+                        *(['--menu-popover-only'] if args.menu_popover_only else []),
+                        *(['--storage-only'] if args.storage_only else [])], check=True, cwd=root)

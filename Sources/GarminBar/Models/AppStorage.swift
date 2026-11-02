@@ -1,6 +1,7 @@
 import Foundation
 
 enum PulseRuntime {
+    static var isDevelopmentBuild: Bool { Bundle.main.object(forInfoDictionaryKey: "WristBeamDevelopmentBuild") as? Bool == true }
     static var isPreview: Bool { CommandLine.arguments.contains("--preview") || Bundle.main.object(forInfoDictionaryKey: "GarminPulsePreview") as? Bool == true }
     static var previewsOnboarding: Bool { isPreview && (CommandLine.arguments.contains("--preview-onboarding") || Bundle.main.object(forInfoDictionaryKey: "WristBeamPreviewOnboarding") as? Bool == true) }
 }
@@ -88,10 +89,14 @@ final class TelemetryJournal {
         }
     }
     func append(_ sample: MetricSample) {
+        // Latest MCP values live in AppModel.metrics. Cloud history has its own
+        // account-scoped caches; the local journal reader consumes watch rows only.
+        guard sample.origin == .watch, !sample.kind.isDeviceStatus, sample.value.isFinite else { return }
         queue.async { [self] in
             if let previous = lastSaved[sample.kind], sample.timestamp.timeIntervalSince(previous) < 1 { return }
             let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
-            guard var bytes = try? encoder.encode(sample) else { onEvent?(.failed(pending.count + 1)); return }
+            let record = JournalRecord(kind: sample.kind.rawValue, value: sample.value, timestamp: sample.timestamp)
+            guard var bytes = try? encoder.encode(record) else { onEvent?(.failed(pending.count + 1)); return }
             bytes.append(0x0A)
             guard pending.count < 4096 else { dropped += 1; onEvent?(.failed(pending.count + dropped)); return }
             lastSaved[sample.kind] = sample.timestamp
@@ -99,7 +104,30 @@ final class TelemetryJournal {
             if attempts < 3 && !scheduled { flush() }
         }
     }
+    private struct JournalRecord: Encodable {
+        let kind: String
+        let value: Double
+        let timestamp: Date
+        let origin = "watch"
+    }
     func retry() { queue.async { [self] in attempts = 0; if !scheduled { flush() } } }
+    /// Serializes history maintenance with writes, including today's open journal.
+    /// Appends queued after this operation resume into the new journal.
+    func withExclusiveMutation<T>(_ operation: @escaping () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async { [self] in
+                flush()
+                guard pending.isEmpty else {
+                    continuation.resume(throwing: CocoaError(.fileWriteUnknown)); return
+                }
+                do {
+                    let result = try operation()
+                    lastSaved = [:]
+                    continuation.resume(returning: result)
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
     private func flush() {
         while let item = pending.first {
             let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.calendar = Calendar(identifier: .gregorian); formatter.dateFormat = "yyyy-MM-dd"

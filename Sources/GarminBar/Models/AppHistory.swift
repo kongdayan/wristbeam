@@ -45,10 +45,11 @@ import UniformTypeIdentifiers
         }
     }
     func restoreSeries(day: Date) {
-        let store = seriesStore, reader = historyReader
+        guard !isClearingReadingHistory else { return }
+        let store = seriesStore, reader = historyReader, generation = localHistoryGeneration
         Task { @MainActor [weak self] in
             let result = await Task.detached(priority: .utility) { reader.read(day: day) }.value
-            guard let self, self.seriesStore === store else { return }
+            guard let self, self.seriesStore === store, self.localHistoryGeneration == generation else { return }
             self.mergeSeries(result.series, day: day)
             let key = GarminHealthMetrics.calendarDate(day)
             self.loadedHistoryDays.insert(key)
@@ -58,18 +59,20 @@ import UniformTypeIdentifiers
         }
     }
     func saveSeries(_ collection: [MetricKind: MetricDaySeries], day: Date) async {
-        guard let store = seriesStore else { return }
+        guard !isClearingReadingHistory, let store = seriesStore else { return }
+        let generation = MetricSeriesStore.currentGeneration
+        let historyGeneration = localHistoryGeneration
         let key = GarminHealthMetrics.calendarDate(day)
         pendingChartSaves[key] = collection
         let revision = (chartSaveRevisions[key] ?? 0) + 1
         chartSaveRevisions[key] = revision
         let saved = await Task.detached(priority: .utility) { () -> Bool in
             for _ in 0..<3 {
-                do { try store.saveChecked(collection, day: day, revision: revision); return true } catch { }
+                do { try store.saveChecked(collection, day: day, revision: revision, generation: generation); return true } catch { }
             }
             return false
         }.value
-        guard seriesStore === store, chartSaveRevisions[key] == revision else { return }
+        guard localHistoryGeneration == historyGeneration, seriesStore === store, chartSaveRevisions[key] == revision else { return }
         if saved { pendingChartSaves.removeValue(forKey: key); if pendingChartSaves.isEmpty { storageIssues.remove("chartWriteFailed") } }
         else { storageIssues.insert("chartWriteFailed") }
     }
@@ -96,6 +99,8 @@ import UniformTypeIdentifiers
         } catch { storageIssues.insert("fileQueueWriteFailed") }
     }
     func refreshSeries(day: Date, force: Bool = false) async {
+        guard !isClearingReadingHistory else { return }
+        let generation = localHistoryGeneration
         let key = GarminHealthMetrics.calendarDate(day)
         if !preview, force || !loadedHistoryDays.contains(key) { restoreSeries(day: day) }
         guard !preview, cloudSyncEnabled, cloud.isAuthenticated, !loadingSeriesDays.contains(key),
@@ -107,7 +112,7 @@ import UniformTypeIdentifiers
         loadingSeriesDays.insert(key); lastSeriesRefresh[key] = Date()
         defer { loadingSeriesDays.remove(key) }
         let snapshot = await cloud.dailySeries(deviceID: device, day: day)
-        guard seriesOwner == owner else { return }
+        guard seriesOwner == owner, localHistoryGeneration == generation else { return }
         mergeSeries(snapshot.series, day: day)
         seriesNotes[key] = snapshot.notes
         seriesStatus = snapshot.detail
@@ -121,6 +126,30 @@ import UniformTypeIdentifiers
         }
     }
 
+    func clearLocalReadingHistory() async throws -> Int64 {
+        guard !preview else { throw LocalStorageMaintenance.Failure.busy }
+        return try await performLocalReadingHistoryClear { try LocalStorageMaintenance.clearReadingHistory(root:$0) }
+    }
+    /// State commits only after disk maintenance succeeds. Injectable disk work
+    /// also lets the isolated native harness exercise failure without user data.
+    func performLocalReadingHistoryClear(_ mutation: @escaping (URL) throws -> Int64) async throws -> Int64 {
+        guard !hasActiveFileOperations else { throw LocalStorageMaintenance.Failure.busy }
+        isMaintainingLocalStorage = true; isClearingReadingHistory = true; uploads.storageMaintenanceActive = true
+        localHistoryGeneration = UUID()
+        let root = AppPaths.root
+        defer {
+            isClearingReadingHistory = false; isMaintainingLocalStorage = false; uploads.storageMaintenanceActive = false
+            restoreSeries(day:now); refreshLocalDataSummary()
+        }
+        let bytes = try await journal.withExclusiveMutation {
+            try MetricSeriesStore.clearingHistory { try mutation(root) }
+        }
+        history = [:]; seriesDays = [:]; loadedHistoryDays = []; historyReadIssues = [:]
+        pendingChartSaves = [:]; chartSaveRevisions = [:]; lastSeriesRefresh = [:]; seriesNotes = [:]
+        // Reset revisions only on success; failure keeps the original store and retry data.
+        seriesStore = seriesOwner.isEmpty ? nil : MetricSeriesStore(directory:root.appendingPathComponent("Charts").appendingPathComponent(seriesOwner))
+        return bytes
+    }
     func refreshLocalDataSummary() {
         guard !preview, !isReadingLocalStorage else { return }
         isReadingLocalStorage = true
@@ -136,7 +165,7 @@ import UniformTypeIdentifiers
         Task { await uploads.syncNow(force: true) }
     }
     func exportLocalData() {
-        guard !preview, !isExportingLocalData else { return }
+        guard !preview, !isExportingLocalData, !isMaintainingLocalStorage else { return }
         let panel = NSSavePanel(); panel.allowedContentTypes = [.zip]
         panel.nameFieldStringValue = "WristBeam-Local-Data.zip"
         panel.prompt = L10n.text("导出暂存数据")

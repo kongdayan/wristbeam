@@ -5,19 +5,31 @@ cd "$task_root"
 task_config="${PULSE_BUILD_CONFIGURATION:-release}"
 task_version="${PULSE_BUILD_VERSION:-$(cat VERSION)}"
 task_build="${PULSE_BUILD_NUMBER:-23}"
-task_arch="${PULSE_BUILD_ARCHITECTURE:-$(uname -m)}"
+task_arch="${PULSE_BUILD_ARCHITECTURE:-universal}"
 task_dist="${PULSE_OUTPUT_DIR:-$task_root/dist}"
 task_dist="${task_dist:A}"
 [[ "$task_version" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || { print -u2 'Invalid release version'; exit 1; }
 [[ "$task_build" =~ '^[0-9]+$' ]] || { print -u2 'Invalid build number'; exit 1; }
-[[ "$task_arch" == arm64 || "$task_arch" == x86_64 ]] || { print -u2 'Unsupported architecture'; exit 1; }
+[[ "$task_arch" == arm64 || "$task_arch" == x86_64 || "$task_arch" == universal ]] || { print -u2 'Unsupported architecture'; exit 1; }
 if [[ -n "${PULSE_RELEASE_TAG:-}" ]]; then
     python3 scripts/check-release.py --tag "$PULSE_RELEASE_TAG"
 fi
-swift build -c "$task_config" --arch "$task_arch"
+if [[ "$task_arch" == universal && "$(xcode-select -p)" == /Library/Developer/CommandLineTools ]]; then
+    # CLT lacks xcbuild, which SwiftPM's multi-architecture driver requires.
+    # Produce both slices in this one build flow; validate/package only the final app.
+    for task_slice in arm64 x86_64; do swift build -c "$task_config" --arch "$task_slice"; done
+    task_binary_dir="$task_dist/universal-binary"
+    mkdir -p "$task_binary_dir"
+    lipo -create ".build/arm64-apple-macosx/$task_config/GarminPulse" ".build/x86_64-apple-macosx/$task_config/GarminPulse" -output "$task_binary_dir/GarminPulse"
+else
+    task_arch_args=(--arch "$task_arch")
+    if [[ "$task_arch" == universal ]]; then task_arch_args=(--arch arm64 --arch x86_64); fi
+    swift build -c "$task_config" "${task_arch_args[@]}"
+    task_binary_dir="$(swift build -c "$task_config" "${task_arch_args[@]}" --show-bin-path)"
+fi
 task_app="$task_dist/WristBeam.app"
 mkdir -p "$task_app/Contents/MacOS" "$task_app/Contents/Resources"
-cp ".build/$task_arch-apple-macosx/$task_config/GarminPulse" "$task_app/Contents/MacOS/GarminPulse.next"
+cp "$task_binary_dir/GarminPulse" "$task_app/Contents/MacOS/GarminPulse.next"
 mv "$task_app/Contents/MacOS/GarminPulse.next" "$task_app/Contents/MacOS/GarminPulse"
 cat > "$task_app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -47,6 +59,9 @@ cat > "$task_app/Contents/Info.plist" <<'PLIST'
 PLIST
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $task_version" "$task_app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $task_build" "$task_app/Contents/Info.plist"
+if [[ "$task_config" == debug ]]; then
+    /usr/libexec/PlistBuddy -c 'Add :WristBeamDevelopmentBuild bool true' "$task_app/Contents/Info.plist"
+fi
 if [[ -n "${PULSE_RELEASE_TAG:-}" ]]; then
     /usr/libexec/PlistBuddy -c "Add :WristBeamReleaseTag string $PULSE_RELEASE_TAG" "$task_app/Contents/Info.plist"
 fi

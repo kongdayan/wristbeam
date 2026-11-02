@@ -13,7 +13,7 @@ import zipfile
 root = Path(__file__).resolve().parent.parent
 sources = root / "Sources/GarminBar"
 dist = Path(os.environ.get("PULSE_OUTPUT_DIR", root / "dist"))
-archive = Path(os.environ.get("PULSE_UPDATE_ARCHIVE", dist / f"WristBeam-macOS-{platform.machine()}.zip"))
+archive = Path(os.environ.get("PULSE_UPDATE_ARCHIVE", dist / "WristBeam-macOS.zip"))
 
 with tempfile.TemporaryDirectory(prefix="pulse-update-checks-") as temporary:
     stage = Path(temporary)
@@ -43,6 +43,18 @@ with tempfile.TemporaryDirectory(prefix="pulse-update-checks-") as temporary:
     legacy_app = stage / "legacy" / "Garmin Pulse.app"
     shutil.copytree(target, legacy_app)
     subprocess.run(["ditto", "-c", "-k", "--keepParent", str(legacy_app), str(stage / "legacy.zip")], check=True)
+    # A Universal archive legitimately supports the other Mac architecture too.
+    # Build a host-only fixture so the missing-slice rejection remains meaningful.
+    architecture_app = stage / "architecture" / "WristBeam.app"
+    shutil.copytree(target, architecture_app)
+    executable = architecture_app / "Contents/MacOS/GarminPulse"
+    slices = subprocess.check_output(["lipo", "-archs", str(executable)], text=True).split()
+    if len(slices) > 1:
+        thin = executable.with_suffix(".thin")
+        subprocess.run(["lipo", str(executable), "-thin", platform.machine(), "-output", str(thin)], check=True)
+        thin.replace(executable)
+        subprocess.run(["codesign", "--force", "--sign", "-", str(architecture_app)], check=True, capture_output=True)
+    subprocess.run(["ditto", "-c", "-k", "--keepParent", str(architecture_app), str(stage / "architecture.zip")], check=True)
     with zipfile.ZipFile(archive) as original, zipfile.ZipFile(stage / "mixed-roots.zip", "w") as mixed:
         for item in original.infolist():
             mixed.writestr(item, original.read(item.filename))
@@ -71,7 +83,7 @@ import AppKit
   print("PASS legacy application archive retains verified identity")
   for name in ["mixed-roots","traversal","absolute","symlink","tampered","identity","minimum","version","architecture"] {
    let dir=root.appendingPathComponent("reject-"+name);try FileManager.default.createDirectory(at:dir,withIntermediateDirectories:true)
-   let input=["version","architecture"].contains(name) ? archive : root.appendingPathComponent(name+".zip")
+   let input=name=="version" ? archive : root.appendingPathComponent(name+".zip")
    var rejected=false
    do {_ = try PulseUpdatePreparation.prepare(archive:input,directory:dir,target:target,version:name=="version" ? "99.0.0" : version,architecture:name=="architecture" ? wrong : architecture)} catch {rejected=true}
    guard rejected else {fatalError("Unsafe package accepted: "+name)}

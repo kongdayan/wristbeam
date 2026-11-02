@@ -15,6 +15,7 @@ struct HealthHistoryReader {
     var legacyCharts: MetricSeriesStore?
 
     func read(day: Date, now: Date = Date()) -> HealthHistoryResult {
+        let generation = MetricSeriesStore.currentGeneration
         var result = HealthHistoryResult()
         do {
             result.series = try charts?.loadChecked(day: day) ?? [:]
@@ -22,7 +23,7 @@ struct HealthHistoryReader {
         }
         catch { result.issues.append("chartReadFailed") }
         let file = telemetry.appendingPathComponent(GarminHealthMetrics.calendarDate(day) + ".jsonl")
-        guard FileManager.default.fileExists(atPath: file.path) else { return result }
+        guard FileManager.default.fileExists(atPath: file.path) else { return MetricSeriesStore.currentGeneration == generation ? result : HealthHistoryResult() }
         let signature = try? Self.signature(file)
         let indexURL = telemetry.appendingPathComponent("Index").appendingPathComponent(GarminHealthMetrics.calendarDate(day) + ".json")
         let cached = (try? Data(contentsOf: indexURL)).flatMap { try? JSONDecoder().decode(DayIndex.self, from: $0) }
@@ -51,7 +52,7 @@ struct HealthHistoryReader {
             // every second and would otherwise create continuous index writes.
             if !Calendar.current.isDate(day, inSameDayAs: now), let signature,
                signature == (try? Self.signature(file)), !issues.contains("telemetryReadFailed") {
-                do { try GarminPrivateFile.write(JSONEncoder().encode(DayIndex(signature: signature, timeZone: TimeZone.current.identifier, day: Calendar.current.startOfDay(for: day), series: localSeries, issues: issues)), to: indexURL) }
+                do { try MetricSeriesStore.writeHistoryIndex(JSONEncoder().encode(DayIndex(signature: signature, timeZone: TimeZone.current.identifier, day: Calendar.current.startOfDay(for: day), series: localSeries, issues: issues)), to: indexURL, generation: generation) }
                 catch { result.issues.append("historyIndexWriteFailed") }
             }
         }
@@ -60,7 +61,7 @@ struct HealthHistoryReader {
             result.series[local.kind] = result.series[local.kind].map { $0.merging(local) } ?? local
         }
         result.issues = Array(Set(result.issues)).sorted()
-        return result
+        return MetricSeriesStore.currentGeneration == generation ? result : HealthHistoryResult()
     }
 
     private struct FileSignature: Codable, Equatable {
