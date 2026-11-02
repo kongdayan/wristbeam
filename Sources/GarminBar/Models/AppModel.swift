@@ -119,6 +119,9 @@ final class AppModel: ObservableObject {
     }
     @Published var localDataSummary = LocalDataSummary()
     @Published var isReadingLocalStorage = false
+    @Published var isMaintainingLocalStorage = false
+    @Published var showLocalStorageReview = false
+    var localStorageReview: [String:Int64] = [:]
     @Published var localExportStatus = ""
     @Published var isExportingLocalData = false
     @Published var autoSync = AppPreferences.shared.object(forKey: "autoSync") as? Bool ?? false {
@@ -151,7 +154,11 @@ final class AppModel: ObservableObject {
     var lastSeriesRefresh: [String: Date] = [:]
     var seriesStore: MetricSeriesStore?
     var seriesOwner = ""
+    var localHistoryGeneration = UUID()
+    var isClearingReadingHistory = false
     var lastControlRequest = ""
+    var menuPresented = false
+    var menuPopoverSize = CGSize.zero
 
     init() {
         L10n.language = language
@@ -170,7 +177,7 @@ final class AppModel: ObservableObject {
         }
         bluetooth.onLog = { [weak self] in self?.log($0) }
         bluetooth.onFilesAvailable = { [weak self] in
-            guard let self, self.autoSync, !self.preview else { return }
+            guard let self, self.autoSync, !self.preview, !self.isMaintainingLocalStorage else { return }
             self.lastAutoSync = Date()
             self.bluetooth.requestFileSync()
         }
@@ -209,7 +216,7 @@ final class AppModel: ObservableObject {
             if !syncing { Task { await self?.refreshHealthMetrics(force: true); await self?.refreshSeries(day: Date(), force: true) } }
         }.store(in: &subscriptions)
         bluetooth.$canSyncFiles.removeDuplicates().receive(on: RunLoop.main).sink { [weak self] ready in
-            guard let self, ready, !self.preview else { return }
+            guard let self, ready, !self.preview, !self.isMaintainingLocalStorage else { return }
             if self.recentSyncRequested {
                 self.recentSyncRequested = false; self.fileSyncRequested = false; self.manualFileSync = true
                 self.bluetooth.requestRecentActivity()
@@ -267,7 +274,7 @@ final class AppModel: ObservableObject {
     }
     var availableMetricKinds: Set<MetricKind> { MetricLayout.available(readings: Set(metrics.keys), registered: bluetooth.registeredMetrics, discovered: bluetooth.availableMetrics) }
     var dashboardVisibleMetrics: [MetricKind] { MetricLayout.ordered(selection: dashboardMetrics.intersection(availableMetricKinds), order: dashboardOrder) }
-    var hasActiveFileOperations: Bool { uploads.isSyncing || bluetooth.isTransferringFiles || activities.busy || activities.managingDownloads || connectIQ.busy || isExportingLocalData }
+    var hasActiveFileOperations: Bool { uploads.isSyncing || bluetooth.isTransferringFiles || activities.busy || activities.managingDownloads || connectIQ.busy || isExportingLocalData || isMaintainingLocalStorage }
     var preferredColorScheme: ColorScheme? { appearance == .system ? nil : appearance == .light ? .light : .dark }
     var menuVisibleMetrics: [MetricKind] { MetricKind.allCases.filter { menuMetrics.contains($0) && availableMetricKinds.contains($0) } }
     var floatingColumns: Int { min(floatingSize.columns, max(1, visibleMetrics.count)) }
@@ -343,6 +350,7 @@ final class AppModel: ObservableObject {
         metricSyncedAt[sample.kind] = Date()
         metrics[sample.kind] = sample; metricNotes.removeValue(forKey: sample.kind)
         guard !sample.kind.isDeviceStatus else { return }
+        if isClearingReadingHistory { if !preview { journal.append(sample) }; return }
         var points = history[sample.kind] ?? []; points.append(sample)
         if points.count > 60 { points.removeFirst(points.count - 60) }
         history[sample.kind] = points

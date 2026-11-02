@@ -140,6 +140,21 @@ struct GarminSeriesRefresh {
 // Cache is scoped to the authenticated account. Only health readings go here;
 // credentials stay in the existing authentication store.
 final class MetricSeriesStore {
+    private static let maintenanceLock = NSLock()
+    private static var generation: UInt64 = 0
+    static var currentGeneration: UInt64 {
+        maintenanceLock.lock(); defer { maintenanceLock.unlock() }; return generation
+    }
+    static func clearingHistory<T>(_ operation: () throws -> T) rethrows -> T {
+        maintenanceLock.lock(); defer { maintenanceLock.unlock() }
+        generation += 1 // Reject every save scheduled before the clear, even on rollback.
+        return try operation()
+    }
+    static func writeHistoryIndex(_ data: Data, to url: URL, generation: UInt64) throws {
+        maintenanceLock.lock(); defer { maintenanceLock.unlock() }
+        guard generation == Self.generation else { return }
+        try GarminPrivateFile.write(data,to:url)
+    }
     private let directory: URL
     private let lock = NSLock()
     private var writtenRevisions: [String: UInt64] = [:]
@@ -168,7 +183,9 @@ final class MetricSeriesStore {
         return Dictionary(series.filter { Calendar.current.isDate($0.day, inSameDayAs: day) }.map { ($0.kind, $0) }, uniquingKeysWith: { _, new in new })
     }
     func load(day: Date) -> [MetricKind: MetricDaySeries] { (try? loadChecked(day: day)) ?? [:] }
-    func saveChecked(_ series: [MetricKind: MetricDaySeries], day: Date, revision: UInt64 = 0) throws {
+    func saveChecked(_ series: [MetricKind: MetricDaySeries], day: Date, revision: UInt64 = 0, generation: UInt64? = nil) throws {
+        Self.maintenanceLock.lock(); defer { Self.maintenanceLock.unlock() }
+        if let generation, generation != Self.generation { return }
         lock.lock(); defer { lock.unlock() }
         let key = GarminHealthMetrics.calendarDate(day)
         guard revision >= (writtenRevisions[key] ?? 0) else { return }

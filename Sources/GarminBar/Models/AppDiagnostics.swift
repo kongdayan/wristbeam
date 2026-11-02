@@ -18,6 +18,10 @@ private enum RuntimeStateWriter {
         let state: [String: Any] = [
             "reportedAt": lastStatusWrite.timeIntervalSince1970,
             "pid": ProcessInfo.processInfo.processIdentifier,
+            "developmentBuild": PulseRuntime.isDevelopmentBuild,
+            "localStorageReview": localStorageReview,
+            "menuVisible": menuPresented,
+            "menuSize": ["width": menuPopoverSize.width, "height": menuPopoverSize.height],
             "bundleIdentifier": Bundle.main.bundleIdentifier ?? "unbundled",
             "watchConnected": bluetooth.isConnected,
             "watchConnecting": bluetooth.isConnecting,

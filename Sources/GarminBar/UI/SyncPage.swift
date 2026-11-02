@@ -35,9 +35,9 @@ struct SyncPage: View {
                         .font(PulseTheme.font(size: 13))
                     Text(L10n.text("暂存不会自动删除。导出包含原始 FIT 和手表读数 CSV。"))
                         .font(PulseTheme.font(size: 12)).foregroundStyle(PulseTheme.secondary)
-                    HStack {
-                        Button(L10n.text("导出暂存数据")) { model.exportLocalData() }.disabled(model.preview || model.isExportingLocalData)
-                        Button(L10n.text("打开本地数据")) { NSWorkspace.shared.open(AppPaths.root) }
+                    ViewThatFits(in:.horizontal) {
+                        HStack { localDataActions }
+                        VStack(alignment:.leading,spacing:8) { localDataActions }
                     }.buttonStyle(PulseButtonStyle())
                     if model.isExportingLocalData { ProgressView().controlSize(.small).accessibilityLabel(L10n.text("正在导出本地数据…")) }
                     if !model.localExportStatus.isEmpty { PulseNotice(text: model.localExportStatus) }
@@ -95,12 +95,19 @@ struct SyncPage: View {
                 }.font(PulseTheme.font(size: 11))
             }
         }.font(PulseTheme.font(size: 13))
+            .sheet(isPresented:$model.showLocalStorageReview) { LocalStorageSheet(model:model) }
+    }
+    @ViewBuilder private var localDataActions: some View {
+        Button(L10n.text("导出暂存数据")) { model.exportLocalData() }
+            .disabled(model.preview || model.isExportingLocalData || model.isMaintainingLocalStorage)
+        Button(L10n.text("打开本地数据")) { NSWorkspace.shared.open(AppPaths.root) }
+        Button(L10n.text("核对与清理…")) { model.showLocalStorageReview = true }.disabled(model.hasActiveFileOperations)
     }
     private var receiveAction: some View {
         Button { model.bluetooth.canSyncFiles ? model.syncNow() : model.openSettings(.watch) } label: {
             Label(L10n.text(model.bluetooth.canSyncFiles ? "接收手表数据" : "连接手表"), systemImage: "applewatch")
         }.buttonStyle(PulseButtonStyle(prominent: true))
-            .disabled(model.preview || model.bluetooth.isTransferringFiles)
+            .disabled(model.preview || model.bluetooth.isTransferringFiles || model.isMaintainingLocalStorage)
     }
     @ViewBuilder private var uploadAction: some View {
         if model.cloudSyncEnabled {

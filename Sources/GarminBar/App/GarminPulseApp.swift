@@ -28,7 +28,7 @@ enum GarminPulseMain {
 }
 
 @MainActor
-final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
+final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, NSPopoverDelegate {
     let model = AppModel()
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
@@ -70,6 +70,8 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
                 else if command == "stop-watch-capture" { self.model.bluetooth.requestCapture.stop() }
                 else if command == "refresh-weather" { self.model.weather.refresh() }
                 else if command == "refresh-metrics" { self.model.refreshMetricsNow() }
+                else if command == "show-menu" { if !self.popover.isShown { self.togglePopover(nil) } }
+                else if command == "review-storage" { self.model.openSettings(.sync); self.model.showLocalStorageReview = true }
                 else if command == "connect", let rawID = notification.userInfo?["watchID"] as? String, let id = UUID(uuidString: rawID),
                         self.model.bluetooth.nearby.contains(where: { $0.id == id && $0.offersGarmin && Date().timeIntervalSince($0.lastSeen) < 45 }) { self.model.bluetooth.connect(id) }
                 else { return }
@@ -83,12 +85,19 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
             button.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         }
         popover = NSPopover(); popover.behavior = .transient
-        popover.contentSize = NSSize(width: 420, height: 500)
-        popover.contentViewController = NSHostingController(rootView: MenuPopover(model: model))
+        popover.delegate = self
+        let menuController = PulseMenuHostingController(rootView: MenuPopover(model: model, onDismiss: { [weak self] in
+            self?.popover.performClose(nil)
+        }))
+        menuController.dismissMenu = { [weak self] in self?.popover.performClose(nil) }
+        popover.contentViewController = menuController
         model.objectWillChange.receive(on: RunLoop.main).sink { [weak self] in
             DispatchQueue.main.async {
                 self?.refreshStatusItem()
-                if let self { self.settingsWindow?.title = PulseSettingsWindow.title(for: self.model) }
+                if let self {
+                    self.settingsWindow?.title = PulseSettingsWindow.title(for: self.model)
+                    if self.popover?.isShown == true { self.resizeMenuPopover() }
+                }
             }
         }.store(in: &subscriptions)
         menuAppearanceObserver = DistributedNotificationCenter.default().addObserver(forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
@@ -151,10 +160,11 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
         guard let button = statusItem.button else { return }
         if popover.isShown { popover.performClose(sender) }
         else {
+            resizeMenuPopover()
             if model.preview { captureShowcase(button, name: "menu-bar.png") }
+            NSApp.activate(ignoringOtherApps: true)
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.title = "WristBeam Menu"
-            NSApp.activate(ignoringOtherApps: true)
             if model.preview {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                     guard let self, self.popover.isShown, let view = self.popover.contentViewController?.view else { return }
@@ -163,6 +173,28 @@ final class PulseAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidat
                 }
             }
         }
+    }
+
+    func popoverDidShow(_ notification: Notification) {
+        model.menuPresented = popover.isShown && popover.contentViewController?.view.window?.isVisible == true
+        model.menuPopoverSize = popover.contentSize
+        model.writeRuntimeState()
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        model.menuPresented = false
+        model.writeRuntimeState()
+    }
+
+    private func resizeMenuPopover() {
+        guard let view = popover.contentViewController?.view else { return }
+        view.layoutSubtreeIfNeeded()
+        let size = view.fittingSize
+        guard size.width > 0, size.height > 0 else { return }
+        if abs(popover.contentSize.width - size.width) > 1 || abs(popover.contentSize.height - size.height) > 1 {
+            popover.contentSize = size
+        }
+        model.menuPopoverSize = popover.contentSize
     }
 
     private func captureShowcase(_ view: NSView, name: String) {
